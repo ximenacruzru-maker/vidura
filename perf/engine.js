@@ -18,6 +18,10 @@ azSyncLoad();
       var mn = document.getElementById("main"); if (mn) mn.scrollTop = 0;
     } catch(e) { console.error(e); }
   };
+  window.__vxTheme = function(theme, font){
+    try { if (THEMES[theme]) SETTINGS.theme = theme; if (FONTS[font]) SETTINGS.font = font; applyTheme(); render(); } catch(e) { console.error(e); }
+  };
+  try { var lk = JSON.parse(localStorage.getItem("vidura_look_v2") || "null"); if (lk) window.__vxTheme(lk.theme, lk.font); } catch(e) {}
   var ld = document.getElementById("vxLoading"); if (ld) ld.remove();
   try { parent.postMessage({ vx: "ready" }, location.origin); } catch(e) {}
 })();
