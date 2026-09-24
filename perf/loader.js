@@ -6,12 +6,26 @@
     var sb = window.supabase.createClient(URL, KEY);
     var s = await sb.auth.getSession();
     if (!s.data || !s.data.session) { msg("Please sign in to Vidura first."); return; }
+    /* Who is signed in. Admins and the owner get everything; anyone else with Performance
+       access gets the same screens, but the server strips other people's pay first. */
+    var me = null;
+    try {
+      var st = await sb.from("staff_accounts").select("display_name,producer_name,role,access").eq("user_id", s.data.session.user.id).maybeSingle();
+      me = st.data || null;
+    } catch (e) { me = null; }
+    var isAdmin = !!me && (me.role === "owner" || me.role === "admin");
     var rows = [];
-    for (var from = 0; ; from += 20) {
-      var r = await sb.from("reference_data").select("key,data").like("key", "lg:%").order("key").range(from, from + 19);
-      if (r.error) throw r.error;
-      rows = rows.concat(r.data || []);
-      if (!r.data || r.data.length < 20) break;
+    if (isAdmin) {
+      for (var from = 0; ; from += 20) {
+        var r = await sb.from("reference_data").select("key,data").like("key", "lg:%").order("key").range(from, from + 19);
+        if (r.error) throw r.error;
+        rows = rows.concat(r.data || []);
+        if (!r.data || r.data.length < 20) break;
+      }
+    } else if (me) {
+      var pr = await sb.rpc("perf_data");
+      if (pr.error) throw pr.error;
+      rows = pr.data || [];
     }
     if (!rows.length) { msg("Your account doesn\u2019t have access to these reports."); return; }
     var D = {}; rows.forEach(function (x) { D[x.key.slice(3)] = x.data; });
@@ -61,6 +75,25 @@
     var sc = document.createElement("script");
     sc.src = "engine.js";
     sc.onerror = function () { msg("Couldn\u2019t load the reports. Refresh the page."); };
+    if (!isAdmin && me) sc.onload = function () { vxLockToMe(me.producer_name || me.display_name); };
     document.body.appendChild(sc);
   } catch (e) { console.error(e); msg("Couldn\u2019t load the reports: " + (e.message || e)); }
 })();
+
+/* Non-admin with Performance access: same dashboards as an admin, locked to their own pay.
+   The engine already hides everyone else's commission and SDR pay once the viewer is set;
+   the server has also removed other people's pay from the data before it got here. */
+function vxLockToMe(name) {
+  try {
+    var css = document.createElement("style");
+    css.textContent = "#viewAsBar,#roleNote,.va-x{display:none!important}";
+    document.head.appendChild(css);
+    var blocked = ["financials", "licensing", "proteges"];            /* agency finances, HR pay rates, protégé program */
+    roleAllows = function (m) { return blocked.indexOf(m) < 0; };      /* admin-style navigation */
+    reportTabsForRole = function () { return REPORT_TABS.filter(function (t) { return t.key !== "annual"; }); };
+    paintViewAs = function () { var el = document.getElementById("viewAsBar"); if (el) el.innerHTML = ""; };
+    viewAs(name);                                                       /* commission + SDR pay scoped to this person */
+    var goOrig = window.__vxGo;
+    if (goOrig) window.__vxGo = function (m, tab) { if (blocked.indexOf(m) >= 0) m = "today"; return goOrig(m, tab); };
+  } catch (e) { console.error("Couldn\u2019t scope the reports to this person", e); }
+}
