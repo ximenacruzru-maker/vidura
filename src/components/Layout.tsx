@@ -31,7 +31,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     { to: '/pay', label: 'My Pay', icon: 'reports', show: !(me?.role === 'owner' || me?.role === 'admin') },
     { div: true },
     { h: 'Performance' },
-    { to: '/', label: 'Executive Dashboard', icon: 'executive', show: c('performance') },
+    { to: '/', label: 'Executive Dashboard', icon: 'executive', show: c('performance'), also: ['/legacy-dashboard'] },
     { to: '/sales', label: 'Sales KPIs', icon: 'sales', show: c('performance'), also: ['/huddle'] },
     { to: '/reports', label: 'Reports', icon: 'reports', show: c('performance'), also: ['/commissions', '/sdr'] },
     { to: '/foresight', label: 'Vida Foresight', icon: 'foresight', show: c('performance') },
@@ -54,7 +54,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     return false
   })
   const isOn = (n: { to: string; also?: string[] }) =>
-    n.to === '/' ? pathname === '/' : pathname === n.to || pathname.startsWith(n.to + '/') || (n.also || []).some((a) => pathname === a || pathname.startsWith(a + '/'))
+    n.to === '/' ? pathname === '/' || (n.also || []).includes(pathname) : pathname === n.to || pathname.startsWith(n.to + '/') || (n.also || []).some((a) => pathname === a || pathname.startsWith(a + '/'))
   const initials = (me?.display_name || '?').split(' ').map((x) => x[0]).join('').slice(0, 2).toUpperCase()
   const legacy = c('performance') && !!LEGACY_ROUTES[pathname]
 
