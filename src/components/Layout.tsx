@@ -9,6 +9,7 @@ import { Icon } from './icons'
 import LegacyHost, { LEGACY_ROUTES } from './LegacyHost'
 import SyncControl from './SyncControl'
 import VidaAI from './VidaAI'
+import ForesightAI from './ForesightAI'
 
 type Item = { h: string } | { div: true } | { to: string; label: string; icon: string; show: boolean; also?: string[] }
 
@@ -86,6 +87,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           <div className="hd-right">
           {c('performance') && <SyncControl />}
           <VidaAI />
+          {c('performance') && <ForesightAI />}
           <div className="hd-user">
             <span className="hd-av">{initials}</span>
             <span className="hd-un"><b>{me?.display_name || 'Signed in'}</b><em>{ROLE_LABEL[me?.role || ''] || ''}</em></span>
