@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { getLook, onLook } from '../lib/theme'
 
-/** Routes that show the original Vidura performance screens, and where each one opens. */
+/** Routes that show the original Vidura performance screens, and where each one opens. The Executive
+ *  Dashboard is now React (pages/executive); /legacy-dashboard keeps the original for side-by-side checks. */
 export const LEGACY_ROUTES: Record<string, [string, string?]> = {
-  '/': ['executive'],
+  '/legacy-dashboard': ['executive'],
   '/sales': ['sales', 'kpi'],
   '/huddle': ['sales', 'huddle'],
   '/reports': ['reports'],
