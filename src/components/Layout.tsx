@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth'
 import { can, ROLE_LABEL } from '../lib/access'
+import { agencyName } from '../lib/data'
 import { bookLabel, getAccounts, getBookPolicies, type Account, type BookPolicy } from '../lib/books'
 import { money0 } from '../lib/format'
 import logoWhite from '../assets/logo-white.png'
@@ -62,7 +63,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         <div className="side-brand">
           <div className="brand-tile"><img className="brand-logo" src={logoWhite} alt="Vidura Platform" /></div>
           <p className="side-for">For</p>
-          <p className="side-sub">Ironwood Insurance Agency</p>
+          <p className="side-sub">{agencyName(me)}</p>
         </div>
         <nav className="nav">
           {visible.map((n, i) => ('h' in n ? <div key={n.h} className="nav-h">{n.h}</div>

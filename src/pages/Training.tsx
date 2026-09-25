@@ -4,6 +4,7 @@ import { Empty, ErrorBox, Loading, PageHead, Panel, Tabs, Tile, Tiles } from '..
 import { getReference } from '../lib/books'
 import { supabase } from '../lib/supabase'
 import { useAsync } from '../lib/useAsync'
+import { agencyShort } from '../lib/data'
 
 type Status = 'Not started' | 'In progress' | 'Completed'
 interface Course { id: string; title: string; desc: string }
@@ -27,7 +28,8 @@ async function classroomModules(): Promise<ClassModule[]> {
 }
 
 export default function Training() {
-  const { session } = useAuth()
+  const { session, me } = useAuth()
+  const ag = agencyShort(me)
   const [tab, setTab] = useState<'dash' | 'fu' | 'class'>('dash')
   const [reload, setReload] = useState(0)
   const { data, error } = useAsync(async () => {
@@ -39,8 +41,8 @@ export default function Training() {
     return { fu: fu || [], cls, st: new Map(prog.map((p) => [p.course, p.status])) }
   }, [reload])
 
-  const head = <PageHead kicker="Team development" title="Training" sub="Farmers University first, then the Ironwood classroom." />
-  const tabs = <Tabs tabs={[{ key: 'dash', label: 'Dashboard' }, { key: 'fu', label: 'Farmers University' }, { key: 'class', label: 'Ironwood Classroom' }]} value={tab} onChange={setTab} />
+  const head = <PageHead kicker="Team development" title="Training" sub={`Farmers University first, then the ${ag} classroom.`} />
+  const tabs = <Tabs tabs={[{ key: 'dash', label: 'Dashboard' }, { key: 'fu', label: 'Farmers University' }, { key: 'class', label: `${ag} Classroom` }]} value={tab} onChange={setTab} />
   if (error) return <>{head}{tabs}<ErrorBox error={error} /></>
   if (!data) return <>{head}{tabs}<Loading /></>
 
@@ -151,7 +153,7 @@ export default function Training() {
               </Panel>
             )
           }) : <Empty>The Farmers University course list isn’t loaded.</Empty>}
-          <Panel title="Ironwood brokered training" sub="Our own courses for the brokered book — written in house, added here as they are ready">
+          <Panel title={`${ag} brokered training`} sub="Our own courses for the brokered book — written in house, added here as they are ready">
             <Empty>Nothing published yet. Farmers covers the Farmers book; these will cover Kraft Lake, Burns &amp; Wilcox, KW Specialty, AU Gold and the surplus lines paperwork.</Empty>
           </Panel>
         </>
@@ -159,7 +161,7 @@ export default function Training() {
 
       {tab === 'class' && (
         <div className="panel" style={{ overflow: 'hidden' }}>
-          <iframe title="Ironwood Classroom" src="./training.html" style={{ width: '100%', height: 'calc(100vh - 250px)', minHeight: 560, border: 0, display: 'block' }} />
+          <iframe title={`${ag} Classroom`} src="./training.html" style={{ width: '100%', height: 'calc(100vh - 250px)', minHeight: 560, border: 0, display: 'block' }} />
         </div>
       )}
     </>

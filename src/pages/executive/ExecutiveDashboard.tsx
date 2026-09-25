@@ -407,7 +407,7 @@ function useLegacyLook(D: PerfData): { style: CSSProperties; dark: boolean; them
     const a = t.season.from, b = t.season.to
     return a <= b ? md >= a && md <= b : md >= a || md <= b
   }
-  const themes: PerfData['THEMES'] = { ...EXTRA_THEMES, ...D.THEMES }, fonts = { ...EXTRA_FONTS, ...(D.FONTS || {}) }
+  const themes: PerfData['THEMES'] = { ...EXTRA_THEMES, ...D.THEMES }, fonts = { ...EXTRA_FONTS, ...D.FONTS }
   const key = themes[look.theme] && inSeason(themes[look.theme]) ? look.theme : 'vidura'
   const t = themes[key] || themes.vidura
   const font = fonts[look.font]

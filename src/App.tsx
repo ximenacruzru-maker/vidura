@@ -29,7 +29,7 @@ function Gate() {
       <div className="center">
         <div className="panel narrow">
           <div className="panel-b">
-            <p>You’re signed in, but this login isn’t set up as an Ironwood staff account yet. Ask an admin to add you.</p>
+            <p>You’re signed in, but this login isn’t set up as a staff account yet. Ask an admin to add you.</p>
             <button className="btn-ghost" onClick={signOut}>Sign out</button>
           </div>
         </div>

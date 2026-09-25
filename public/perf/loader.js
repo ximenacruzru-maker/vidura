@@ -15,6 +15,9 @@
     }
     if (!rows.length) { msg("Your account doesn\u2019t have access to these reports."); return; }
     var D = {}; rows.forEach(function (x) { D[x.key.slice(3)] = x.data; });
+    /* The signed-in login's agency (row-level security returns only that one), for names on reports and exports. */
+    var ag = await sb.from("agencies").select("name,short_name").maybeSingle();
+    if (ag.data) D.AGENCY = ag.data;
 
     /* Books: use the live book tables (the same records as the P&C book pages), not the old snapshot. */
     async function all(table) {

@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth'
 import { can } from '../lib/access'
 import { bookLabel, daysUntil, getAccounts, getBookPolicies, getReference, type Account, type BookPolicy } from '../lib/books'
-import { getFolios, getPolicies, getQuotes, type StaffAccount } from '../lib/data'
+import { agencyShort, getFolios, getPolicies, getQuotes, type StaffAccount } from '../lib/data'
 import { mdy, money0, money2, todayPacific } from '../lib/format'
 import { supabase } from '../lib/supabase'
 import { getWork, isDone } from '../pages/WorkQueue'
@@ -304,7 +304,7 @@ export default function VidaAI() {
         <div className="drawer-bg" onClick={() => setOpen(false)}>
           <aside className="drawer ai-drawer" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Vida AI">
             <div className="drawer-h">
-              <div><div className="panel-t">Vida AI</div><div className="panel-s">Answers from Ironwood’s own book, markets, appetite guide, training and sales.</div></div>
+              <div><div className="panel-t">Vida AI</div><div className="panel-s">Answers from {agencyShort(me)}’s own book, markets, appetite guide, training and sales.</div></div>
               <div className="row-actions">
                 {msgs.length > 0 && <button className="btn-ghost" onClick={() => { setMsgs([]); ctx.current = {} }}>Clear</button>}
                 <button className="btn-ghost" onClick={() => setOpen(false)}>Close</button>

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { getBookPolicies, type BookPolicy } from '../lib/books'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../auth'
 
 const tight = (s: string | null | undefined) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '')
 const CATS: { re: RegExp; cat: string; label: string }[] = [
@@ -14,6 +15,7 @@ const CATS: { re: RegExp; cat: string; label: string }[] = [
 export default function DocUpload({ onDone }: { onDone: () => void }) {
   const [busy, setBusy] = useState(false)
   const [log, setLog] = useState<{ file: string; ok: boolean; note: string }[]>([])
+  const { me } = useAuth()
 
   const run = async (files: FileList | null) => {
     if (!files?.length) return
@@ -27,7 +29,8 @@ export default function DocUpload({ onDone }: { onDone: () => void }) {
       const c = CATS.find((x) => x.re.test(f.name))!
       const id = `${c.cat}-${hit.id}-${tight(f.name).slice(0, 40)}`
       const ext = (f.name.match(/\.([a-z0-9]+)$/i) || [])[1]?.toLowerCase() || 'pdf'
-      const path = `${c.cat}/${id}.${ext}`
+      // Each agency's files live under its own folder; storage only lets an admin write inside it.
+      const path = `${me?.agency_id}/${c.cat}/${id}.${ext}`
       const up = await supabase.storage.from('documents').upload(path, f, { upsert: true, contentType: f.type || 'application/pdf' })
       if (up.error) { out.push({ file: f.name, ok: false, note: up.error.message }); setLog([...out]); continue }
       const { error } = await supabase.from('documents').upsert({

@@ -109,7 +109,7 @@ function Timesheets() {
     if (!edit?.name || !edit.work_date) { alert('Pick a person and a date.'); return }
     for (const t of [edit.start_time, edit.end_time]) if (t && clock(t) == null) { alert('Times should look like 9:15AM.'); return }
     const b = (edit.breaks || []).filter(([x, y]) => x && y)
-    const { error } = await supabase.from('hr_punches').upsert({ name: edit.name, work_date: edit.work_date, start_time: edit.start_time || null, end_time: edit.end_time || null, breaks: b, edited: true }, { onConflict: 'name,work_date' })
+    const { error } = await supabase.from('hr_punches').upsert({ name: edit.name, work_date: edit.work_date, start_time: edit.start_time || null, end_time: edit.end_time || null, breaks: b, edited: true }, { onConflict: 'agency_id,name,work_date' })
     if (error) alert(error.message); else { setEdit(null); setReload((n) => n + 1) }
   }
 
