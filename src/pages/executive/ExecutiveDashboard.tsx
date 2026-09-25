@@ -408,8 +408,8 @@ function useLegacyLook(D: PerfData): { style: CSSProperties; dark: boolean; them
     return a <= b ? md >= a && md <= b : md >= a || md <= b
   }
   const themes: PerfData['THEMES'] = { ...EXTRA_THEMES, ...D.THEMES }, fonts = { ...EXTRA_FONTS, ...D.FONTS }
-  const key = themes[look.theme] && inSeason(themes[look.theme]) ? look.theme : 'vidura'
-  const t = themes[key] || themes.vidura
+  const key = themes[look.theme] && inSeason(themes[look.theme]) ? look.theme : 'talavera'
+  const t = themes[key] || themes.talavera || themes.vidura
   const font = fonts[look.font]
   const style = { ...(t?.vars || {}), ...(font ? { '--serif': font.serif, '--sans': font.sans } : {}) } as CSSProperties
   return { style, dark: !!t?.dark, theme: key }

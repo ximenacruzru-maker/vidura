@@ -360,34 +360,7 @@ html[data-theme="bubblegum"] .sync-err { color: #8a0f22; }
 .hd-kai:hover { filter: brightness(1.06); }
 .hd-kai:focus-visible { outline: 2px solid #ffeb2e; outline-offset: 2px; }
 html[data-theme="bubblegum"] .hd-kai { border-color: #ff9fd2; }
-html[data-theme="burgundy"] {
-  --navy: #2A0E16; --blue: #7B1E3A; --blue-2: #5C1530; --teal: #A8425F; --ink: #2A0E16; --muted: #8C5A68;
-  --line: #E3B8C4; --line2: #F3DDE3; --bg: #FBF0F2; --card: #ffffff; --soft: #FDF3F5; --track: #F0CDD5; --tint: #F0CDD5;
-  --topbar: rgba(251,240,242,.8);
-  --sideA: #7B1E3A; --sideB: #5C1530; --sideC: #2A0E16; --side-ink: #ffffff; --side-sub: #E8B4C4; --side-active: #A8425F;
-}
-html[data-theme="burgundy"] .brand-tile { background: #2A0E16; padding: 12px 16px; }
-html[data-theme="burgundy"] .login { background: linear-gradient(135deg, #2A0E16, #5C1530 55%, #7B1E3A); }
-html[data-theme="burgundy"] .sync-err { color: #8a0f22; }
 
-/* Modern: black, white and one indigo accent; flat surfaces and crisp hairlines */
-html[data-theme="modern"] {
-  --navy: #0A0A0A; --blue: #18181B; --blue-2: #000000; --teal: #4F46E5; --gold: #F59E0B; --ink: #0A0A0A; --muted: #62626A;
-  --line: #E4E4E7; --line2: #F0F0F2; --bg: #FAFAFA; --card: #ffffff; --soft: #F6F6F7; --track: #EDEDEF; --tint: #EEF0FF;
-  --topbar: rgba(250,250,250,.86); --radius: 10px;
-  --sideA: #18181B; --sideB: #111113; --sideC: #0A0A0A; --side-ink: #ffffff; --side-sub: #A5B4FC; --side-active: #18181B;
-  --shadow: 0 0 0 1px #E4E4E7;
-}
-html[data-theme="modern"] a { color: var(--teal); }
-html[data-theme="modern"] .kicker { color: var(--teal); }
-html[data-theme="modern"] .tile { border-top: 0; box-shadow: var(--shadow), inset 0 3px 0 var(--teal); }
-html[data-theme="modern"] .page-head h1 { letter-spacing: -.035em; }
-html[data-theme="modern"] .nav button.active { box-shadow: none; }
-html[data-theme="modern"] .hd-kai { background: #18181B; border-color: #18181B; box-shadow: none; }
-html[data-theme="modern"] .hd-kai:hover { background: #4F46E5; border-color: #4F46E5; filter: none; }
-html[data-theme="modern"] .login { background: #0A0A0A; }
-html[data-theme="modern"] .brand-tile { background: #18181B; padding: 12px 16px; }
-html[data-theme="modern"] .set-band { background: #18181B; }
 
 html[data-theme="talavera"] {
   --tal-strip: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='66' viewBox='0 0 22 66'%3E%3Crect width='22' height='66' fill='%23F6EBD6'/%3E%3Cpath d='M0 40 L22 62 M22 40 L0 62' stroke='%2323359A' stroke-width='.8' opacity='.55'/%3E%3Ccircle cx='5.5' cy='46' r='1.1' fill='%23B4461E'/%3E%3Ccircle cx='16.5' cy='46' r='1.1' fill='%23B4461E'/%3E%3Ccircle cx='11' cy='51' r='1.1' fill='%23B4461E'/%3E%3Ccircle cx='5.5' cy='56' r='1.1' fill='%23B4461E'/%3E%3Ccircle cx='16.5' cy='56' r='1.1' fill='%23B4461E'/%3E%3Cpath d='M11.0 17.0 L20.0 17.8 Q20.6 20.1 18.7 21.6 Z' fill='%2323359A'/%3E%3Cpath d='M11.0 17.0 L17.8 22.9 Q16.9 25.2 14.5 25.3 Z' fill='%2323359A'/%3E%3Cpath d='M11.0 17.0 L13.0 25.8 Q11.0 27.1 9.0 25.8 Z' fill='%2323359A'/%3E%3Cpath d='M11.0 17.0 L7.5 25.3 Q5.1 25.2 4.2 22.9 Z' fill='%2323359A'/%3E%3Cpath d='M11.0 17.0 L3.3 21.6 Q1.4 20.1 2.0 17.8 Z' fill='%2323359A'/%3E%3Cpath d='M11.0 17.0 L2.0 16.2 Q1.4 13.9 3.3 12.4 Z' fill='%2323359A'/%3E%3Cpath d='M11.0 17.0 L4.2 11.1 Q5.1 8.8 7.5 8.7 Z' fill='%2323359A'/%3E%3Cpath d='M11.0 17.0 L9.0 8.2 Q11.0 6.9 13.0 8.2 Z' fill='%2323359A'/%3E%3Cpath d='M11.0 17.0 L14.5 8.7 Q16.9 8.8 17.8 11.1 Z' fill='%2323359A'/%3E%3Cpath d='M11.0 17.0 L18.7 12.4 Q20.6 13.9 20.0 16.2 Z' fill='%2323359A'/%3E%3Ccircle cx='11' cy='17' r='3.4' fill='%23B4461E'/%3E%3Ccircle cx='11' cy='17' r='1.4' fill='%23F6EBD6'/%3E%3Cpath d='M2 33 Q6 29 11 33 Q16 29 20 33' fill='none' stroke='%233F6B35' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M0 0 V66 M22 0 V66' stroke='%23B4461E' stroke-width='2.4'/%3E%3C/svg%3E");
@@ -451,56 +424,62 @@ html[data-theme="talavera"] .hd-kai { background: linear-gradient(135deg, #B4461
 html[data-theme="talavera"] .login { background: var(--tal-strip) left top / 30px auto repeat-y, var(--tal-strip) right top / 30px auto repeat-y, linear-gradient(135deg, #A94F21, #C8692F 55%, #1E2E86); }
 html[data-theme="talavera"] .set-band { background: linear-gradient(135deg, #1E2E86, #23359A 60%, #B4461E); }
 
-/* Halloween (seasonal, until Nov 1): midnight-purple sidebar with cobwebs, bats and jack-o'-lanterns, a black top bar
-   with a moon and a dripping orange edge, a foggy charcoal page, and KPI cards in a stamp-edged orange frame. */
+/* Halloween (seasonal, until Nov 1), built from the Halloween artwork in src/assets/halloween: the purple sidebar with
+   cobwebs, spider, bats, trees and jack-o'-lanterns; a black top bar with the moon, ghosts and bats over a dripping orange
+   edge; a foggy purple page with cobweb corners; KPI cards in the stamp-edged orange frame; skulls in the donuts. */
 html[data-theme="halloween"] {
-  --navy: #F3E6CF; --blue: #FF8A1F; --blue-2: #E06A00; --teal: #6BD13A; --gold: #FFB44D; --ink: #F3E6CF; --muted: #BCA7D2;
-  --line: #3B2257; --line2: #2F1A48; --bg: #141016; --card: #1F0F33; --soft: #24103D; --track: #2F1A48; --tint: #2E1650;
-  --good-bg: #16331f; --warn-bg: #3a2410; --bad-bg: #3a1418; --topbar: #0B0710; --radius: 12px;
-  --sideA: #2A0F4A; --sideB: #200B3C; --sideC: #14072A; --side-ink: #F3E6CF; --side-sub: #FF9A2E; --side-active: #F07A12;
+  --navy: #F3E6CF; --blue: #FF8A1F; --blue-2: #E06A00; --teal: #6BD13A; --gold: #FFB44D; --ink: #F3E6CF; --muted: #C3AEDA;
+  --line: #43275F; --line2: #331B4E; --bg: #24103C; --card: #2B1548; --soft: #2E174C; --track: #331B4E; --tint: #37195A;
+  --good-bg: #16331f; --warn-bg: #3a2410; --bad-bg: #3a1418; --topbar: #000000; --radius: 12px;
+  --sideA: #220F3C; --sideB: #21103C; --sideC: #21103C; --side-ink: #F3E6CF; --side-sub: #FF9A2E; --side-active: #F07A12;
   --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
-  --ch1: #8E4FD6; --ch2: #F07A12; --ch3: #F6A64B; --ch4: #6BD13A; --ch5: #FFD34D; --ch6: #C23B2A; --donut-ink: #F3E6CF; --donut-sub: #FFB44D;
+  --ch1: #9B4FD9; --ch2: #F57C0E; --ch3: #F6A64B; --ch4: #6BD13A; --ch5: #FFD34D; --ch6: #C23B2A; --donut-ink: #F3E6CF; --donut-sub: #FFB44D;
 }
-html[data-theme="halloween"] body { background: radial-gradient(ellipse at 72% 78%, rgba(150,140,170,.16), transparent 55%), radial-gradient(ellipse at 25% 35%, rgba(150,140,170,.10), transparent 50%), var(--bg); }
-html[data-theme="halloween"] .page { padding-top: 54px; background: url('./assets/halloween/web-tr.svg') right 8px top 44px / 190px no-repeat; }
-html[data-theme="halloween"] .side { background: url('./assets/halloween/web-tl.svg') left top / 130px no-repeat, url('./assets/halloween/web-tr.svg') right top / 130px no-repeat,
-  url('./assets/halloween/side-bottom.svg') center bottom / 100% auto no-repeat, url('./assets/halloween/side-top.svg') center top / 100% auto no-repeat,
-  linear-gradient(180deg, var(--sideA), var(--sideB) 55%, var(--sideC)); box-shadow: inset -2px 0 0 #F07A12, 8px 0 26px rgba(0,0,0,.5); }
-html[data-theme="halloween"] .side-brand { border-bottom-color: rgba(240,122,18,.35); }
+html[data-theme="halloween"] body { background: url('./assets/halloween/fog.jpg') center bottom / 100% auto no-repeat fixed, var(--bg); }
+html[data-theme="halloween"] .page { padding-top: 60px; background: url('./assets/halloween/web-l.jpg') left top / 220px auto no-repeat, url('./assets/halloween/web-r.jpg') right top / 220px auto no-repeat; }
+html[data-theme="halloween"] .side { background: url('./assets/halloween/side-top.jpg') center top / 100% auto no-repeat, url('./assets/halloween/side-bottom.jpg') center bottom / 100% auto no-repeat, #21103C;
+  box-shadow: inset -3px 0 0 #000, 8px 0 26px rgba(0,0,0,.5); }
+html[data-theme="halloween"] .side-brand { border-bottom-color: rgba(240,122,18,.3); }
+html[data-theme="halloween"] .side-foot { padding-bottom: 150px; border-top-color: rgba(240,122,18,.3); }
+/* section headings carry the bat, ghost, spider and cauldron from the artwork */
+html[data-theme="halloween"] .nav-h { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 700; letter-spacing: 0; text-transform: none; color: #F3E6CF; padding: 14px 4px 6px; }
+html[data-theme="halloween"] .nav-h::before { content: ''; flex: none; width: 34px; height: 30px; background: center / contain no-repeat; }
+html[data-theme="halloween"] .nav-h[data-sec="Workspace"] { color: #FF9A2E; }
+html[data-theme="halloween"] .nav-h[data-sec="Workspace"]::before { background-image: url('./assets/halloween/ic-bat.png'); }
+html[data-theme="halloween"] .nav-h[data-sec="Performance"]::before { background-image: url('./assets/halloween/ic-ghost.png'); }
+html[data-theme="halloween"] .nav-h[data-sec="Agency Management"]::before { background-image: url('./assets/halloween/ic-spider.png'); }
+html[data-theme="halloween"] .nav-h[data-sec="Team Development"]::before { background-image: url('./assets/halloween/ic-cauldron.png'); }
 html[data-theme="halloween"] .nav button svg { color: #FF9A2E; }
 html[data-theme="halloween"] .nav button.active { background: #F07A12; color: #1C0B33; box-shadow: 0 0 18px rgba(240,122,18,.55); }
 html[data-theme="halloween"] .nav button.active svg { color: #1C0B33; }
 html[data-theme="halloween"] .nav button:hover:not(.active) { background: rgba(240,122,18,.16); }
-html[data-theme="halloween"] .topbar { position: relative; background: url('./assets/halloween/sky.svg') center / auto 100% no-repeat, #0B0710; backdrop-filter: none; }
-html[data-theme="halloween"] .topbar::after { content: ''; position: absolute; left: 0; right: 0; top: 100%; height: 44px; background: url('./assets/halloween/drip.svg') left top / 160px 44px repeat-x; pointer-events: none; }
+html[data-theme="halloween"] .topbar { position: relative; background: url('./assets/halloween/top-deco.jpg') center / auto 100% no-repeat, #000; backdrop-filter: none; }
+html[data-theme="halloween"] .topbar::after { content: ''; position: absolute; left: 0; right: 0; top: 100%; height: 54px; background: url('./assets/halloween/drip.png') left top / auto 54px repeat-x; pointer-events: none; }
 html[data-theme="halloween"] .gq { background: #2A1245; border: 2px solid #F07A12; border-radius: 999px; color: #F3E6CF; }
 html[data-theme="halloween"] .gq::placeholder { color: #CDB8E0; }
 html[data-theme="halloween"] .gsearch-ico { color: #FF9A2E; }
-html[data-theme="halloween"] .tsync-pill { background: #1C0B33; border-color: #F07A12; color: #F3E6CF; }
+html[data-theme="halloween"] .tsync-pill { background: #140a20; border-color: #F07A12; color: #F3E6CF; }
 html[data-theme="halloween"] .hd-av { background: #2A1245; color: #FF9A2E; box-shadow: 0 0 0 2px #F07A12; }
 html[data-theme="halloween"] .hd-un em { color: #FFB44D; }
-html[data-theme="halloween"] .side-foot { padding-bottom: 96px; border-top-color: rgba(240,122,18,.35); }
 html[data-theme="halloween"] .kicker { color: #FF9A2E; }
 html[data-theme="halloween"][data-font="normal"] .page-head h1, html[data-theme="halloween"][data-font="normal"] .panel-t, html[data-theme="halloween"][data-font="normal"] .tile-v,
 html[data-theme="halloween"][data-font="normal"] .xd .ptitle, html[data-theme="halloween"][data-font="normal"] .xd .sc-v { font-family: 'Merriweather', Georgia, serif; font-weight: 900; }
-html[data-theme="halloween"] .panel, html[data-theme="halloween"] .tile { border-color: var(--line); }
+html[data-theme="halloween"] .panel { background: rgba(43,21,72,.82); border-color: var(--line); }
 html[data-theme="halloween"] .btn-primary { color: #1C0B33; }
 html[data-theme="halloween"] .legacy-host iframe { background: var(--bg); }
-html[data-theme="halloween"] .login { background: url('./assets/halloween/web-tl.svg') left top / 220px no-repeat, url('./assets/halloween/web-tr.svg') right top / 220px no-repeat,
-  radial-gradient(ellipse at 50% 20%, #3A1A5E, #1C0B33 55%, #0B0710); }
+html[data-theme="halloween"] .login { background: url('./assets/halloween/login-panel.jpg') left center / auto 100% no-repeat, url('./assets/halloween/fog.jpg') center bottom / 100% auto no-repeat, #250745; }
 html[data-theme="halloween"] .set-band { background: linear-gradient(135deg, #1C0B33, #3A1A5E 60%, #C2560C); }
 html[data-theme="halloween"] .band-note { background: #2b1a0e; border-color: #6b3a10; color: #FFD9A8; }
-/* KPI cards: the stamp-edged orange frame with bats and a jack-o'-lantern (src/assets/halloween/card.svg), nine-sliced;
-   the perforated edges repeat whole so they never smear. */
+/* KPI cards: the stamp-edged orange frame with bats and a jack-o'-lantern, nine-sliced so the corners keep their shape */
 html[data-theme="halloween"] .tile, html[data-theme="halloween"] .xd .sc {
-  background: none; border: 1px solid transparent; border-image: url('./assets/halloween/card.svg') 60 fill / 44px / 0 round;
-  border-radius: 0; box-shadow: none; filter: drop-shadow(0 0 10px rgba(240,122,18,.35)); padding: 30px 30px 28px;
-  aspect-ratio: 1 / 1; display: flex; flex-direction: column; justify-content: center; text-align: center; }
+  background: none; border: 1px solid transparent; border-image: url('./assets/halloween/card.png') 50 fill / 46px / 0 round;
+  border-radius: 0; box-shadow: none; filter: drop-shadow(0 0 12px rgba(240,122,18,.35)); padding: 30px 28px 28px;
+  aspect-ratio: 190 / 202; display: flex; flex-direction: column; justify-content: center; text-align: center; }
 html[data-theme="halloween"] .tiles { grid-template-columns: repeat(auto-fill, minmax(190px, 230px)); }
 html[data-theme="halloween"] .tile-l, html[data-theme="halloween"] .xd .sc-l { color: #F3E6CF; }
 html[data-theme="halloween"] .tile-v, html[data-theme="halloween"] .xd .sc-v { color: #FF8A1F; text-shadow: 0 0 12px rgba(240,122,18,.45); }
 html[data-theme="halloween"] .tile-s, html[data-theme="halloween"] .xd .sc-s, html[data-theme="halloween"] .xd .sc-gt, html[data-theme="halloween"] .xd .sc-goal { color: #E3D3F0; }
-html[data-theme="halloween"] .xd .sc { padding: 26px 20px 32px; }
+html[data-theme="halloween"] .xd .sc { padding: 28px 20px 32px; }
 html[data-theme="halloween"] .xd .sc-i { display: none; }
 html[data-theme="halloween"] .xd .sc-top { justify-content: center; padding: 4px 0 0; }
 html[data-theme="halloween"] .xd .sc-l { font-size: 10.5px; letter-spacing: .12em; line-height: 1.35; }
@@ -508,8 +487,9 @@ html[data-theme="halloween"] .xd .sc-body { padding: 8px 0 4px; }
 html[data-theme="halloween"] .xd .sc-foot { justify-content: center; }
 html[data-theme="halloween"] .xd .sc-dv { color: #F3E6CF; } html[data-theme="halloween"] .xd .sc-dv.up { color: #7EE05A; } html[data-theme="halloween"] .xd .sc-dv.down { color: #FF6B5A; }
 html[data-theme="halloween"] .xd .sc-more { justify-content: center; gap: 6px; border-top-color: rgba(240,122,18,.35); color: #FF9A2E; padding: 8px 0 0; }
-/* donuts glow slime-green, like the mockup */
-html[data-theme="halloween"] .xd .donut svg { filter: drop-shadow(0 0 5px rgba(107,209,58,.75)); }
+/* donuts: purple, orange and slime green with a green glow and the skull in the middle */
+html[data-theme="halloween"] .xd .donut svg { filter: drop-shadow(0 0 6px rgba(107,209,58,.8)); background: url('./assets/halloween/skull.png') center / 36% no-repeat; }
+html[data-theme="halloween"] .xd .donut svg text { display: none; }
 
 @media (max-width: 1100px) { .tsync-l, .tsync-btn span, .hd-un { display: none; } }
 @media (max-width: 820px) { .hd-kai span { display: none; } .hd-kai { padding: 0 12px; } .hd-right { gap: 6px; } }

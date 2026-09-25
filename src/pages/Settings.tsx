@@ -180,7 +180,7 @@ export default function Settings() {
   const tabs: [typeof tab, string][] = [['appearance', 'Appearance'], ...(admin ? [['access', 'Producers & access'] as [typeof tab, string]] : []), ['password', 'Password']]
   return (
     <>
-      <PageHead kicker="Administration" title="Settings" sub={`${THEMES[look.theme]?.name || 'Declara Blue'} theme${admin && people.data != null ? ` · ${people.data} on the account` : ''}`} />
+      <PageHead kicker="Administration" title="Settings" sub={`${THEMES[look.theme]?.name || 'Talavera'} theme${admin && people.data != null ? ` · ${people.data} on the account` : ''}`} />
       <div className="set-band">
         <div><div className="eye">Agency configuration</div><h2>Settings</h2></div>
         <div className="set-stats">
