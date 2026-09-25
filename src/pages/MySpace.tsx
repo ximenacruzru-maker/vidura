@@ -90,7 +90,7 @@ export default function MySpace() {
               ))}</tbody></table>
             ) : <div className="sub">Nothing assigned to you.</div>}
           </Panel>
-          <Panel title="Renewing in the next 14 days" sub={<Link to="/renewals">All renewals</Link>}>
+          <Panel title="Renewing in the next 14 days" sub={<Link to="/books/farmers?renewals=1">All renewals</Link>}>
             {renew14.length ? (
               <table className="tbl"><tbody>{renew14.sort((a, b) => (a.expiration! < b.expiration! ? -1 : 1)).slice(0, 10).map((p) => (
                 <tr key={p.id}><td><div className="strong">{p.insured}</div><div className="sub">{p.product} · {p.carrier}</div></td><td className="r">{mdy(p.expiration!)}</td></tr>

@@ -39,7 +39,6 @@ export default function Layout({ children }: { children: ReactNode }) {
     { h: 'Agency Management' },
     { to: '/resources', label: 'Client Servicing', icon: 'service', show: c('resources') },
     { to: '/books/farmers', label: 'Books of Business', icon: 'book', show: c('books'), also: ['/books'] },
-    { to: '/renewals', label: 'Renewals', icon: 'renew', show: c('books') },
     { to: '/passwords', label: 'Agency Passwords', icon: 'lock', show: c('passwords') },
     { h: 'Team Development' },
     { to: '/training', label: 'Training', icon: 'training', show: c('training') },
