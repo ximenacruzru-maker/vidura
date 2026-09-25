@@ -16,6 +16,7 @@ import Training from './pages/Training'
 import ChangePassword from './pages/ChangePassword'
 import MyPay from './pages/MyPay'
 import Passwords from './pages/Passwords'
+import ExecutiveDashboard from './pages/executive/ExecutiveDashboard'
 import { can } from './lib/access'
 import { useState } from 'react'
 
@@ -42,8 +43,9 @@ function Gate() {
     <FolioProvider>
       <Layout>
         <Routes>
-          {/* Performance: the original screens, shown by the layout's LegacyHost */}
-          {['/', '/sales', '/huddle', '/reports', '/commissions', '/sdr'].map((p) =>
+          <Route path="/" element={can(me, 'performance') ? <ExecutiveDashboard /> : <Navigate to="/today" replace />} />
+          {/* Performance screens not yet rebuilt: the original screens, shown by the layout's LegacyHost */}
+          {['/legacy-dashboard', '/sales', '/huddle', '/reports', '/commissions', '/sdr'].map((p) =>
             <Route key={p} path={p} element={can(me, 'performance') ? null : <Navigate to="/today" replace />} />)}
           <Route path="/settings" element={<Settings />} />
           <Route path="/team" element={<Navigate to="/settings" replace />} />
