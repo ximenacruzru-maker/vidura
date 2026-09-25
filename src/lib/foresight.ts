@@ -231,6 +231,13 @@ export function project(s: SourceStat, pct: number, commissionRate: number | nul
   return { dSpend, dPremium, dPolicies: dSpend * (s.policiesPerDollar || 0), dRevenue: commissionRate != null ? dPremium * commissionRate : null }
 }
 
+/** The new-business commission rate a person entered on the Foresight page (a percent), or null. Kept in
+ *  this browser only; agency commission rates aren't in the data. */
+export const RATE_KEY = 'vidura_foresight_commission_rate'
+export function savedRate(): number | null {
+  try { const v = (localStorage.getItem(RATE_KEY) || '').trim(); return v === '' || isNaN(Number(v)) ? null : Math.max(0, Number(v)) / 100 } catch { return null }
+}
+
 /* ---------- windows ---------- */
 export function windowFor(key: string, today: string, first: string): Window {
   const y = today.slice(0, 4)

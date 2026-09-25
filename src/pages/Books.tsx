@@ -7,6 +7,7 @@ import { useAsync } from '../lib/useAsync'
 import { useAuth } from '../auth'
 import { isAdmin } from '../lib/data'
 import DocUpload from '../components/DocUpload'
+import RenewalAlert from './RenewalAlert'
 
 export function RenewPill({ days }: { days: number | null }) {
   if (days == null) return <span className="pill pill-muted">no date</span>
@@ -27,6 +28,7 @@ export default function Books() {
   const [params, setParams] = useSearchParams()
   const { me } = useAuth()
   const [reload, setReload] = useState(0)
+  const [renewalsOpen] = useState(() => params.get('renewals') === '1')
 
   const { data, error } = useAsync(async () => {
     const [accounts, policies, docs] = await Promise.all([getAccounts(key), getBookPolicies(key), getDocs()])
@@ -76,6 +78,7 @@ export default function Books() {
     <>
       {head}
       {tabs}
+      <RenewalAlert key={key} bookKey={key} accounts={data.accounts} policies={data.policies} today={today} startOpen={renewalsOpen} onOpenAccount={setOpen} />
       <Tiles>
         <Tile label="Accounts" value={rows.length} sub={`${pols.length} policies`} />
         <Tile label="Annual premium" value={money0(total)} sub={rows.length ? money0(total / rows.length) + ' per account' : ''} />

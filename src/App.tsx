@@ -5,7 +5,6 @@ import Layout from './components/Layout'
 import { Loading } from './components/ui'
 import Settings from './pages/Settings'
 import Books from './pages/Books'
-import Renewals from './pages/Renewals'
 import Resources from './pages/Resources'
 import WorkQueue from './pages/WorkQueue'
 import MySpace from './pages/MySpace'
@@ -56,7 +55,8 @@ function Gate() {
           <Route path="/today" element={<MySpace />} />
           {can(me, 'books') && <Route path="/books/:book" element={<Books />} />}
           {can(me, 'books') && <Route path="/books" element={<Navigate to="/books/farmers" replace />} />}
-          {can(me, 'books') && <Route path="/renewals" element={<Renewals />} />}
+          {/* Renewals now live on Books of Business as an alert; old links open it expanded. */}
+          {can(me, 'books') && <Route path="/renewals" element={<Navigate to="/books/farmers?renewals=1" replace />} />}
           {can(me, 'resources') && <Route path="/resources" element={<Resources />} />}
           {can(me, 'work') && <Route path="/work" element={<WorkQueue />} />}
           {can(me, 'chat') && <Route path="/chat" element={<Chat />} />}

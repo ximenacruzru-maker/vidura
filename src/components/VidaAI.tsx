@@ -139,7 +139,7 @@ async function answer(qRaw: string, me: StaffAccount | null, ctx: { client?: Acc
     if (/expired|lapse|cancel/.test(q)) {
       const bad = policies.filter((r) => /cancel|lapse|non-?renew/i.test(r.status || '') || (daysUntil(r.expiration, today) ?? 0) < 0)
       if (!bad.length) return { body: 'Nothing in the book is expired, cancelled or lapsed right now.' }
-      return { body: <><b>{bad.length} policies</b> are expired, cancelled or lapsed, carrying {money0(sum(bad))} of premium:<L items={bad.sort((a, b) => (b.premium || 0) - (a.premium || 0)).map((r) => <>{who(r)} — {r.product} · {r.carrier}{r.expiration ? ` · ${mdy(r.expiration)}` : ''}{r.premium ? ` · ${money0(r.premium)}` : ''}</>)} /></>, go: { to: '/renewals', label: 'Open Renewals' } }
+      return { body: <><b>{bad.length} policies</b> are expired, cancelled or lapsed, carrying {money0(sum(bad))} of premium:<L items={bad.sort((a, b) => (b.premium || 0) - (a.premium || 0)).map((r) => <>{who(r)} — {r.product} · {r.carrier}{r.expiration ? ` · ${mdy(r.expiration)}` : ''}{r.premium ? ` · ${money0(r.premium)}` : ''}</>)} /></>, go: { to: '/books/farmers?renewals=1', label: 'Review renewals' } }
     }
     if (/monoline|single policy|cross.?sell|one policy/.test(q)) {
       const per = new Map<string, BookPolicy[]>(); policies.forEach((p) => per.set(p.account_id, [...(per.get(p.account_id) || []), p]))
@@ -149,8 +149,8 @@ async function answer(qRaw: string, me: StaffAccount | null, ctx: { client?: Acc
     if (/renew|due|coming up|expir/.test(q)) {
       const win = days || 30
       const up = policies.filter((r) => { const d = daysUntil(r.expiration, today); return d != null && d >= 0 && d <= win }).sort((a, b) => (a.expiration! < b.expiration! ? -1 : 1))
-      if (!up.length) return { body: `Nothing renews in the next ${win} days.`, go: { to: '/renewals', label: 'Open Renewals' } }
-      return { body: <><b>{up.length} policies</b> renew in the next {win} days, {money0(sum(up))} of premium:<L items={up.map((r) => <>{who(r)} — {r.product} · {mdy(r.expiration!)}{r.premium ? ` · ${money0(r.premium)}` : ''}</>)} /></>, go: { to: '/renewals', label: 'Open Renewals' } }
+      if (!up.length) return { body: `Nothing renews in the next ${win} days.`, go: { to: '/books/farmers?renewals=1', label: 'Review renewals' } }
+      return { body: <><b>{up.length} policies</b> renew in the next {win} days, {money0(sum(up))} of premium:<L items={up.map((r) => <>{who(r)} — {r.product} · {mdy(r.expiration!)}{r.premium ? ` · ${money0(r.premium)}` : ''}</>)} /></>, go: { to: '/books/farmers?renewals=1', label: 'Review renewals' } }
     }
     if (/how many|count|total|\bbook\b|how much/.test(q) && !/commission/.test(q)) {
       return { body: <>The P&amp;C book holds <b>{policies.length} policies</b> across <b>{byId.size} clients</b>, {money0(sum(policies))} of premium. {policies.filter((r) => (r.premium || 0) > 0).length} have a premium on file; {policies.filter((r) => !r.expiration).length} have no expiration date.</>, go: { to: '/books/farmers', label: 'Open Books of Business' } }

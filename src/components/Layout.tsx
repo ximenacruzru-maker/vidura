@@ -9,6 +9,7 @@ import { Icon } from './icons'
 import LegacyHost, { LEGACY_ROUTES } from './LegacyHost'
 import SyncControl from './SyncControl'
 import VidaAI from './VidaAI'
+import ForesightAI from './ForesightAI'
 
 type Item = { h: string } | { div: true } | { to: string; label: string; icon: string; show: boolean; also?: string[] }
 
@@ -38,7 +39,6 @@ export default function Layout({ children }: { children: ReactNode }) {
     { h: 'Agency Management' },
     { to: '/resources', label: 'Client Servicing', icon: 'service', show: c('resources') },
     { to: '/books/farmers', label: 'Books of Business', icon: 'book', show: c('books'), also: ['/books'] },
-    { to: '/renewals', label: 'Renewals', icon: 'renew', show: c('books') },
     { to: '/passwords', label: 'Agency Passwords', icon: 'lock', show: c('passwords') },
     { h: 'Team Development' },
     { to: '/training', label: 'Training', icon: 'training', show: c('training') },
@@ -86,6 +86,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           <div className="hd-right">
           {c('performance') && <SyncControl />}
           <VidaAI />
+          {c('performance') && <ForesightAI />}
           <div className="hd-user">
             <span className="hd-av">{initials}</span>
             <span className="hd-un"><b>{me?.display_name || 'Signed in'}</b><em>{ROLE_LABEL[me?.role || ''] || ''}</em></span>
