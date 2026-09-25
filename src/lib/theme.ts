@@ -5,18 +5,19 @@ import { supabase } from './supabase'
 
 export const THEMES: Record<string, { name: string; swatch: string[] }> = {
   bubblegum: { name: 'Bubble Gum', swatch: ['#EFAAD6', '#F6CBE7', '#112E6D', '#C8102E', '#FDEFF7'] },
+  burgundy: { name: 'Burgundy', swatch: ['#7B1E3A', '#A8425F', '#2A0E16', '#C8102E', '#FBF0F2'] },
   dark: { name: 'Dark Mode', swatch: ['#0B1020', '#151C2E', '#5B7BFF', '#8FA6D8', '#E9EEFB'] },
   vidura: { name: 'Vidura Blue', swatch: ['#164fec', '#4d60ff', '#4263d6', '#1a4be6', '#eefaff'] },
 }
+// Each typeface pairs a distinct display face (headlines, titles, big numbers) with its own body
+// face — both vary together, so switching options changes the whole app's feel, not just headings.
 export const FONTS: Record<string, { name: string; note: string; serif: string; sans: string }> = {
-  cormorant: { name: 'Cormorant Garamond', note: 'High-contrast serif — the current look', serif: "'Cormorant Garamond',Georgia,serif", sans: "'Montserrat',Helvetica,Arial,sans-serif" },
-  playfair: { name: 'Playfair Display', note: 'Heavier serif, more editorial', serif: "'Playfair Display',Georgia,serif", sans: "'Montserrat',Helvetica,Arial,sans-serif" },
-  libre: { name: 'Libre Baskerville', note: 'Traditional, bookish, very legible', serif: "'Libre Baskerville',Georgia,serif", sans: "'Montserrat',Helvetica,Arial,sans-serif" },
-  inter: { name: 'Inter', note: 'Bold geometric sans — the Vidura platform look', serif: "'Inter',ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif", sans: "'Inter',ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif" },
-  system: { name: 'System sans only', note: 'No serif display — plainest, fastest', serif: "'Montserrat',Helvetica,Arial,sans-serif", sans: "'Montserrat',Helvetica,Arial,sans-serif" },
+  normal: { name: 'Normal', note: 'Clean modern sans, everywhere — the plainest, easiest to read', serif: "'Inter',ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif", sans: "'Inter',ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif" },
+  retro: { name: 'Retro', note: 'Bold vintage display headlines over a warm, rounded body face', serif: "'Abril Fatface',Georgia,serif", sans: "'Poppins',Helvetica,Arial,sans-serif" },
+  calligraphy: { name: 'Calligraphy', note: 'Elegant flowing script headlines over a clean, readable body', serif: "'Alex Brush',cursive", sans: "'Montserrat',Helvetica,Arial,sans-serif" },
 }
 export interface Look { theme: string; font: string }
-export const DEFAULT_LOOK: Look = { theme: 'vidura', font: 'system' }
+export const DEFAULT_LOOK: Look = { theme: 'vidura', font: 'normal' }
 const KEY = 'vidura_look_v2'
 const listeners = new Set<(l: Look) => void>()
 let current: Look = DEFAULT_LOOK
