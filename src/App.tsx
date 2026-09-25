@@ -17,6 +17,7 @@ import ChangePassword from './pages/ChangePassword'
 import MyPay from './pages/MyPay'
 import Passwords from './pages/Passwords'
 import ExecutiveDashboard from './pages/executive/ExecutiveDashboard'
+import Foresight from './pages/foresight/Foresight'
 import { can } from './lib/access'
 import { useState } from 'react'
 
@@ -47,6 +48,7 @@ function Gate() {
           {/* Performance screens not yet rebuilt: the original screens, shown by the layout's LegacyHost */}
           {['/legacy-dashboard', '/sales', '/huddle', '/reports', '/commissions', '/sdr'].map((p) =>
             <Route key={p} path={p} element={can(me, 'performance') ? null : <Navigate to="/today" replace />} />)}
+          {can(me, 'performance') && <Route path="/foresight" element={<Foresight />} />}
           <Route path="/settings" element={<Settings />} />
           <Route path="/team" element={<Navigate to="/settings" replace />} />
           <Route path="/password" element={<ChangePassword />} />

@@ -34,6 +34,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     { to: '/', label: 'Executive Dashboard', icon: 'executive', show: c('performance'), also: ['/legacy-dashboard'] },
     { to: '/sales', label: 'Sales KPIs', icon: 'sales', show: c('performance'), also: ['/huddle'] },
     { to: '/reports', label: 'Reports', icon: 'reports', show: c('performance'), also: ['/commissions', '/sdr'] },
+    { to: '/foresight', label: 'Vida Foresight', icon: 'foresight', show: c('performance') },
     { h: 'Agency Management' },
     { to: '/resources', label: 'Client Servicing', icon: 'service', show: c('resources') },
     { to: '/books/farmers', label: 'Books of Business', icon: 'book', show: c('books'), also: ['/books'] },
