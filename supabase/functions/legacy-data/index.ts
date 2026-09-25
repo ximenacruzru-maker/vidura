@@ -3,7 +3,7 @@
 // Performance screens can run in the new app from the database instead of the old single file.
 // Source pinned by SHA-256. Stored-credential blocks are not in the list and are never read.
 // Large embedded files (data: URIs) are dropped; documents live in the private bucket.
-// Auth: x-cron-secret header. Body: { "from": 0, "to": 79 } to process a slice of the list.
+// Writes to the Ironwood agency. Auth: x-cron-secret header. Body: { "from": 0, "to": 79 } to process a slice of the list.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SRC = "https://raw.githubusercontent.com/ximenacruzru-maker/vid/main/index.html";
@@ -33,6 +33,9 @@ Deno.serve(async (req) => {
     const st = html.indexOf(MARK) + "<script>".length;
     const code = html.slice(st, html.indexOf("</script>", st));
     const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    // The source file is Ironwood's: every row is written to Ironwood's agency.
+    const { data: ag } = await db.from("agencies").select("id").eq("slug", "ironwood").maybeSingle();
+    if (!ag) throw new Error("No Ironwood agency");
     const done: string[] = [];
     let owner: unknown = null;
     for (const [name, i, e] of LIST.slice(from, to)) {
@@ -45,11 +48,11 @@ Deno.serve(async (req) => {
         const c = (v as any).commercial?.[0];
         if (c) owner = { id: "owner-gas-stations", name: c.name, dba: c.dba, contact: c.contact, phone: c.phone, locations: 0, policies: 0, premium: 0 };
       }
-      const { error } = await db.from("reference_data").upsert({ key: "lg:" + name, data: v, admin_only: true, updated_at: new Date().toISOString() });
+      const { error } = await db.from("reference_data").upsert({ agency_id: ag.id, key: "lg:" + name, data: v, admin_only: true, updated_at: new Date().toISOString() });
       if (error) throw new Error(name + ": " + error.message);
       done.push(name);
     }
-    if (owner) await db.from("reference_data").upsert({ key: "lg:CB_OWNER", data: owner, admin_only: true, updated_at: new Date().toISOString() });
+    if (owner) await db.from("reference_data").upsert({ agency_id: ag.id, key: "lg:CB_OWNER", data: owner, admin_only: true, updated_at: new Date().toISOString() });
     return new Response(JSON.stringify({ ok: true, count: done.length, done }), { headers: { "Content-Type": "application/json" } });
   } catch (err) {
     return new Response(JSON.stringify({ ok: false, error: String(err) }), { status: 500, headers: { "Content-Type": "application/json" } });

@@ -39,7 +39,7 @@ export default function LegacyHost({ path }: { path: string }) {
 
   return (
     <div className="legacy-host" style={{ display: target ? 'block' : 'none' }}>
-      <iframe ref={frame} title="Vidura performance" src="./perf/index.html" />
+      <iframe ref={frame} title="Declara performance" src="./perf/index.html" />
     </div>
   )
 }

@@ -11,6 +11,9 @@ export interface StaffAccount {
   email?: string | null
   access?: Record<string, boolean>
   must_change_password?: boolean
+  agency_id: string
+  /** The agency this login belongs to (every row the login can reach is this agency's). */
+  agency?: { name: string; short_name: string | null; is_demo: boolean; agencyzoom_sync: boolean } | null
 }
 
 export interface Folio {
@@ -86,10 +89,14 @@ async function all<T>(table: string, build?: (q: any) => any): Promise<T[]> {
 
 const num = (v: unknown) => Number(v) || 0
 
+/** The agency's name for headings, and its short form for labels like "Ironwood Classroom". */
+export const agencyName = (me: StaffAccount | null | undefined) => me?.agency?.name || 'Your agency'
+export const agencyShort = (me: StaffAccount | null | undefined) => me?.agency?.short_name || me?.agency?.name || 'Agency'
+
 export async function getMe(): Promise<StaffAccount | null> {
   const { data: u } = await supabase.auth.getUser()
   if (!u.user) return null
-  const { data } = await supabase.from('staff_accounts').select('*').eq('user_id', u.user.id).maybeSingle()
+  const { data } = await supabase.from('staff_accounts').select('*, agency:agencies(name, short_name, is_demo, agencyzoom_sync)').eq('user_id', u.user.id).maybeSingle()
   return (data as StaffAccount) || null
 }
 

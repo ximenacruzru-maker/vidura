@@ -2,7 +2,7 @@ import { Fragment, useEffect, useState } from 'react'
 import { useAuth } from '../auth'
 import { FolioPicker, folioName, useFolio } from '../components/FolioPicker'
 import { Empty, ErrorBox, Loading, PageHead, Panel, Tabs, Tile, Tiles } from '../components/ui'
-import { getSdrPeriods, getSdrTransfers, type SdrPeriod } from '../lib/data'
+import { agencyShort, getSdrPeriods, getSdrTransfers, type SdrPeriod } from '../lib/data'
 import { downloadCsv, mdy, money0, money2, pct, shortDate } from '../lib/format'
 import { supabase } from '../lib/supabase'
 import { useAsync } from '../lib/useAsync'
@@ -68,7 +68,7 @@ export function MyCommission() {
   const totalComm = results.reduce((s, r) => s + r.total, 0)
   const bucketKeys = plan.buckets.map((b) => b.key)
 
-  const exportCsv = () => downloadCsv(`Ironwood_Commissions_${folio?.start_date}.csv`, [
+  const exportCsv = () => downloadCsv(`${agencyShort(me).replace(/[^A-Za-z0-9]+/g, '_')}_Commissions_${folio?.start_date}.csv`, [
     ['Producer', 'Total premium', 'Policies', 'Life (weighted)', 'Qualifies', 'Tier rate',
       ...plan.buckets.flatMap((b) => [`${b.label} premium`, `${b.label} commission`]), 'Bonuses', 'Total commission'],
     ...results.map((r) => [r.producer, r.totalPremium.toFixed(2), r.policies, r.life, r.qualifies ? 'Yes' : 'No', pct(r.tierRate),

@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 
 // Publishable (public) key: safe to ship in the browser. Every table is
 // protected by row-level security, so it can only read what a signed-in
-// Ironwood staff member is allowed to see.
+// staff member of that agency is allowed to see.
 export const SUPABASE_URL = 'https://sikgwlhwsezrhiylfmnx.supabase.co'
 const SUPABASE_KEY = 'sb_publishable_OlAqQqzr4PRb8sTOCf5JVg__j2VYqR6'
 

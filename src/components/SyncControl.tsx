@@ -3,6 +3,7 @@ import { getLastSync } from '../lib/data'
 import { timeAgo } from '../lib/format'
 import { supabase } from '../lib/supabase'
 import { Icon } from './icons'
+import { useAuth } from '../auth'
 
 const LIMIT = 3
 const fmtWhen = (iso: string) =>
@@ -17,6 +18,8 @@ export default function SyncControl() {
   const [msg, setMsg] = useState('')
   const [open, setOpen] = useState(false)
   const box = useRef<HTMLDivElement>(null)
+  const { me } = useAuth()
+  const demo = !!me?.agency?.is_demo, connected = !!me?.agency?.agencyzoom_sync
 
   const load = useCallback(async () => {
     const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString()
@@ -40,6 +43,7 @@ export default function SyncControl() {
   const bad = sync?.status === 'error'
 
   const run = async () => {
+    if (demo) { setMsg('This is a demo agency with sample data, so there is nothing to pull. In a live agency, Refresh pulls the latest from AgencyZoom.'); setOpen(true); return }
     if (!confirm(`Pull fresh AgencyZoom data now?\n\nThis uses 1 of ${LIMIT} force refreshes allowed in 24 hours (${left} left).`)) return
     setBusy(true); setMsg('')
     const before = sync?.finished_at || ''
@@ -67,9 +71,9 @@ export default function SyncControl() {
         <span className="sync-dot" data-ok={sync?.status === 'success' || sync?.status === 'partial'} data-bad={bad} />
         <span className="tsync-l">{label}</span>
       </button>
-      <button className="tsync-btn" onClick={run} disabled={busy || left === 0} title={left === 0 && nextAt ? `3 of 3 used · next ${fmtWhen(nextAt)}` : `${left} of ${LIMIT} force refreshes left in 24 hours`}>
+      {(connected || demo) && <button className="tsync-btn" onClick={run} disabled={busy || left === 0} title={left === 0 && nextAt ? `3 of 3 used · next ${fmtWhen(nextAt)}` : `${left} of ${LIMIT} force refreshes left in 24 hours`}>
         <Icon name="refresh" width={1.9} /><span>Refresh</span><em>{left}</em>
-      </button>
+      </button>}
       {open && (
         <div className="tsync-pop">
           <b>AgencyZoom</b>

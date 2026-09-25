@@ -124,7 +124,7 @@ function AddForm({ busy, ownerCanAdd, onSave }: { busy: boolean; ownerCanAdd: bo
       <div className="row-actions" style={{ marginTop: 12 }}>
         <button className="btn-primary" disabled={busy} onClick={() => onSave(f)}>{busy ? 'Adding…' : 'Add staff member'}</button>
       </div>
-      <p className="note">Give them the temporary password privately. The first time they sign in, Vidura asks them to set their own.</p>
+      <p className="note">Give them the temporary password privately. The first time they sign in, Declara asks them to set their own.</p>
     </div>
   )
 }
@@ -180,7 +180,7 @@ export default function Settings() {
   const tabs: [typeof tab, string][] = [['appearance', 'Appearance'], ...(admin ? [['access', 'Producers & access'] as [typeof tab, string]] : []), ['password', 'Password']]
   return (
     <>
-      <PageHead kicker="Administration" title="Settings" sub={`${THEMES[look.theme]?.name || 'Vidura Blue'} theme${admin && people.data != null ? ` · ${people.data} on the account` : ''}`} />
+      <PageHead kicker="Administration" title="Settings" sub={`${THEMES[look.theme]?.name || 'Declara Blue'} theme${admin && people.data != null ? ` · ${people.data} on the account` : ''}`} />
       <div className="set-band">
         <div><div className="eye">Agency configuration</div><h2>Settings</h2></div>
         <div className="set-stats">
@@ -211,7 +211,7 @@ function Appearance({ look, userId }: { look: Look; userId: string }) {
               <div key={k} className={'th-r' + (look.theme === k ? ' th-on' : '')} tabIndex={0} role="button"
                 onClick={() => pick({ ...look, theme: k })} onKeyDown={(e) => e.key === 'Enter' && pick({ ...look, theme: k })}>
                 <div className="th-sw">{t.swatch.map((c) => <i key={c} style={{ background: c }} />)}</div>
-                <div className="th-n">{t.name}</div>
+                <div className="th-n">{t.name}{t.note && <span className="th-s">{t.note}</span>}</div>
                 <div className="th-c">{look.theme === k ? 'In use' : 'Use'}</div>
               </div>
             ))}

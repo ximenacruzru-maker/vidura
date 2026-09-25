@@ -5,7 +5,7 @@
   try {
     var sb = window.supabase.createClient(URL, KEY);
     var s = await sb.auth.getSession();
-    if (!s.data || !s.data.session) { msg("Please sign in to Vidura first."); return; }
+    if (!s.data || !s.data.session) { msg("Please sign in to Declara first."); return; }
     var rows = [];
     for (var from = 0; ; from += 20) {
       var r = await sb.from("reference_data").select("key,data").like("key", "lg:%").order("key").range(from, from + 19);
@@ -15,6 +15,9 @@
     }
     if (!rows.length) { msg("Your account doesn\u2019t have access to these reports."); return; }
     var D = {}; rows.forEach(function (x) { D[x.key.slice(3)] = x.data; });
+    /* The signed-in login's agency (row-level security returns only that one), for names on reports and exports. */
+    var ag = await sb.from("agencies").select("name,short_name").maybeSingle();
+    if (ag.data) D.AGENCY = ag.data;
 
     /* Books: use the live book tables (the same records as the P&C book pages), not the old snapshot. */
     async function all(table) {

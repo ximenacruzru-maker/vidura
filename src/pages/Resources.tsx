@@ -139,7 +139,7 @@ function Kb({ kb }: { kb: any[] }) {
 
 function Platforms({ systems, logins, pw }: { systems: any[]; logins: Login[]; pw: boolean }) {
   return (
-    <Panel title="Platforms the agency signs into" sub={pw ? 'Logins come from Agency Passwords — copy the username and password, then open the site.' : 'Ask an admin for access to Agency Passwords to see the logins here.'}>
+    <Panel title="Platforms the agency signs into" sub={pw ? 'Logins come from the Agency passwords tab — copy the username and password, then open the site.' : 'Ask an admin to switch on Agency passwords for you to see the logins here.'}>
       <div className="cards">
         {systems.map((s) => (
           <div key={s.id} className="card">
