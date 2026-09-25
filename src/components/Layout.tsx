@@ -61,7 +61,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     <div className="shell">
       <aside className="side">
         <div className="side-brand">
-          <div className="brand-tile"><img className="brand-logo" src={logoWhite} alt="Vidura Platform" /></div>
+          <div className="brand-tile"><img className="brand-logo" src={logoWhite} alt="Declara" /></div>
           <p className="side-for">For</p>
           <p className="side-sub">{agencyName(me)}</p>
         </div>

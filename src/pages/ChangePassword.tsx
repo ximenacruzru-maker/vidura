@@ -24,7 +24,7 @@ export default function ChangePassword({ forced, embedded, onDone }: { forced?: 
   }
   const form = (
     <form className={forced ? 'login-card' : 'panel-b pw-card'} onSubmit={submit} style={forced ? undefined : { display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {forced && <img src={logo} alt="Vidura" className="login-logo" />}
+      {forced && <img src={logo} alt="Declara" className="login-logo" />}
       {forced && <div className="login-sub">Welcome{me?.display_name ? ', ' + me.display_name.split(' ')[0] : ''} — choose your password</div>}
       <label>New password<input className="fld" type="password" autoComplete="new-password" value={a} onChange={(e) => setA(e.target.value)} required /></label>
       <label>Type it again<input className="fld" type="password" autoComplete="new-password" value={b} onChange={(e) => setB(e.target.value)} required /></label>

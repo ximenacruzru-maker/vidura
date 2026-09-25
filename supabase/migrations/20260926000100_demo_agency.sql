@@ -1,4 +1,4 @@
--- Demo agency: Northwind Insurance Group, an entirely made-up agency for showing Vidura to prospects.
+-- Demo agency: Northwind Insurance Group, an entirely made-up agency for showing Declara to prospects.
 --
 -- public.demo_reset('northwind') wipes and regenerates every row of a demo agency (is_demo = true; it
 -- refuses any other agency), with dates relative to today, so the demo is always "live" up to the day
@@ -345,7 +345,7 @@ begin
 
   -- 10. Workspace: work queue, daily checklist, chat, saved logins, sync history --------------------------
   insert into public.work_items (agency_id, area, name, kind, priority, entered, due, owner, status, note, source)
-  select v_ag, x.area, x.name, x.kind, x.pri, today - x.ago, today - x.ago + x.due, x.owner, x.st, x.note, 'Vidura'
+  select v_ag, x.area, x.name, x.kind, x.pri, today - x.ago, today - x.ago + x.due, x.owner, x.st, x.note, 'Declara'
   from (values ('Client Support', 'Endorsement — add 2019 Tacoma to auto policy', 'Policy Change', 'High', 1, 2, 'Nina Olsen', 'In Process', 'Waiting on VIN from client'),
                ('Client Support', 'Certificate of insurance for Bright Ember Catering', 'COI', 'Critical', 0, 1, 'Nina Olsen', 'Not started', 'Holder: Sacramento Convention Center'),
                ('Client Support', 'Payment reminder — Garrison homeowners', 'Payment', 'Medium', 3, 4, 'Tom Brennan', 'Completed', 'Paid by card'),

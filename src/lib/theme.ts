@@ -7,7 +7,7 @@ export const THEMES: Record<string, { name: string; swatch: string[]; note?: str
   bubblegum: { name: 'Bubble Gum', swatch: ['#EFAAD6', '#F6CBE7', '#112E6D', '#C8102E', '#FDEFF7'] },
   burgundy: { name: 'Burgundy', swatch: ['#7B1E3A', '#A8425F', '#2A0E16', '#C8102E', '#FBF0F2'] },
   dark: { name: 'Dark Mode', swatch: ['#0B1020', '#151C2E', '#5B7BFF', '#8FA6D8', '#E9EEFB'] },
-  vidura: { name: 'Vidura Blue', swatch: ['#164fec', '#4d60ff', '#4263d6', '#1a4be6', '#eefaff'] },
+  vidura: { name: 'Declara Blue', swatch: ['#164fec', '#4d60ff', '#4263d6', '#1a4be6', '#eefaff'] },
   hippie: { name: 'Hippiecore', note: 'Burnt orange, mustard and olive on warm cream, with soft rounded cards', swatch: ['#9E4E17', '#E3A51C', '#5E7D33', '#A84B17', '#FBF1DE'] },
   modern: { name: 'Modern', note: 'Black, white and one indigo accent — flat, crisp and minimal', swatch: ['#0A0A0A', '#18181B', '#4F46E5', '#E4E4E7', '#FAFAFA'] },
   euroart: { name: 'European Art', note: 'Prussian blue, gilt and crimson lake on parchment, with gold-framed panels', swatch: ['#1F3A68', '#B8892B', '#9A2A1F', '#E0CFA9', '#F3EBDA'] },

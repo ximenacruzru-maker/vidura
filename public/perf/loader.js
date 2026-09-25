@@ -5,7 +5,7 @@
   try {
     var sb = window.supabase.createClient(URL, KEY);
     var s = await sb.auth.getSession();
-    if (!s.data || !s.data.session) { msg("Please sign in to Vidura first."); return; }
+    if (!s.data || !s.data.session) { msg("Please sign in to Declara first."); return; }
     var rows = [];
     for (var from = 0; ; from += 20) {
       var r = await sb.from("reference_data").select("key,data").like("key", "lg:%").order("key").range(from, from + 19);

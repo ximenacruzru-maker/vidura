@@ -80,7 +80,7 @@ export function LoginScreen() {
   return (
     <div className="login">
       <form className="login-card" onSubmit={submit}>
-        <img src={logo} alt="Vidura" className="login-logo" />
+        <img src={logo} alt="Declara" className="login-logo" />
         <div className="login-sub">Agency staff sign-in</div>
         <label>Email<input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required /></label>
         <label>Password<input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required /></label>
