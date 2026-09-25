@@ -27,8 +27,25 @@ const perDollar = (n: number | null) => (n == null ? '—' : '$' + n.toFixed(2))
 const tight = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
 const L = ({ items }: { items: ReactNode[] }) => <ul className="ai-list">{items.map((x, i) => <li key={i}>{x}</li>)}</ul>
 
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
+/** "aug 1", "august 1st 2026", "8/1", "8/1/2026", "2026-08-01" → ISO date (this year when none given). */
+function parseDate(t: string, year: string): string | null {
+  t = t.trim().replace(/(st|nd|rd|th),?$/, '').replace(',', '')
+  let m = t.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (m) return t
+  m = t.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/)
+  if (m) { const y = m[3] ? (m[3].length === 2 ? '20' + m[3] : m[3]) : year; return `${y}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}` }
+  m = t.match(/^([a-z]{3})[a-z]*\.? (\d{1,2})(?:st|nd|rd|th)?(?: (\d{4}))?$/)
+  if (m && MONTHS.includes(m[1])) return `${m[3] || year}-${String(MONTHS.indexOf(m[1]) + 1).padStart(2, '0')}-${m[2].padStart(2, '0')}`
+  return null
+}
 /** The period a question names; year to date when it names none. */
-function periodOf(q: string): { key: string; label: string } {
+function periodOf(q: string): { key: string; label: string; range?: Window } {
+  const r = q.match(/(?:from|between|since)\s+([a-z0-9/ .-]+?)\s+(?:to|and|through|thru|until|-)\s+([a-z0-9/ .-]+?)(?:[?.!,]|$| for | on | with )/)
+  if (r) {
+    const year = todayPacific().slice(0, 4), a = parseDate(r[1], year), b = parseDate(r[2], year)
+    if (a && b) { const range = a <= b ? { from: a, to: b } : { from: b, to: a }; return { key: 'custom', label: 'that range', range } }
+  }
   const n = q.match(/last (\d+) days?/)
   if (n) return { key: n[1], label: `the last ${n[1]} days` }
   if (/this month|month to date|mtd/.test(q)) return { key: 'mtd', label: 'this month' }
@@ -43,7 +60,7 @@ function answer(qRaw: string, D: ForesightData): Answer {
   const today = todayPacific()
   const first = D.sales.reduce((m, s) => (s.sale_date < m ? s.sale_date : m), today)
   const p = periodOf(q)
-  const w = windowFor(p.key, today, first)
+  const w = windowFor(p.key, today, first, p.range)
   const when = `${p.label} (${span(w)})`
 
   const sourcesAnswer = () => {
@@ -174,7 +191,7 @@ function answer(qRaw: string, D: ForesightData): Answer {
     }
   }
 
-  return { body: <>I answer Vida Foresight questions from the agency's sold policies and recorded lead spend: which day you sell the most, the top producer, what each lead source returns, where to shift lead spend, and what a spend change would do (e.g. "what if we spent 20% more on EverQuote?"). Figures are year to date unless you name a period.</> }
+  return { body: <>I answer Vida Foresight questions from the agency's sold policies and recorded lead spend: which day you sell the most, the top producer, what each lead source returns, where to shift lead spend, and what a spend change would do (e.g. "what if we spent 20% more on EverQuote?"). Figures are year to date unless you name a period — "this month", "last 90 days", or a range like "from Aug 1 to Sep 5".</> }
 }
 
 export default function ForesightAI() {
@@ -213,6 +230,7 @@ export default function ForesightAI() {
             <div className="drawer-h">
               <div><div className="panel-t">Foresight AI</div><div className="panel-s">Sales patterns, producers and lead spend — year to date unless you name a period.</div></div>
               <div className="row-actions">
+                <button className="btn-primary" onClick={() => { setOpen(false); go('/foresight') }}>Open Vida Foresight</button>
                 {msgs.length > 0 && <button className="btn-ghost" onClick={() => setMsgs([])}>Clear</button>}
                 <button className="btn-ghost" onClick={() => setOpen(false)}>Close</button>
               </div>

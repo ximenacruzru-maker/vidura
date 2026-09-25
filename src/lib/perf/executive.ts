@@ -99,9 +99,15 @@ export function bookMix(rows: Row[]) {
 
 /* ---------- production window ---------- */
 export interface ProdRange { key?: string; start: string; end: string; label: string; folio?: string; folios?: string[] }
-export function execProdRange(D: PerfData, k: string): ProdRange {
+export function execProdRange(D: PerfData, k: string, custom?: { from: string; to: string }): ProdRange {
   const iso = (d: Date) => d.toISOString().slice(0, 10)
   const ks = wbFolioKeys(D)
+  if (k === 'custom') {
+    const t = today0(), y = String(t.getFullYear())
+    let a = custom?.from || y + '-01-01', b = custom?.to || iso(t)
+    if (a > b) [a, b] = [b, a]
+    return { start: a, end: b, label: 'Custom range · ' + a + ' to ' + b }
+  }
   if (k === 'folio' || k === 'last') {
     const key = k === 'folio' ? ks[0] : ks[1]; const f = D.WB_DATA.folio[key]
     return { key, start: f.start, end: f.end, label: f.label.replace(' (in progress)', ''), folio: key }
@@ -117,8 +123,8 @@ export function execProdRange(D: PerfData, k: string): ProdRange {
   else s = new Date(t.getFullYear(), 0, 1)
   return { start: iso(s), end: iso(t), label: (D.EXEC_PROD_WINDOWS.find((w) => w[0] === k) || [])[1] + ' · ' + iso(s) + ' to ' + iso(t) }
 }
-export function execProduction(D: PerfData, k: string) {
-  const r = execProdRange(D, k); const Dd = D.WB_EXTRA.daily || {}; const Q = (D.WB_EXTRA.quotes || { byDay: {} }).byDay || {}
+export function execProduction(D: PerfData, k: string, custom?: { from: string; to: string }) {
+  const r = execProdRange(D, k, custom); const Dd = D.WB_EXTRA.daily || {}; const Q = (D.WB_EXTRA.quotes || { byDay: {} }).byDay || {}
   const days = Object.keys(Dd).filter((d) => d >= r.start && d <= r.end).sort()
   const sales: Json[] = []
   days.forEach((d) => (Dd[d].sales || []).forEach((x: Json) => sales.push({ date: d, ...x })))
@@ -174,7 +180,7 @@ export function execExceptions(D: PerfData, rows: Row[], expired: Row[], undated
 }
 
 /* ---------- the dashboard ---------- */
-export interface Filters { period: string; book: string; line: string; customStart: string; customEnd: string; prod: string }
+export interface Filters { period: string; book: string; line: string; customStart: string; customEnd: string; prod: string; prodFrom?: string; prodTo?: string }
 export interface Client { name: string; book: Book; id: string; n: number; p: number }
 export interface Drill { title: string; sub: string; how: string; kind?: 'clients'; items: (Row | Client)[] }
 
@@ -245,7 +251,7 @@ export function computeExecutive(D: PerfData, rows: Row[], f: Filters) {
       return { name: r.client, book: r.book, id: r.clientId, when: r.exp!, prem: r.prem, play: c && c.n === 1 ? 'Add a second line' : 'Expand coverage' }
     })
 
-  const PW = execProduction(D, f.prod)
+  const PW = execProduction(D, f.prod, { from: f.prodFrom || '', to: f.prodTo || '' })
   const cv = PW.quotes && PW.quotes >= PW.sales.length ? Math.round((PW.sales.length / PW.quotes) * 100) + '%' : null
   /* The values the Metric Components drawer shows as live (engine.js DASH_LAST for the executive module). */
   const liveKpis = ([

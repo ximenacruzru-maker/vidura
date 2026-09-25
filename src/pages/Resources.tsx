@@ -6,8 +6,10 @@ import { useAuth } from '../auth'
 import { can } from '../lib/access'
 import { getLogins, loginsFor, type Login } from '../lib/logins'
 import LoginCreds from '../components/LoginCreds'
+import Passwords from './Passwords'
+import { useSearchParams } from 'react-router-dom'
 
-type T = 'forms' | 'markets' | 'appetite' | 'kb' | 'platforms'
+type T = 'forms' | 'markets' | 'appetite' | 'kb' | 'platforms' | 'passwords'
 const TABS: { key: T; label: string }[] = [
   { key: 'forms', label: 'Forms & guides' }, { key: 'markets', label: 'Carrier markets' },
   { key: 'appetite', label: 'Farmers appetite guide' }, { key: 'kb', label: 'Farmers Q&A' }, { key: 'platforms', label: 'Platforms' },
@@ -16,7 +18,11 @@ const TABS: { key: T; label: string }[] = [
 export default function Resources() {
   const { me } = useAuth()
   const pw = can(me, 'passwords')
-  const [tab, setTab] = useState<T>('forms')
+  const [params] = useSearchParams()
+  // Passwords is its own permission, so someone can have it with the rest of Resources switched off.
+  const tabs = [...(can(me, 'resources') ? TABS : []), ...(pw ? [{ key: 'passwords' as T, label: 'Agency passwords' }] : [])]
+  const asked = params.get('tab') as T | null
+  const [tab, setTab] = useState<T>(asked && tabs.some((t) => t.key === asked) ? asked : tabs[0]?.key ?? 'forms')
   const { data, error } = useAsync(async () => {
     const [resources, markets, bi, kb, systems, docs] = await Promise.all([
       getReference<any[]>('resources'), getReference<any[]>('markets'), getReference<any>('farmers_bi'),
@@ -25,18 +31,19 @@ export default function Resources() {
     const logins = pw ? await getLogins().catch(() => [] as Login[]) : []
     return { resources: resources || [], markets: markets || [], bi, kb: kb || [], systems: systems || [], docs, logins }
   }, [pw])
-  const head = <PageHead kicker="Client servicing" title="Resources" sub="Forms, carrier markets, the Farmers appetite guide and the logins the agency works in." />
+  const head = <PageHead kicker="Agency" title="Agency Resources" sub={`Forms, carrier markets, the Farmers appetite guide${pw ? ', platforms and the agency passwords' : ' and the platforms the agency works in'}.`} />
   if (error) return <>{head}<ErrorBox error={error} /></>
   if (!data) return <>{head}<Loading /></>
   return (
     <>
       {head}
-      <Tabs tabs={TABS} value={tab} onChange={setTab} />
+      <Tabs tabs={tabs} value={tab} onChange={setTab} />
       {tab === 'forms' && <Forms resources={data.resources} docs={data.docs} />}
       {tab === 'markets' && <Markets markets={data.markets} logins={data.logins} />}
       {tab === 'appetite' && <Appetite bi={data.bi} />}
       {tab === 'kb' && <Kb kb={data.kb} />}
       {tab === 'platforms' && <Platforms systems={data.systems} logins={data.logins} pw={pw} />}
+      {tab === 'passwords' && pw && <Passwords embedded />}
     </>
   )
 }

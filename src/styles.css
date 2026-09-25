@@ -486,3 +486,8 @@ html[data-theme="dark"] .renew-warn { border-color: #6b4a14; background: var(--w
 .renew-msg { flex: 1 1 260px; font-size: 14px; color: var(--ink); line-height: 1.45; }
 .renew-body { padding: 4px 16px 16px; border-top: 1px solid var(--line); background: var(--card); border-radius: 0 0 var(--radius) var(--radius); }
 .renew-body .tabs { margin-top: 12px; }
+
+/* ---------- custom date range beside a period dropdown ---------- */
+.date-range { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.date-range label { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--muted); }
+.date-range input { width: auto; padding: 7px 8px; }

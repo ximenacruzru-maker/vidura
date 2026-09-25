@@ -26,7 +26,7 @@ export function Dashboard({ D }: { D: PerfData }) {
   const S = D.S || {}
   const [f, setF] = useState(saved || {
     period: S.exPeriod || '365', book: S.exBook || 'all', line: S.exLine || 'all',
-    customStart: S.exCustomStart || '', customEnd: S.exCustomEnd || '', prod: S.exProd || 'folio',
+    customStart: S.exCustomStart || '', customEnd: S.exCustomEnd || '', prod: S.exProd || 'folio', prodFrom: '', prodTo: '',
     chart: S.exChart || 'count', goals: !!S.exGoals, drill: S.exDrill || null,
   })
   useEffect(() => { saved = f }, [f])
@@ -105,7 +105,8 @@ export function Dashboard({ D }: { D: PerfData }) {
           </div>
         )}
         <div className="fcrumb">{f.book === 'all' ? 'All Books' : D.BOOK_NAME[f.book]} &middot; {f.line === 'all' ? 'All Lines' : f.line} &middot; {x.periodLabel}</div>
-        <Production D={D} win={f.prod} setWin={(v) => set('prod', v)} goals={goals} />
+        <Production D={D} win={f.prod} setWin={(v) => set('prod', v)} range={{ from: f.prodFrom || '', to: f.prodTo || '' }}
+          setRange={(r) => setF((x) => ({ ...x, prodFrom: r.from, prodTo: r.to }))} goals={goals} />
 
         <div className="scg" style={{ gridTemplateColumns: 'repeat(6, minmax(0, 1fr))' }}>
           <ScoreCard icon={ICO.dollar} iconClass="i-blue" label="Written premium" value={x.total} display={money0(x.total)} drill="premium" onDrill={onDrill}
@@ -272,8 +273,10 @@ export function Dashboard({ D }: { D: PerfData }) {
 }
 
 /* ---------- production window ---------- */
-function Production({ D, win, setWin, goals }: { D: PerfData; win: string; setWin: (v: string) => void; goals: PerfData['GOALS'] }) {
-  const P = execProduction(D, win)
+function Production({ D, win, setWin, range, setRange, goals }: {
+  D: PerfData; win: string; setWin: (v: string) => void; range: { from: string; to: string }; setRange: (r: { from: string; to: string }) => void; goals: PerfData['GOALS']
+}) {
+  const P = execProduction(D, win, range)
   const conv = P.quotes && P.quotes >= P.sales.length ? (P.sales.length / P.quotes) * 100 : null
   const farmers = P.sales.filter((s) => isFarmersCarrier(s.carrier) || isFarmersCarrier(s.source)).reduce((a, s) => a + (s.premium || 0), 0)
   const other = P.prem - farmers, fShare = P.prem ? (farmers / P.prem) * 100 : 0
@@ -289,8 +292,14 @@ function Production({ D, win, setWin, goals }: { D: PerfData; win: string; setWi
       <div className="panel-h">
         <div><div className="panel-t">Production &middot; {P.r.label}</div>
           <div className="panel-s">What was written in the window &middot; {P.days} day{P.days === 1 ? '' : 's'} with sales on the ledger{P.official ? <> &middot; AgencyZoom official {money0(P.official)} (last pull {rep.generatedAt || ''})</> : ''}</div></div>
-        <div className="fb-g"><label className="fl">Window</label>
-          <select className="f" value={win} onChange={(e) => setWin(e.target.value)}>{D.EXEC_PROD_WINDOWS.map((w) => <option key={w[0]} value={w[0]}>{w[1]}</option>)}</select></div>
+        <div className="fbar" style={{ margin: 0 }}>
+          <div className="fb-g"><label className="fl">Window</label>
+            <select className="f" value={win} onChange={(e) => setWin(e.target.value)}>{D.EXEC_PROD_WINDOWS.map((w) => <option key={w[0]} value={w[0]}>{w[1]}</option>)}<option value="custom">Custom range</option></select></div>
+          {win === 'custom' && <>
+            <div className="fb-g"><label className="fl">From</label><input type="date" className="f" value={range.from} onChange={(e) => setRange({ ...range, from: e.target.value })} /></div>
+            <div className="fb-g"><label className="fl">To</label><input type="date" className="f" value={range.to} onChange={(e) => setRange({ ...range, to: e.target.value })} /></div>
+          </>}
+        </div>
       </div>
       <div className="panel-b">
         <div className="scg">

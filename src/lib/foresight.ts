@@ -239,8 +239,13 @@ export function savedRate(): number | null {
 }
 
 /* ---------- windows ---------- */
-export function windowFor(key: string, today: string, first: string): Window {
+export function windowFor(key: string, today: string, first: string, custom?: Window): Window {
   const y = today.slice(0, 4)
+  if (key === 'custom') {
+    // blanks fall back to year to date; dates entered backwards are swapped
+    const from = custom?.from || y + '-01-01', to = custom?.to || today
+    return from <= to ? { from, to } : { from: to, to: from }
+  }
   if (key === 'mtd') return { from: today.slice(0, 8) + '01', to: today }
   if (key === 'ytd') return { from: y + '-01-01', to: today }
   if (key === 'all') return { from: first, to: today }

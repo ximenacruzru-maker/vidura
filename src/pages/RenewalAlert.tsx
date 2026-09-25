@@ -3,11 +3,13 @@ import { Empty, Search, Tabs } from '../components/ui'
 import { daysUntil, type Account, type BookPolicy } from '../lib/books'
 import { downloadCsv, mdy, money0 } from '../lib/format'
 import { RenewPill } from './Books'
+import { DateRange, resolveRange } from '../components/DateRange'
+import { addDays } from '../lib/format'
 
-type Win = '30' | '60' | '90' | '365' | 'expired'
+type Win = '30' | '60' | '90' | '365' | 'expired' | 'custom'
 const WINS: { key: Win; label: string }[] = [
   { key: '30', label: 'Next 30 days' }, { key: '60', label: 'Next 60 days' }, { key: '90', label: 'Next 90 days' },
-  { key: '365', label: 'Next 12 months' }, { key: 'expired', label: 'Past expiration' },
+  { key: '365', label: 'Next 12 months' }, { key: 'expired', label: 'Past expiration' }, { key: 'custom', label: 'Custom range' },
 ]
 
 /** Renewals for the book being viewed: an alert bar that states what's coming due and opens the full
@@ -18,13 +20,15 @@ export default function RenewalAlert({ bookKey, accounts, policies, today, start
   const [open, setOpen] = useState(!!startOpen)
   const [win, setWin] = useState<Win>('30')
   const [q, setQ] = useState('')
+  const [range, setRange] = useState({ from: today, to: addDays(today, 30) })
+  const r = resolveRange(range, { from: today, to: addDays(today, 30) })
   const acct = useMemo(() => new Map(accounts.map((a) => [a.id, a])), [accounts])
   const dated = useMemo(() => policies.map((p) => ({ p, a: acct.get(p.account_id)!, d: daysUntil(p.expiration, today) })).filter((r) => r.d != null && r.a), [policies, acct, today])
   const due30 = dated.filter((r) => r.d! >= 0 && r.d! <= 30)
   const expired = dated.filter((r) => r.d! < 0)
   const prem = (rs: typeof dated) => rs.reduce((s, r) => s + (r.p.premium || 0), 0)
   const rows = dated
-    .filter((r) => (win === 'expired' ? r.d! < 0 : r.d! >= 0 && r.d! <= Number(win)))
+    .filter((x) => (win === 'custom' ? x.p.expiration! >= r.from && x.p.expiration! <= r.to : win === 'expired' ? x.d! < 0 : x.d! >= 0 && x.d! <= Number(win)))
     .filter((r) => !q || `${r.a.name} ${r.p.insured} ${r.p.policy_number} ${r.p.carrier} ${r.p.product}`.toLowerCase().includes(q.toLowerCase()))
     .sort((x, y) => (win === 'expired' ? y.d! - x.d! : x.d! - y.d!))
   const tone = due30.length || expired.length ? 'warn' : 'calm'
@@ -45,8 +49,9 @@ export default function RenewalAlert({ bookKey, accounts, policies, today, start
         <div className="renew-body">
           <Tabs tabs={WINS} value={win} onChange={setWin} />
           <div className="filters" style={{ marginBottom: 10 }}>
+            {win === 'custom' && <DateRange value={range} onChange={setRange} />}
             <Search value={q} onChange={setQ} />
-            <button className="btn-ghost" onClick={() => downloadCsv(`renewals-${bookKey}-${win}-${today}.csv`, [
+            <button className="btn-ghost" onClick={() => downloadCsv(`renewals-${bookKey}-${win === 'custom' ? r.from + '_' + r.to : win}-${today}.csv`, [
               ['Account', 'Insured', 'Policy #', 'Carrier', 'Line', 'Expiration', 'Days', 'Premium'],
               ...rows.map((r) => [r.a.name, r.p.insured, r.p.policy_number, r.p.carrier, r.p.product, r.p.expiration, r.d, r.p.premium]),
             ])}>Export CSV</button>
