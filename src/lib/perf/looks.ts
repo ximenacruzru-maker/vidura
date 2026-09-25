@@ -1,7 +1,44 @@
-// The Modern theme and the extra typefaces for the original screens' colour system (lg:THEMES / lg:FONTS),
+// The Modern and Talavera themes and the extra typefaces for the original screens' colour system (lg:THEMES / lg:FONTS),
 // which the Executive Dashboard shares. public/perf/engine.js carries the same definitions for the
 // legacy screens; the database copies only hold the four original themes and three typefaces.
 export const EXTRA_THEMES: Record<string, { name: string; swatch: string[]; vars: Record<string, string> }> = {
+  "talavera": {
+    "name": "Talavera",
+    "swatch": [
+      "#C8692F",
+      "#23359A",
+      "#B4461E",
+      "#E7B98E",
+      "#F6EBD6"
+    ],
+    "vars": {
+      "--ink": "#1E2240",
+      "--mid": "#B4461E",
+      "--card": "#FBF4E6",
+      "--dark": "#1B2A6B",
+      "--gold": "#D9A441",
+      "--gray": "#5E4C3A",
+      "--line": "#E6D3B6",
+      "--navy": "#1B2A6B",
+      "--pale": "#F3E6CF",
+      "--line2": "#EFE2CB",
+      "--muted": "#7A6652",
+      "--night": "#1B2A6B",
+      "--olive": "#23359A",
+      "--paper": "#F6EBD6",
+      "--sideA": "#C8692F",
+      "--sideB": "#BB5C27",
+      "--sideC": "#A94F21",
+      "--beaver": "#8A5A3A",
+      "--bistre": "#23359A",
+      "--forest": "#23359A",
+      "--garnet": "#B4461E",
+      "--forest2": "#1B2A7A",
+      "--forest3": "#23359A",
+      "--blue": "#23359A",
+      "--blue2": "#3A4FB8"
+    }
+  },
   "modern": {
     "name": "Modern",
     "swatch": [
