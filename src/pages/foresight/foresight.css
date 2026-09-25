@@ -1,0 +1,39 @@
+/* Vida Foresight charts. Series colours were run through the dataviz palette validator against the card
+   surface in each mode: one hue for single-series charts; teal (current) + blue (recommended) for the pair. */
+.fs { --fs-bar: #1a4be6; --fs-cur: #0e8f86; --fs-rec: #1a4be6; --fs-grid: var(--line); }
+html[data-theme="dark"] .fs { --fs-bar: #5b7bff; --fs-cur: #1f9e94; --fs-rec: #5b7bff; }
+
+.fs-chart { position: relative; }
+.fs-chart svg { width: 100%; height: auto; display: block; }
+.fs-grid { stroke: var(--fs-grid); stroke-width: 1; }
+.fs-ax { fill: var(--muted); font-size: 11px; }
+.fs-val { fill: var(--ink); font-size: 12px; font-weight: 700; }
+.fs-bar { fill: var(--fs-bar); }
+.fs-hit { fill: transparent; cursor: default; outline: none; }
+.fs-hit:hover, .fs-hit:focus-visible { fill: var(--fs-bar); fill-opacity: .06; }
+.fs-tip { position: absolute; pointer-events: none; background: var(--card); color: var(--ink); border: 1px solid var(--line);
+  border-radius: 8px; padding: 6px 9px; font-size: 12px; box-shadow: var(--shadow); max-width: 320px; z-index: 2; }
+.fs-table { margin-top: 10px; }
+.fs-table summary { cursor: pointer; color: var(--muted); font-size: 13px; font-weight: 700; }
+
+.fs-barcell { min-width: 220px; }
+.fs-barcell, .fs-pair > div { display: flex; align-items: center; gap: 8px; }
+.fs-hbar { display: inline-block; height: 10px; border-radius: 0 4px 4px 0; background: var(--fs-bar); min-width: 2px; flex: none; }
+/* bar widths are scaled to at most 70% of the cell, leaving room for the value beside the tip */
+.fs-hbar.cur { background: var(--fs-cur); }
+.fs-hbar.rec { background: var(--fs-rec); }
+.fs-pair { min-width: 220px; }
+.fs-pair > div + div { margin-top: 2px; }
+.fs-legend { display: flex; gap: 16px; font-size: 12.5px; color: var(--muted); margin: 4px 0 8px; }
+.fs-legend i { display: inline-block; width: 12px; height: 10px; border-radius: 0 3px 3px 0; margin-right: 6px; vertical-align: -1px; }
+.fs-legend i.cur { background: var(--fs-cur); }
+.fs-legend i.rec { background: var(--fs-rec); }
+
+.fs-rate label { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); font-weight: 700; }
+.fs-rate .fld { width: 70px; }
+.fs-sliders { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; margin-top: 4px; }
+.fs-slider { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; background: var(--card); }
+.fs-slider-h { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.fs-slider input[type="range"] { width: 100%; accent-color: var(--fs-bar); margin: 10px 0 6px; }
+.fs-slider-r { display: flex; gap: 10px; font-size: 13px; }
+.fs-slider-r .mono { min-width: 48px; font-weight: 700; }
