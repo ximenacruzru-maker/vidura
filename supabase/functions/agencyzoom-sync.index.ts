@@ -1,4 +1,4 @@
-// Supabase Edge Function: agencyzoom-sync (v14)
+// Supabase Edge Function: agencyzoom-sync (v16)
 //
 // Keeps the Ironwood dashboard current from AgencyZoom:
 //   sold   - every policy written (from customer policies) -> daily_sales
