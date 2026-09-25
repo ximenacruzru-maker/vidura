@@ -233,8 +233,8 @@ export function Donut({ rows, colors = DONUT, center, centerSub }: { rows: { lab
             </circle>
           )
         })}
-        <text x="60" y="58" textAnchor="middle" fontSize="17" fontWeight="800" fill="#071477">{center != null ? center : rows.length ? Math.round((rows[0].value / total) * 100) + '%' : ''}</text>
-        <text x="60" y="74" textAnchor="middle" fontSize="8.5" fill="#516fd4">{centerSub || (rows[0] ? rows[0].label : '')}</text>
+        <text x="60" y="58" textAnchor="middle" fontSize="17" fontWeight="800" fill="var(--donut-ink, #071477)">{center != null ? center : rows.length ? Math.round((rows[0].value / total) * 100) + '%' : ''}</text>
+        <text x="60" y="74" textAnchor="middle" fontSize="8.5" fill="var(--donut-sub, #516fd4)">{centerSub || (rows[0] ? rows[0].label : '')}</text>
       </svg>
       <div className="donut-l">
         {rows.map((r, i) => (

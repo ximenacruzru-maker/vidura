@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react'
 import { useAuth } from '../auth'
 import { Empty, ErrorBox, Loading, PageHead, Panel } from '../components/ui'
-import { FONTS, getLook, onLook, saveLook, THEMES, type Look } from '../lib/theme'
+import { availableThemes, FONTS, getLook, onLook, saveLook, THEMES, type Look } from '../lib/theme'
 import ChangePassword from './ChangePassword'
 import { useEffect } from 'react'
 import { can, ROLE_LABEL, roleDefaults, SECTIONS } from '../lib/access'
@@ -207,7 +207,7 @@ function Appearance({ look, userId }: { look: Look; userId: string }) {
         <section className="panel">
           <div className="panel-h"><div><div className="panel-t">Colour theme</div><div className="panel-s">Your own colours — changes the whole platform for you, nobody else</div></div></div>
           <div className="panel-b">
-            {Object.entries(THEMES).map(([k, t]) => (
+            {availableThemes().map(([k, t]) => (
               <div key={k} className={'th-r' + (look.theme === k ? ' th-on' : '')} tabIndex={0} role="button"
                 onClick={() => pick({ ...look, theme: k })} onKeyDown={(e) => e.key === 'Enter' && pick({ ...look, theme: k })}>
                 <div className="th-sw">{t.swatch.map((c) => <i key={c} style={{ background: c }} />)}</div>

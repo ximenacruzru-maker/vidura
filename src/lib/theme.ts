@@ -1,14 +1,17 @@
-// The colour themes and typefaces (the originals plus Modern and Talavera). Each person's choice is
+// The colour themes and typefaces (the originals plus Modern, Talavera and the seasonal Halloween). Each person's choice is
 // saved to their login (user_prefs), cached on the device for a flicker-free start, and applied to
 // the whole app — including the original Performance screens.
 import { supabase } from './supabase'
 
-export const THEMES: Record<string, { name: string; swatch: string[]; note?: string }> = {
+/** A theme with a season is offered (and applied) only between those month-day dates, inclusive, every year. */
+export interface Season { from: string; to: string }
+export const THEMES: Record<string, { name: string; swatch: string[]; note?: string; dark?: boolean; season?: Season }> = {
   bubblegum: { name: 'Bubble Gum', swatch: ['#EFAAD6', '#F6CBE7', '#112E6D', '#C8102E', '#FDEFF7'] },
   burgundy: { name: 'Burgundy', swatch: ['#7B1E3A', '#A8425F', '#2A0E16', '#C8102E', '#FBF0F2'] },
-  dark: { name: 'Dark Mode', swatch: ['#0B1020', '#151C2E', '#5B7BFF', '#8FA6D8', '#E9EEFB'] },
+  dark: { name: 'Dark Mode', dark: true, swatch: ['#0B1020', '#151C2E', '#5B7BFF', '#8FA6D8', '#E9EEFB'] },
   vidura: { name: 'Declara Blue', swatch: ['#164fec', '#4d60ff', '#4263d6', '#1a4be6', '#eefaff'] },
   talavera: { name: 'Talavera', note: 'Terracotta, cobalt and cream, with hand-painted tile frames and borders', swatch: ['#C8692F', '#23359A', '#B4461E', '#E7B98E', '#F6EBD6'] },
+  halloween: { name: 'Halloween', note: 'Limited time, until November 1 — jack-o’-lanterns, bats and cobwebs on midnight purple', dark: true, season: { from: '09-25', to: '11-01' }, swatch: ['#1C0B33', '#2A1245', '#F07A12', '#6BD13A', '#F3E6CF'] },
   modern: { name: 'Modern', note: 'Black, white and one indigo accent — flat, crisp and minimal', swatch: ['#0A0A0A', '#18181B', '#4F46E5', '#E4E4E7', '#FAFAFA'] },
 }
 // Each typeface pairs a distinct display face (headlines, titles, big numbers) with its own body
@@ -21,6 +24,13 @@ export const FONTS: Record<string, { name: string; note: string; serif: string; 
   modern: { name: 'Modern', note: 'Geometric grotesque headlines over a neutral body — pairs with Modern', serif: "'Space Grotesk',ui-sans-serif,system-ui,sans-serif", sans: "'Inter',ui-sans-serif,system-ui,sans-serif" },
   classical: { name: 'Classical', note: 'Old-style Garamond headlines over a bookish serif body', serif: "'Cormorant Garamond',Garamond,Georgia,serif", sans: "'Lora',Georgia,serif" },
 }
+export function inSeason(t?: { season?: Season }, d = new Date()) {
+  if (!t?.season) return true
+  const md = String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'), { from, to } = t.season
+  return from <= to ? md >= from && md <= to : md >= from || md <= to
+}
+/** The themes someone can pick today (seasonal ones drop out after their last day). */
+export function availableThemes() { return Object.entries(THEMES).filter(([, t]) => inSeason(t)) }
 export interface Look { theme: string; font: string }
 export const DEFAULT_LOOK: Look = { theme: 'vidura', font: 'normal' }
 const KEY = 'vidura_look_v2'
@@ -31,13 +41,13 @@ export function getLook() { return current }
 export function onLook(fn: (l: Look) => void) { listeners.add(fn); return () => { listeners.delete(fn) } }
 
 export function applyLook(l: Partial<Look>) {
-  current = { theme: THEMES[l.theme || ''] ? l.theme! : 'vidura', font: FONTS[l.font || ''] ? l.font! : DEFAULT_LOOK.font }
+  current = { theme: THEMES[l.theme || ''] && inSeason(THEMES[l.theme!]) ? l.theme! : 'vidura', font: FONTS[l.font || ''] ? l.font! : DEFAULT_LOOK.font }
   const r = document.documentElement
   r.setAttribute('data-theme', current.theme)
   r.setAttribute('data-font', current.font)
   r.style.setProperty('--serif', FONTS[current.font].serif)
   r.style.setProperty('--sans', FONTS[current.font].sans)
-  r.style.colorScheme = current.theme === 'dark' ? 'dark' : 'light'
+  r.style.colorScheme = THEMES[current.theme].dark ? 'dark' : 'light'
   listeners.forEach((fn) => fn(current))
 }
 

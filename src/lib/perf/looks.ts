@@ -1,7 +1,49 @@
-// The Modern and Talavera themes and the extra typefaces for the original screens' colour system (lg:THEMES / lg:FONTS),
+// The Modern, Talavera and (seasonal) Halloween themes and the extra typefaces for the original screens' colour system (lg:THEMES / lg:FONTS),
 // which the Executive Dashboard shares. public/perf/engine.js carries the same definitions for the
 // legacy screens; the database copies only hold the four original themes and three typefaces.
-export const EXTRA_THEMES: Record<string, { name: string; swatch: string[]; vars: Record<string, string> }> = {
+export const EXTRA_THEMES: Record<string, { name: string; swatch: string[]; vars: Record<string, string>; dark?: boolean; season?: { from: string; to: string } }> = {
+  "halloween": {
+    "name": "Halloween",
+    "dark": true,
+    "season": {
+      "from": "09-25",
+      "to": "11-01"
+    },
+    "swatch": [
+      "#1C0B33",
+      "#2A1245",
+      "#F07A12",
+      "#6BD13A",
+      "#F3E6CF"
+    ],
+    "vars": {
+      "--ink": "#F3E6CF",
+      "--mid": "#F07A12",
+      "--card": "#1F0F33",
+      "--dark": "#0B0710",
+      "--gold": "#FFB44D",
+      "--gray": "#D8C6E8",
+      "--line": "#3B2257",
+      "--navy": "#0B0710",
+      "--pale": "#24103D",
+      "--line2": "#2F1A48",
+      "--muted": "#B9A3CF",
+      "--night": "#0B0710",
+      "--olive": "#F07A12",
+      "--paper": "#141016",
+      "--sideA": "#2A0F4A",
+      "--sideB": "#200B3C",
+      "--sideC": "#14072A",
+      "--beaver": "#B9A3CF",
+      "--bistre": "#9B5DE5",
+      "--forest": "#2A1245",
+      "--garnet": "#FF5A3C",
+      "--forest2": "#0B0710",
+      "--forest3": "#3A1A5E",
+      "--blue": "#F07A12",
+      "--blue2": "#FF9A2E"
+    }
+  },
   "talavera": {
     "name": "Talavera",
     "swatch": [
