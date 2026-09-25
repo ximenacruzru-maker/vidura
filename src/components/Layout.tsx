@@ -66,7 +66,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           <p className="side-sub">{agencyName(me)}</p>
         </div>
         <nav className="nav">
-          {visible.map((n, i) => ('h' in n ? <div key={n.h} className="nav-h">{n.h}</div>
+          {visible.map((n, i) => ('h' in n ? <div key={n.h} className="nav-h" data-sec={n.h}>{n.h}</div>
             : 'div' in n ? <div key={'d' + i} className="nav-div" />
               : (
                 <button key={n.to} className={isOn(n) ? 'active' : ''} onClick={() => go(n.to)}>
