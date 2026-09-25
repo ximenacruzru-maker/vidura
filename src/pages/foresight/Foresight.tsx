@@ -7,6 +7,7 @@ import {
 } from '../../lib/foresight'
 import { money0, shortDate, todayPacific } from '../../lib/format'
 import { useAsync } from '../../lib/useAsync'
+import { DateRange } from '../../components/DateRange'
 import './foresight.css'
 
 const pct = (n: number, d = 0) => (n * 100).toFixed(d) + '%'
@@ -35,11 +36,25 @@ export default function Foresight() {
   )
 }
 
+/* ---------- period picker: a dropdown with a Custom range option ---------- */
+const PERIODS: Record<string, string> = { ytd: 'Year to date', mtd: 'This month', '30': 'Last 30 days', '90': 'Last 90 days', '180': 'Last 6 months', '365': 'Last 12 months', all: 'All history', custom: 'Custom range' }
+function usePeriod(today: string, first: string, keys: string[]) {
+  const [win, setWin] = useState('ytd')
+  const [range, setRange] = useState({ from: today.slice(0, 4) + '-01-01', to: today })
+  const w = windowFor(win, today, first, range)
+  const picker = <>
+    <select value={win} onChange={(e) => setWin(e.target.value)} aria-label="Period">
+      {[...keys, 'custom'].map((k) => <option key={k} value={k}>{PERIODS[k]}</option>)}
+    </select>
+    {win === 'custom' && <DateRange value={range} onChange={setRange} />}
+  </>
+  return { w, picker }
+}
+
 /* ---------- 1. day of week ---------- */
 function Weekdays({ D, today, first }: { D: ForesightData; today: string; first: string }) {
-  const [win, setWin] = useState('ytd')
+  const { w, picker } = usePeriod(today, first, ['ytd', '90', '365', 'all'])
   const [metric, setMetric] = useState<'premium' | 'policies'>('premium')
-  const w = windowFor(win, today, first)
   const { stats, from } = useMemo(() => weekdayPattern(D.sales, w), [D, w.from, w.to])
   const val = (s: typeof stats[number]) => (metric === 'premium' ? s.avgPremium : s.avgPolicies)
   const fmt = (n: number) => (metric === 'premium' ? money0(n) : n.toFixed(2))
@@ -48,9 +63,7 @@ function Weekdays({ D, today, first }: { D: ForesightData; today: string; first:
   return (
     <Panel title="Which days you sell on" sub={total ? `Average sold ${metric === 'premium' ? 'premium' : 'policies'} per calendar day, ${shortDate(from, true)} – ${shortDate(w.to, true)} · ${total} policies · days with no sales count as zero` : 'No sold policies in this window.'}
       right={<div className="filters">
-        <select value={win} onChange={(e) => setWin(e.target.value)} aria-label="Window">
-          <option value="ytd">Year to date</option><option value="90">Last 90 days</option><option value="365">Last 12 months</option><option value="all">All history</option>
-        </select>
+        {picker}
         <select value={metric} onChange={(e) => setMetric(e.target.value as 'premium')} aria-label="Measure">
           <option value="premium">Premium</option><option value="policies">Policies</option>
         </select>
@@ -107,16 +120,12 @@ function ColumnChart({ bars, format, highlight }: { bars: { label: string; value
 
 /* ---------- 2. producers ---------- */
 function Producers({ D, today, first }: { D: ForesightData; today: string; first: string }) {
-  const [win, setWin] = useState('ytd')
-  const w = windowFor(win, today, first)
+  const { w, picker } = usePeriod(today, first, ['ytd', 'mtd', '30', '90', '365', 'all'])
   const rows = useMemo(() => producerRanking(D.sales, w), [D, w.from, w.to])
   const max = Math.max(...rows.map((r) => r.premium), 1)
   return (
     <Panel title="Best-performing producer" sub={`Ranked by sold premium, ${shortDate(w.from, true)} – ${shortDate(w.to, true)}. Policies and average premium are context. Close rate isn't shown: AgencyZoom leads that were lost or sold aren't kept, so there is no reliable count of what each producer quoted.`}
-      right={<div className="filters"><select value={win} onChange={(e) => setWin(e.target.value)} aria-label="Window">
-        <option value="ytd">Year to date</option><option value="mtd">This month</option><option value="30">Last 30 days</option>
-        <option value="90">Last 90 days</option><option value="365">Last 12 months</option><option value="all">All history</option>
-      </select></div>}>
+      right={<div className="filters">{picker}</div>}>
       {rows.length ? (
         <div className="tbl-wrap"><table className="tbl">
           <thead><tr><th>#</th><th>Producer</th><th>Sold premium</th><th className="r">Policies</th><th className="r">Avg premium</th><th className="r">Share</th></tr></thead>
@@ -133,8 +142,7 @@ function Producers({ D, today, first }: { D: ForesightData; today: string; first
 
 /* ---------- 3 & 4. lead sources ---------- */
 function Sources({ D, today, first, onChanged }: { D: ForesightData; today: string; first: string; onChanged: () => void }) {
-  const [win, setWin] = useState('ytd')
-  const w = windowFor(win, today, first)
+  const { w, picker } = usePeriod(today, first, ['ytd', '90', '180', '365', 'all'])
   const a = useMemo(() => analyseSources(D, w), [D, w.from, w.to])
   const plan = useMemo(() => recommend(a), [a])
   const paid = a.sources.filter((s) => s.spend > 0)
@@ -144,9 +152,7 @@ function Sources({ D, today, first, onChanged }: { D: ForesightData; today: stri
     <Panel title="Lead sources: what each dollar returned"
       sub={noAttribution ? 'No sold premium in this window can be tied to a lead source yet.'
         : `${a.attributedDays} of ${a.windowDays} days in the window can be tied to a source (${a.folioDays} from AgencyZoom folio reports${a.capturedFrom ? `, the rest from sales captured since ${shortDate(a.capturedFrom, true)}` : ''}) — ${pct(a.coverage)} of sold premium. Spend is counted over those same days.`}
-      right={<div className="filters"><select value={win} onChange={(e) => setWin(e.target.value)} aria-label="Window">
-        <option value="ytd">Year to date</option><option value="90">Last 90 days</option><option value="180">Last 6 months</option><option value="365">Last 12 months</option><option value="all">All history</option>
-      </select></div>}>
+      right={<div className="filters">{picker}</div>}>
       {noAttribution ? <Empty>Sold policies start carrying their lead source once the migration has run and the AgencyZoom sync has been redeployed. Until then only months covered by a saved AgencyZoom folio report can be analysed.</Empty> : <>
         {a.coverage < 0.8 && <div className="band-note" style={{ marginTop: 0, marginBottom: 12 }}>Only {pct(a.coverage)} of sold premium in this window can be tied to a source, so treat per-source figures as partial.</div>}
         {a.unattributedPremium > 0 && <p className="note" style={{ marginTop: 0 }}>{money0(a.unattributedPremium)} of captured sales came from customers with no won lead in AgencyZoom, so it has no source.</p>}
