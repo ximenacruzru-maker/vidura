@@ -1,4 +1,4 @@
-// The colour themes and typefaces (the originals plus Modern). Each person's choice is
+// The colour themes and typefaces (the originals plus Modern and Talavera). Each person's choice is
 // saved to their login (user_prefs), cached on the device for a flicker-free start, and applied to
 // the whole app — including the original Performance screens.
 import { supabase } from './supabase'
@@ -8,6 +8,7 @@ export const THEMES: Record<string, { name: string; swatch: string[]; note?: str
   burgundy: { name: 'Burgundy', swatch: ['#7B1E3A', '#A8425F', '#2A0E16', '#C8102E', '#FBF0F2'] },
   dark: { name: 'Dark Mode', swatch: ['#0B1020', '#151C2E', '#5B7BFF', '#8FA6D8', '#E9EEFB'] },
   vidura: { name: 'Declara Blue', swatch: ['#164fec', '#4d60ff', '#4263d6', '#1a4be6', '#eefaff'] },
+  talavera: { name: 'Talavera', note: 'Terracotta, cobalt and cream, with hand-painted tile frames and borders', swatch: ['#C8692F', '#23359A', '#B4461E', '#E7B98E', '#F6EBD6'] },
   modern: { name: 'Modern', note: 'Black, white and one indigo accent — flat, crisp and minimal', swatch: ['#0A0A0A', '#18181B', '#4F46E5', '#E4E4E7', '#FAFAFA'] },
 }
 // Each typeface pairs a distinct display face (headlines, titles, big numbers) with its own body
@@ -33,6 +34,7 @@ export function applyLook(l: Partial<Look>) {
   current = { theme: THEMES[l.theme || ''] ? l.theme! : 'vidura', font: FONTS[l.font || ''] ? l.font! : DEFAULT_LOOK.font }
   const r = document.documentElement
   r.setAttribute('data-theme', current.theme)
+  r.setAttribute('data-font', current.font)
   r.style.setProperty('--serif', FONTS[current.font].serif)
   r.style.setProperty('--sans', FONTS[current.font].sans)
   r.style.colorScheme = current.theme === 'dark' ? 'dark' : 'light'

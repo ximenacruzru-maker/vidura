@@ -215,7 +215,7 @@ export function DayChart({ title, sub, money, series }: { title: string; sub?: s
   )
 }
 
-const DONUT = ['var(--bistre)', '#01BCAF', '#F79009', '#8b5cf6', '#12B76A', '#FE454E', '#6b7280', '#0ea5e9']
+const DONUT = ['var(--ch1, var(--bistre))', 'var(--ch2, #01BCAF)', 'var(--ch3, #F79009)', 'var(--ch4, #8b5cf6)', 'var(--ch5, #12B76A)', 'var(--ch6, #FE454E)', '#6b7280', '#0ea5e9']
 export function Donut({ rows, colors = DONUT, center, centerSub }: { rows: { label: string; value: number }[]; colors?: string[]; center?: string; centerSub?: string }) {
   const total = rows.reduce((a, r) => a + r.value, 0) || 1
   const R = 42, C = 2 * Math.PI * R
