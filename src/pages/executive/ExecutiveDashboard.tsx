@@ -49,7 +49,7 @@ export function Dashboard({ D }: { D: PerfData }) {
   const look = useLegacyLook(D)
   const [components, setComponents] = useState(false)
   useFitFigures(root)
-  useDarkFix(root, !!D.THEMES[look.theme]?.dark)
+  useDarkFix(root, look.dark)
 
   /** Open a client's file in Books of Business (the original screens opened their own book pages). */
   const openClient = (book: Book, id: string) => {

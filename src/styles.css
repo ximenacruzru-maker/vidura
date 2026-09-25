@@ -451,6 +451,66 @@ html[data-theme="talavera"] .hd-kai { background: linear-gradient(135deg, #B4461
 html[data-theme="talavera"] .login { background: var(--tal-strip) left top / 30px auto repeat-y, var(--tal-strip) right top / 30px auto repeat-y, linear-gradient(135deg, #A94F21, #C8692F 55%, #1E2E86); }
 html[data-theme="talavera"] .set-band { background: linear-gradient(135deg, #1E2E86, #23359A 60%, #B4461E); }
 
+/* Halloween (seasonal, until Nov 1): midnight-purple sidebar with cobwebs, bats and jack-o'-lanterns, a black top bar
+   with a moon and a dripping orange edge, a foggy charcoal page, and KPI cards in a stamp-edged orange frame. */
+html[data-theme="halloween"] {
+  --navy: #F3E6CF; --blue: #FF8A1F; --blue-2: #E06A00; --teal: #6BD13A; --gold: #FFB44D; --ink: #F3E6CF; --muted: #BCA7D2;
+  --line: #3B2257; --line2: #2F1A48; --bg: #141016; --card: #1F0F33; --soft: #24103D; --track: #2F1A48; --tint: #2E1650;
+  --good-bg: #16331f; --warn-bg: #3a2410; --bad-bg: #3a1418; --topbar: #0B0710; --radius: 12px;
+  --sideA: #2A0F4A; --sideB: #200B3C; --sideC: #14072A; --side-ink: #F3E6CF; --side-sub: #FF9A2E; --side-active: #F07A12;
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+  --ch1: #8E4FD6; --ch2: #F07A12; --ch3: #F6A64B; --ch4: #6BD13A; --ch5: #FFD34D; --ch6: #C23B2A; --donut-ink: #F3E6CF; --donut-sub: #FFB44D;
+}
+html[data-theme="halloween"] body { background: radial-gradient(ellipse at 72% 78%, rgba(150,140,170,.16), transparent 55%), radial-gradient(ellipse at 25% 35%, rgba(150,140,170,.10), transparent 50%), var(--bg); }
+html[data-theme="halloween"] .page { padding-top: 54px; background: url('./assets/halloween/web-tr.svg') right 8px top 44px / 190px no-repeat; }
+html[data-theme="halloween"] .side { background: url('./assets/halloween/web-tl.svg') left top / 130px no-repeat, url('./assets/halloween/web-tr.svg') right top / 130px no-repeat,
+  url('./assets/halloween/side-bottom.svg') center bottom / 100% auto no-repeat, url('./assets/halloween/side-top.svg') center top / 100% auto no-repeat,
+  linear-gradient(180deg, var(--sideA), var(--sideB) 55%, var(--sideC)); box-shadow: inset -2px 0 0 #F07A12, 8px 0 26px rgba(0,0,0,.5); }
+html[data-theme="halloween"] .side-brand { border-bottom-color: rgba(240,122,18,.35); }
+html[data-theme="halloween"] .nav button svg { color: #FF9A2E; }
+html[data-theme="halloween"] .nav button.active { background: #F07A12; color: #1C0B33; box-shadow: 0 0 18px rgba(240,122,18,.55); }
+html[data-theme="halloween"] .nav button.active svg { color: #1C0B33; }
+html[data-theme="halloween"] .nav button:hover:not(.active) { background: rgba(240,122,18,.16); }
+html[data-theme="halloween"] .topbar { position: relative; background: url('./assets/halloween/sky.svg') center / auto 100% no-repeat, #0B0710; backdrop-filter: none; }
+html[data-theme="halloween"] .topbar::after { content: ''; position: absolute; left: 0; right: 0; top: 100%; height: 44px; background: url('./assets/halloween/drip.svg') left top / 160px 44px repeat-x; pointer-events: none; }
+html[data-theme="halloween"] .gq { background: #2A1245; border: 2px solid #F07A12; border-radius: 999px; color: #F3E6CF; }
+html[data-theme="halloween"] .gq::placeholder { color: #CDB8E0; }
+html[data-theme="halloween"] .gsearch-ico { color: #FF9A2E; }
+html[data-theme="halloween"] .tsync-pill { background: #1C0B33; border-color: #F07A12; color: #F3E6CF; }
+html[data-theme="halloween"] .hd-av { background: #2A1245; color: #FF9A2E; box-shadow: 0 0 0 2px #F07A12; }
+html[data-theme="halloween"] .hd-un em { color: #FFB44D; }
+html[data-theme="halloween"] .side-foot { padding-bottom: 96px; border-top-color: rgba(240,122,18,.35); }
+html[data-theme="halloween"] .kicker { color: #FF9A2E; }
+html[data-theme="halloween"][data-font="normal"] .page-head h1, html[data-theme="halloween"][data-font="normal"] .panel-t, html[data-theme="halloween"][data-font="normal"] .tile-v,
+html[data-theme="halloween"][data-font="normal"] .xd .ptitle, html[data-theme="halloween"][data-font="normal"] .xd .sc-v { font-family: 'Merriweather', Georgia, serif; font-weight: 900; }
+html[data-theme="halloween"] .panel, html[data-theme="halloween"] .tile { border-color: var(--line); }
+html[data-theme="halloween"] .btn-primary { color: #1C0B33; }
+html[data-theme="halloween"] .legacy-host iframe { background: var(--bg); }
+html[data-theme="halloween"] .login { background: url('./assets/halloween/web-tl.svg') left top / 220px no-repeat, url('./assets/halloween/web-tr.svg') right top / 220px no-repeat,
+  radial-gradient(ellipse at 50% 20%, #3A1A5E, #1C0B33 55%, #0B0710); }
+html[data-theme="halloween"] .set-band { background: linear-gradient(135deg, #1C0B33, #3A1A5E 60%, #C2560C); }
+html[data-theme="halloween"] .band-note { background: #2b1a0e; border-color: #6b3a10; color: #FFD9A8; }
+/* KPI cards: the stamp-edged orange frame with bats and a jack-o'-lantern (src/assets/halloween/card.svg), nine-sliced;
+   the perforated edges repeat whole so they never smear. */
+html[data-theme="halloween"] .tile, html[data-theme="halloween"] .xd .sc {
+  background: none; border: 1px solid transparent; border-image: url('./assets/halloween/card.svg') 60 fill / 44px / 0 round;
+  border-radius: 0; box-shadow: none; filter: drop-shadow(0 0 10px rgba(240,122,18,.35)); padding: 30px 30px 28px;
+  aspect-ratio: 1 / 1; display: flex; flex-direction: column; justify-content: center; text-align: center; }
+html[data-theme="halloween"] .tiles { grid-template-columns: repeat(auto-fill, minmax(190px, 230px)); }
+html[data-theme="halloween"] .tile-l, html[data-theme="halloween"] .xd .sc-l { color: #F3E6CF; }
+html[data-theme="halloween"] .tile-v, html[data-theme="halloween"] .xd .sc-v { color: #FF8A1F; text-shadow: 0 0 12px rgba(240,122,18,.45); }
+html[data-theme="halloween"] .tile-s, html[data-theme="halloween"] .xd .sc-s, html[data-theme="halloween"] .xd .sc-gt, html[data-theme="halloween"] .xd .sc-goal { color: #E3D3F0; }
+html[data-theme="halloween"] .xd .sc { padding: 26px 20px 32px; }
+html[data-theme="halloween"] .xd .sc-i { display: none; }
+html[data-theme="halloween"] .xd .sc-top { justify-content: center; padding: 4px 0 0; }
+html[data-theme="halloween"] .xd .sc-l { font-size: 10.5px; letter-spacing: .12em; line-height: 1.35; }
+html[data-theme="halloween"] .xd .sc-body { padding: 8px 0 4px; }
+html[data-theme="halloween"] .xd .sc-foot { justify-content: center; }
+html[data-theme="halloween"] .xd .sc-dv { color: #F3E6CF; } html[data-theme="halloween"] .xd .sc-dv.up { color: #7EE05A; } html[data-theme="halloween"] .xd .sc-dv.down { color: #FF6B5A; }
+html[data-theme="halloween"] .xd .sc-more { justify-content: center; gap: 6px; border-top-color: rgba(240,122,18,.35); color: #FF9A2E; padding: 8px 0 0; }
+/* donuts glow slime-green, like the mockup */
+html[data-theme="halloween"] .xd .donut svg { filter: drop-shadow(0 0 5px rgba(107,209,58,.75)); }
+
 @media (max-width: 1100px) { .tsync-l, .tsync-btn span, .hd-un { display: none; } }
 @media (max-width: 820px) { .hd-kai span { display: none; } .hd-kai { padding: 0 12px; } .hd-right { gap: 6px; } }
 
