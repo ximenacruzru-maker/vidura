@@ -66,7 +66,7 @@ export function LoginScreen() {
     setBusy(true)
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: location.origin + location.pathname })
     setBusy(false)
-    if (error) setErr(error.message); else setMsg('If that email has a login, a reset link is on its way. Open it on this computer.')
+    if (error) setErr(error.message); else setMsg('If that email has a login, a reset link is on its way. Check your inbox (and spam); the link works for one hour.')
   }
 
   const submit = async (e: React.FormEvent) => {
