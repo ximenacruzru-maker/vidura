@@ -107,7 +107,7 @@ export function Dashboard({ D }: { D: PerfData }) {
         <div className="fcrumb">{f.book === 'all' ? 'All Books' : D.BOOK_NAME[f.book]} &middot; {f.line === 'all' ? 'All Lines' : f.line} &middot; {x.periodLabel}</div>
         <Production D={D} win={f.prod} setWin={(v) => set('prod', v)} goals={goals} />
 
-        <div className="scg">
+        <div className="scg" style={{ gridTemplateColumns: 'repeat(6, minmax(0, 1fr))' }}>
           <ScoreCard icon={ICO.dollar} iconClass="i-blue" label="Written premium" value={x.total} display={money0(x.total)} drill="premium" onDrill={onDrill}
             goalLine={gPrem ? 'Goal ' + money0(gPrem) : 'No goal set'} pct={gPrem ? Math.min(100, (x.total / gPrem) * 100) : null} tone={gPrem && x.total >= gPrem ? 'good' : 'warn'}
             delta={{ tone: 'flat', arrow: '', value: x.priced + ' of ' + x.scoped.length }} goalNote="policies priced" />
@@ -125,6 +125,11 @@ export function Dashboard({ D }: { D: PerfData }) {
               goalLine={money0(x.newBizPrem) + ' in · ' + money0(x.atRisk) + ' lost'} pct={x.total ? Math.min(100, (Math.abs(net) / x.total) * 100) : 0} tone={net >= 0 ? 'good' : 'bad'}
               delta={{ tone: net >= 0 ? 'up' : 'down', arrow: net >= 0 ? '▲' : '▼', value: (x.total ? ((net / x.total) * 100).toFixed(1) : '0') + '%' }} goalNote="of book premium" />
           ) })()}
+          {/* Follows the Period filter, including a custom From/To range. */}
+          <ScoreCard icon={ICO.renew} iconClass="i-blue" label="Renewing this period" value={x.winPrem} display={money0(x.winPrem)} drill="renewing" onDrill={onDrill}
+            goalLine={x.renewing.length + ' polic' + (x.renewing.length === 1 ? 'y' : 'ies') + ' · ' + x.periodLabel.replace(/^Custom range (from )?/, '')}
+            pct={x.total ? Math.min(100, (x.winPrem / x.total) * 100) : 0} tone="good"
+            delta={{ tone: 'flat', arrow: '', value: (x.total ? ((x.winPrem / x.total) * 100).toFixed(1) : '0') + '%' }} goalNote="of book premium" />
         </div>
 
         {drill && <DrillPanel d={drill} bookName={D.BOOK_NAME} onClose={() => set('drill', null)} onOpen={openClient} />}
@@ -133,7 +138,7 @@ export function Dashboard({ D }: { D: PerfData }) {
           <div className="panel">
             <div className="panel-h">
               <div><div className="panel-t">Renewal Performance</div>
-                <div className="panel-s">Policies by book and how many carry a premium{f.book !== 'all' || f.line !== 'all' ? ' · filtered' : ''}</div></div>
+                <div className="panel-s">Policies renewing by book and how many carry a premium · {x.periodLabel}{f.book !== 'all' || f.line !== 'all' ? ' · filtered' : ''}</div></div>
               <div className="segt" role="group" aria-label="Chart measure">
                 <button className={'segt-b' + (f.chart !== 'prem' ? ' on' : '')} onClick={() => set('chart', 'count')}>Policy Count</button>
                 <button className={'segt-b' + (f.chart === 'prem' ? ' on' : '')} onClick={() => set('chart', 'prem')}>Premium $</button>
@@ -144,7 +149,8 @@ export function Dashboard({ D }: { D: PerfData }) {
                 {(['Commercial', 'Farmers', 'Retail'] as const).map((bk) => <span key={bk} className="lgnd-i"><i style={{ background: D.CHART[bk] }} />{D.BOOK_NAME[bk]}</span>)}
                 <span className="lgnd-i"><i className="lgnd-line" />Priced (%)</span>
               </div>
-              <RenewalChart months={x.months} mode={f.chart} colors={D.CHART} bookName={D.BOOK_NAME} />
+              {x.renewing.length ? <RenewalChart months={x.months} mode={f.chart} colors={D.CHART} bookName={D.BOOK_NAME} />
+                : <div className="empty">No renewals fall in this period for this view.</div>}
               <details className="ch-tbl"><summary>Show as table</summary>
                 <table>
                   <thead><tr><th>Month</th><th className="tr">Commercial</th><th className="tr">Farmers</th><th className="tr">P&amp;C Brokered</th><th className="tr">Total</th><th className="tc">Policies</th></tr></thead>
@@ -155,6 +161,7 @@ export function Dashboard({ D }: { D: PerfData }) {
                   ))}</tbody>
                 </table>
               </details>
+              {x.monthsCapped && <div className="rb-band-note" style={{ marginTop: 14 }}>The range spans more than 24 months; the chart shows the first 24. The score card and drill-down cover the whole range.</div>}
               {x.undated > 0 && <div className="rb-band-note" style={{ marginTop: 14 }}>{x.undated} of {x.scoped.length} policies in this view have no expiration date and cannot appear above.</div>}
             </div>
           </div>
@@ -182,7 +189,7 @@ export function Dashboard({ D }: { D: PerfData }) {
             </div>
           </div>
           <div className="panel">
-            <div className="panel-h"><div><div className="panel-t">Top Opportunities</div><div className="panel-s">Largest renewals in the next 90 days</div></div></div>
+            <div className="panel-h"><div><div className="panel-t">Top Opportunities</div><div className="panel-s">Largest renewals · {x.periodLabel}</div></div></div>
             <div className="panel-b">
               {x.opps.length ? (
                 <table className="opp">
@@ -193,7 +200,7 @@ export function Dashboard({ D }: { D: PerfData }) {
                       <td className="tr mono">{money0(o.prem)}</td><td className="opp-p">{o.play}</td></tr>
                   ))}</tbody>
                 </table>
-              ) : <div className="empty">No priced renewals fall in the next 90 days for this view.</div>}
+              ) : <div className="empty">No priced renewals fall in this period for this view.</div>}
             </div>
           </div>
         </div>

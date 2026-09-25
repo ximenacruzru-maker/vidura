@@ -56,19 +56,18 @@ export interface Month {
   key: string; label: string; year: number; Commercial: number; Farmers: number; Retail: number
   cCommercial: number; cFarmers: number; cRetail: number; n: number; total: number; priced: number; pricedPrem: number; ready: number | null
 }
-export function execMonths(rows: Row[]): Month[] {
-  const out: Month[] = [], now = new Date()
-  for (let i = 0; i < 12; i++) {
-    const dt = new Date(now.getFullYear(), now.getMonth() + i, 1)
+/** Monthly renewal buckets from the month of `from` to the month of `to` (at most 24). Unlike execMonths,
+ *  past months are allowed, so a custom range that has already started still charts. */
+export function renewalMonths(rows: Row[], from: Date, to: Date): Month[] {
+  const out: Month[] = []
+  for (let dt = new Date(from.getFullYear(), from.getMonth(), 1); dt <= to && out.length < 24; dt = new Date(dt.getFullYear(), dt.getMonth() + 1, 1)) {
     out.push({ key: dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0'), label: dt.toLocaleString('en-US', { month: 'short' }), year: dt.getFullYear(),
       Commercial: 0, Farmers: 0, Retail: 0, cCommercial: 0, cFarmers: 0, cRetail: 0, n: 0, total: 0, priced: 0, pricedPrem: 0, ready: null })
   }
   const idx: Record<string, Month> = {}
   out.forEach((m) => { idx[m.key] = m })
   rows.forEach((r) => {
-    if (!r.exp) return
     const dt = pDate(r.exp); if (!dt) return
-    if (daysUntil(r.exp) < 0) return
     const m = idx[dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0')]; if (!m) return
     m[r.book] += r.prem; m[('c' + r.book) as 'cCommercial']++; m.n++; m.total += r.prem
     if (r.prem > 0) { m.priced++; m.pricedPrem += r.prem }
@@ -200,8 +199,17 @@ export function computeExecutive(D: PerfData, rows: Row[], f: Filters) {
     const d = daysUntil(r.exp); return d >= 0 && d <= win!
   })
   const sum = (a: Row[]) => a.reduce((s, r) => s + (r.prem || 0), 0)
-  const months = execMonths(scoped)
-  const total = sum(scoped), winPrem = sum(inWin)
+  /* The renewals the selected period covers: dated policies in the window. Presets look forward from
+     today; a custom range can include dates already past. */
+  const renewing = inWin.filter((r) => pDate(r.exp) && (isCustom || daysUntil(r.exp) >= 0))
+  const byDate = renewing.map((r) => pDate(r.exp)!.getTime())
+  const t0 = today0()
+  const chartFrom = isCustom ? isoLocal(f.customStart) || (byDate.length ? new Date(Math.min(...byDate)) : t0) : t0
+  const chartTo = isCustom ? isoLocal(f.customEnd) || (byDate.length ? new Date(Math.max(...byDate)) : t0)
+    : win! >= 99999 ? new Date(t0.getFullYear(), t0.getMonth() + 11, 1) : new Date(t0.getFullYear(), t0.getMonth(), t0.getDate() + win!)
+  const months = renewalMonths(renewing, chartFrom, chartTo)
+  const monthsCapped = new Date(chartTo.getFullYear(), chartTo.getMonth(), 1) > new Date(chartFrom.getFullYear(), chartFrom.getMonth() + 23, 1)
+  const total = sum(scoped), winPrem = sum(renewing)
   const priced = scoped.filter((r) => r.prem > 0).length
   const dated = scoped.filter((r) => r.exp && pDate(r.exp)).length
   const undated = scoped.length - dated
@@ -230,7 +238,7 @@ export function computeExecutive(D: PerfData, rows: Row[], f: Filters) {
   const inForce = scoped.length - terminated.length
   const retention = scoped.length ? (inForce / scoped.length) * 100 : 0
   const atRisk = sum(terminated)
-  const opps = scoped.filter((r) => r.exp && daysUntil(r.exp) >= 0 && daysUntil(r.exp) <= 90 && r.prem > 0)
+  const opps = renewing.filter((r) => r.prem > 0)
     .sort((a, b) => b.prem - a.prem).slice(0, 5)
     .map((r) => {
       const c = clients.find((c) => c.name === r.client && c.book === r.book)
@@ -263,8 +271,8 @@ export function computeExecutive(D: PerfData, rows: Row[], f: Filters) {
       how: 'New business written in the last 12 months, followed by everything expired, cancelled or lapsed.',
       items: [...newBiz].sort((a, b) => b.prem - a.prem).concat([...terminated].sort((a, b) => b.prem - a.prem)) },
     inforce: { title: 'Policies in force', sub: inForce + ' policies', how: 'Everything in the view that is not expired, cancelled or lapsed.', items: [...inForceRows].sort((a, b) => b.prem - a.prem) },
-    renewing: { title: 'Renewing this period', sub: money0(winPrem) + ' across ' + inWin.length + ' policies',
-      how: 'Policies with a renewal date falling inside the selected period.', items: [...inWin].sort((a, b) => (pDate(a.exp)?.getTime() || 0) - (pDate(b.exp)?.getTime() || 0)) },
+    renewing: { title: 'Renewing this period', sub: money0(winPrem) + ' across ' + renewing.length + ' policies',
+      how: 'Policies with a renewal date falling inside the selected period.', items: [...renewing].sort((a, b) => (pDate(a.exp)?.getTime() || 0) - (pDate(b.exp)?.getTime() || 0)) },
     clients: { title: 'Clients', sub: clients.length + ' clients, ' + mono.length + ' of them monoline', how: 'Every client in the view with their policy count and premium.',
       kind: 'clients', items: [...clients].sort((a, b) => b.p - a.p) },
     newbiz: { title: 'New business, last 12 months', sub: money0(newBizPrem) + ' across ' + newBiz.length + ' policies',
@@ -276,7 +284,7 @@ export function computeExecutive(D: PerfData, rows: Row[], f: Filters) {
     : D.PERIODS[f.period].label
 
   return {
-    scoped, inWin, winPrem, months, total, priced, dated, undated, expired, docs, clients, ppc, mono, carriers, kindsAll, topClients, monoTargets,
+    scoped, inWin, renewing, winPrem, months, monthsCapped, total, priced, dated, undated, expired, docs, clients, ppc, mono, carriers, kindsAll, topClients, monoTargets,
     newBiz, newBizPrem, terminated, inForce, retention, atRisk, opps, drills, liveKpis, periodLabel, mix: bookMix(scoped),
     attention: execAttention({ expired, total: scoped.length, priced, undated, clients: clients.length, mono: mono.length }),
     exceptions: execExceptions(D, rows, rows.filter((r) => r.exp && daysUntil(r.exp) < 0), rows.filter((r) => !(r.exp && pDate(r.exp))).length, rows.filter((r) => r.prem > 0).length, docs),
