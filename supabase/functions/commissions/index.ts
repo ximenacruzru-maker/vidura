@@ -105,26 +105,28 @@ Deno.serve(async (req) => {
   const jwt = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
   const { data: u, error: ue } = await admin.auth.getUser(jwt);
   if (ue || !u?.user) return json({ error: "Please sign in again." }, 401);
-  const { data: me } = await admin.from("staff_accounts").select("role, producer_name, active").eq("user_id", u.user.id).maybeSingle();
+  const { data: me } = await admin.from("staff_accounts").select("role, producer_name, active, agency_id").eq("user_id", u.user.id).maybeSingle();
   if (!me || !me.active) return json({ error: "Your login isn't set up as a staff account yet." }, 403);
   const seesAll = me.role === "owner" || me.role === "admin";
   if (!seesAll && !["producer", "protege"].includes(me.role)) return json({ error: "Commissions aren't part of your role." }, 403);
 
+  // The service role skips row-level security, so every read below is limited to the caller's agency.
+  const A = me.agency_id as string;
   const body = await req.json().catch(() => ({}));
-  const { data: folio } = await admin.from("folios").select("*").eq("start_date", body.folio).maybeSingle();
+  const { data: folio } = await admin.from("folios").select("*").eq("agency_id", A).eq("start_date", body.folio).maybeSingle();
   if (!folio) return json({ error: "Unknown folio." }, 400);
   const today = pacificToday();
   const end = folio.in_progress && folio.end_date > today ? today : folio.end_date;
 
-  const { data: plans } = await admin.from("comp_plans").select("*").eq("status", "active").lte("effective_from", folio.start_date).order("effective_from", { ascending: false }).order("version", { ascending: false }).limit(1);
+  const { data: plans } = await admin.from("comp_plans").select("*").eq("agency_id", A).eq("status", "active").lte("effective_from", folio.start_date).order("effective_from", { ascending: false }).order("version", { ascending: false }).limit(1);
   let planRow = plans?.[0];
-  if (!planRow) { const { data: any1 } = await admin.from("comp_plans").select("*").eq("status", "active").order("effective_from").limit(1); planRow = any1?.[0]; }
+  if (!planRow) { const { data: any1 } = await admin.from("comp_plans").select("*").eq("agency_id", A).eq("status", "active").order("effective_from").limit(1); planRow = any1?.[0]; }
   if (!planRow) return json({ error: "No comp plan is set up." }, 400);
 
   const rows: Row[] = [];
   for (let from = 0; ; from += 1000) {
     const { data, error } = await admin.from("policies_sold").select("client, carrier, line, premium, producer, sale_date")
-      .gte("sale_date", folio.start_date).lte("sale_date", end).range(from, from + 999);
+      .eq("agency_id", A).gte("sale_date", folio.start_date).lte("sale_date", end).range(from, from + 999);
     if (error) return json({ error: error.message }, 500);
     for (const r of data || []) rows.push({ ...r, premium: Number(r.premium) || 0 } as Row);
     if (!data || data.length < 1000) break;

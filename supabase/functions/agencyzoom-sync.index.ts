@@ -1,4 +1,4 @@
-// Supabase Edge Function: agencyzoom-sync (v16)
+// Supabase Edge Function: agencyzoom-sync (v17)
 //
 // Keeps the Ironwood dashboard current from AgencyZoom:
 //   sold   - every policy written (from customer policies) -> daily_sales
@@ -8,7 +8,7 @@
 // Window: by default re-syncs the last 3 days (Pacific time) every run, so
 // nothing is missed if a run fails. A backfill can pass {"start":"YYYY-MM-DD",
 // "end":"YYYY-MM-DD"} in the POST body, and {"parts":["sold"]} to run one part.
-// Never writes sales dated on/before HISTORY_CUTOFF: those days came from the
+// Never writes sales dated on/before the agency's history_cutoff: those days came from the
 // agency's own reconciled export and already live in the table.
 //
 // AgencyZoom API facts this relies on (from its published OpenAPI spec):
@@ -20,11 +20,14 @@
 //   - 120 calls/minute per account (shared with staff), so calls are paced.
 //
 // Secrets: AGENCYZOOM_USERNAME, AGENCYZOOM_PASSWORD, CRON_SECRET.
+//
+// Writes into the one agency marked agencies.agencyzoom_sync (the credentials above are that agency's).
+// This runs with the service role, which skips row-level security, so every read and write names
+// the agency itself; rows written without one are rejected by the database.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const AZ_BASE = "https://api.agencyzoom.com";
-const HISTORY_CUTOFF = "2026-09-17";
 const PACE_MS = 800;           // ~75 calls/minute; AgencyZoom allows 120/min (spec, Aug 2026)
 const TIME_BUDGET_MS = 125000; // stop starting new AgencyZoom calls after this
 const SDR_TAGS: Record<string, string> = { "Jackeline Transfer": "Jackeline", "Rhon Transfer": "Rhon" };
@@ -143,7 +146,11 @@ Deno.serve(async (req) => {
   const azUser = Deno.env.get("AGENCYZOOM_USERNAME"), azPass = Deno.env.get("AGENCYZOOM_PASSWORD");
   if (!azUser || !azPass) return new Response(JSON.stringify({ ok: false, error: "AgencyZoom secrets not set" }), { status: 500 });
 
-  const { data: logRow } = await supabase.from("sync_log").insert({ source: "agencyzoom", status: "running" }).select().single();
+  const { data: agency, error: agErr } = await supabase.from("agencies").select("id, history_cutoff").eq("agencyzoom_sync", true).maybeSingle();
+  if (agErr || !agency) return new Response(JSON.stringify({ ok: false, error: "No agency is set up for the AgencyZoom sync" }), { status: 500 });
+  const A = agency.id as string;
+  const cutoff = String(agency.history_cutoff || "0000-00-00");
+  const { data: logRow } = await supabase.from("sync_log").insert({ agency_id: A, source: "agencyzoom", status: "running" }).select().single();
   const stats: Record<string, any> = { window: { start, end }, parts, errors: [] as string[] };
   const err = (m: string) => { if (stats.errors.length < 10) stats.errors.push(m); };
 
@@ -211,18 +218,18 @@ Deno.serve(async (req) => {
           const ts = custTs.get(cid);
           if (sold && ts && isoDate(ts) === sold && pacificDay(ts)) sold = pacificDay(ts);
           if (sold && sold > today) sold = today;
-          if (!sold || sold < start || sold > end || sold <= HISTORY_CUTOFF) continue;
+          if (!sold || sold < start || sold > end || sold <= cutoff) continue;
           if (Number(x.status) === 0) continue; // cancelled
           const carrier = carriers[String(x.carrierId)] || x.carrierName || x.standardCarrierCode || null;
           const premium = Math.round(Number(x.premium || 0)) / 100; // AgencyZoom returns cents
           const producer = (x.agentName || "").trim() || "Unassigned";
           const { error } = await supabase.from("daily_sales").upsert({
-            az_ref: `pol-${x.id}`, sale_date: sold, producer, client_name: cname,
+            agency_id: A, az_ref: `pol-${x.id}`, sale_date: sold, producer, client_name: cname,
             premium, source: carrier ? (FAMILY_RX.test(carrier) ? "Farmers" : "Brokered") : null,
             carrier, policy_type: x.policyTypeName || null, customer_id: String(cid), confirmed: true,
             // only when known, so a later run without the won lead in view never blanks a captured source
             ...(custSource.has(cid) ? { lead_source: custSource.get(cid)!.source } : {}),
-          }, { onConflict: "az_ref" });
+          }, { onConflict: "agency_id,az_ref" });
           if (error) err(`daily_sales pol-${x.id}: ${error.message}`); else { stats.soldRows++; synced[producer] = (synced[producer] || 0) + premium; }
         }
       }
@@ -255,8 +262,8 @@ Deno.serve(async (req) => {
       for (const lead of quoted) {
         const leadId = String(lead.id || ""); if (!leadId) continue;
         // Adopt any historical row for this lead so it is updated, not duplicated.
-        await supabase.from("quote_leads").update({ az_ref: leadId }).eq("lead_id", leadId).is("az_ref", null);
-        const { data: existing } = await supabase.from("quote_leads").select("quoted_premium, quote_count").eq("az_ref", leadId).maybeSingle();
+        await supabase.from("quote_leads").update({ az_ref: leadId }).eq("agency_id", A).eq("lead_id", leadId).is("az_ref", null);
+        const { data: existing } = await supabase.from("quote_leads").select("quoted_premium, quote_count").eq("agency_id", A).eq("az_ref", leadId).maybeSingle();
         const leadQuoted = Number(lead.quoted || lead.premium || 0);
         if (existing && existing.quote_count > 0 && leadQuoted && Number(existing.quoted_premium) === leadQuoted) { stats.quoteUnchanged++; continue; }
         let quotes: any[] = [];
@@ -267,14 +274,14 @@ Deno.serve(async (req) => {
         if (!total) continue; // definition: only leads with an actual quoted premium
         const sdr = tagList(lead).map((t) => SDR_TAGS[t]).filter(Boolean);
         const { error } = await supabase.from("quote_leads").upsert({
-          az_ref: leadId, lead_id: leadId, name: personName(lead), created_date: isoDate(lead.createDate) || firstQuote,
+          agency_id: A, az_ref: leadId, lead_id: leadId, name: personName(lead), created_date: isoDate(lead.createDate) || firstQuote,
           producer: producerName(lead), pipeline: lead.workflowName || "Pipeline", lead_source: lead.leadSourceName || "",
           stage_entry: mdy(isoDate(lead.enterStageDate)), quoted_premium: total, sdr_tag: sdr[0] || "",
           quotes: shaped, quote_count: shaped.length || 1, quote_day: firstQuote,
           day_basis: isoDate(lead.quoteDate) ? "quote submission" : "entered Quoted",
           lines: [...new Set(shaped.map((q) => q.product).filter(Boolean))].join(", "),
           url: `https://app.agencyzoom.com/lead/index?id=${leadId}`,
-        }, { onConflict: "az_ref" });
+        }, { onConflict: "agency_id,az_ref" });
         if (error) err(`quote_leads ${leadId}: ${error.message}`); else stats.quoteRows++;
       }
     }
@@ -289,12 +296,12 @@ Deno.serve(async (req) => {
       stats.sdrTaggedSeen = tagged.length; stats.sdrRows = 0; stats.sdrSkippedPaidMonth = 0;
       // Months already paid out are never rewritten. Anything before the
       // earliest unpaid month counts as paid.
-      const { data: periods } = await supabase.from("sdr_pay_periods").select("month, closed");
+      const { data: periods } = await supabase.from("sdr_pay_periods").select("month, closed").eq("agency_id", A);
       const closed = new Set((periods || []).filter((p: any) => p.closed).map((p: any) => p.month));
       const openMonths = (periods || []).filter((p: any) => !p.closed).map((p: any) => p.month).sort();
       const earliestOpen = openMonths[0] || addDays(today.slice(0, 7) + "-01", -1).slice(0, 7);
       const known = new Set((periods || []).map((p: any) => p.month));
-      const { data: cfg } = await supabase.from("sdr_config").select("qualified_transfer_bonus, bound_policy_bonus").limit(1).maybeSingle();
+      const { data: cfg } = await supabase.from("sdr_config").select("qualified_transfer_bonus, bound_policy_bonus").eq("agency_id", A).order("id", { ascending: false }).limit(1).maybeSingle();
       for (const lead of tagged) {
         const leadId = String(lead.id);
         const sdrs = tagList(lead).map((t) => SDR_TAGS[t]).filter(Boolean);
@@ -305,14 +312,14 @@ Deno.serve(async (req) => {
           // First transfer of a new month: open its pay period (paid the 21st of the following month).
           const payDate = addDays(month + "-01", 40).slice(0, 7) + "-21";
           const label = new Date(month + "-15T12:00:00Z").toLocaleString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
-          await supabase.from("sdr_pay_periods").insert({ month, pay_date: payDate, period_label: label, closed: false,
+          await supabase.from("sdr_pay_periods").insert({ agency_id: A, month, pay_date: payDate, period_label: label, closed: false,
             qualified_transfer_bonus: cfg?.qualified_transfer_bonus ?? 15, bound_policy_bonus: cfg?.bound_policy_bonus ?? 35 });
           known.add(month);
         }
         const status = Number(lead.status);
         // Already qualified and nothing changed: no need to spend an AgencyZoom call.
         // (Re-read whenever the lead's quoted amount changed, e.g. a quote was added or edited.)
-        const { data: prior } = await supabase.from("sdr_transfers").select("az_qualifies, status, az_quote_premium").eq("az_ref", leadId).maybeSingle();
+        const { data: prior } = await supabase.from("sdr_transfers").select("az_qualifies, status, az_quote_premium").eq("agency_id", A).eq("az_ref", leadId).maybeSingle();
         const statusNow = status === 2 ? "Sold" : status === 3 ? "Dead" : status === 5 ? "Expired" : "Open";
         const leadQuotedNow = Number(lead.quoted || lead.premium || 0);
         const sameQuote = !leadQuotedNow || Math.abs(leadQuotedNow - Number(prior?.az_quote_premium || 0)) < 0.5;
@@ -324,7 +331,7 @@ Deno.serve(async (req) => {
         const bound = status === 2;
         const statusText = statusNow;
         const { error } = await supabase.from("sdr_transfers").upsert({
-          az_ref: leadId, lead_id: leadId, sdr: sdrs.includes("Jackeline") ? "Jackeline" : sdrs[0],
+          agency_id: A, az_ref: leadId, lead_id: leadId, sdr: sdrs.includes("Jackeline") ? "Jackeline" : sdrs[0],
           date_time: transferDay, month, client: personName(lead), producer: producerName(lead),
           csr: [lead.csrFirstname, lead.csrLastname].filter(Boolean).join(" "), lead_source: lead.leadSourceName || "",
           stage: lead.workflowStageName || "", status: statusText, loss_reason: "", action: statusText, outcome: statusText,
@@ -333,7 +340,7 @@ Deno.serve(async (req) => {
           bound_premium: shaped.filter((q) => q.sold).reduce((s, q) => s + q.premium, 0),
           tags: (sdrs.includes("Rhon") ? "R" : "") + (sdrs.includes("Jackeline") ? "J" : ""),
           url: `https://app.agencyzoom.com/lead/index?id=${leadId}`,
-        }, { onConflict: "az_ref" });
+        }, { onConflict: "agency_id,az_ref" });
         if (error) err(`sdr_transfers ${leadId}: ${error.message}`); else stats.sdrRows++;
       }
     }

@@ -48,19 +48,24 @@ Deno.serve(async (req) => {
   const part = body.part || "data";
   const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   const out: Record<string, unknown> = { part };
+  // The source file is Ironwood's, so everything lands in Ironwood's agency (the service role skips
+  // row-level security; rows must name their agency).
+  const { data: ag } = await db.from("agencies").select("id").eq("slug", "ironwood").maybeSingle();
+  if (!ag) return new Response(JSON.stringify({ ok: false, error: "No Ironwood agency" }), { status: 500 });
+  const A = ag.id as string;
   try {
     const T = transform(await loadLegacy());
     const up = async (table: string, rows: any[], onConflict?: string) => {
       for (let i = 0; i < rows.length; i += 200) {
-        const { error } = await db.from(table).upsert(rows.slice(i, i + 200), onConflict ? { onConflict } : undefined);
+        const { error } = await db.from(table).upsert(rows.slice(i, i + 200).map((r) => ({ ...r, agency_id: A })), onConflict ? { onConflict } : undefined);
         if (error) throw new Error(table + ": " + error.message);
       }
       out[table] = rows.length;
     };
     const insertIfEmpty = async (table: string, rows: any[]) => {
-      const { count } = await db.from(table).select("*", { count: "exact", head: true });
+      const { count } = await db.from(table).select("*", { count: "exact", head: true }).eq("agency_id", A);
       if (count) { out[table] = "kept " + count; return; }
-      const { error } = await db.from(table).insert(rows);
+      const { error } = await db.from(table).insert(rows.map((r) => ({ ...r, agency_id: A })));
       if (error) throw new Error(table + ": " + error.message);
       out[table] = rows.length;
     };
@@ -70,12 +75,12 @@ Deno.serve(async (req) => {
       await up("documents", T.documents.map(({ uri, ...d }: any) => d));
       await up("reference_data", T.reference);
       await up("hr_staff", T.hr_staff);
-      await up("hr_punches", T.hr_punches, "name,work_date");
+      await up("hr_punches", T.hr_punches, "agency_id,name,work_date");
       await insertIfEmpty("licenses", T.licenses);
       await insertIfEmpty("work_items", T.work_items);
       await insertIfEmpty("checklist_items", T.checklist_items);
     } else if (part === "docs") {
-      const { data: pending } = await db.from("documents").select("id").eq("uploaded", false);
+      const { data: pending } = await db.from("documents").select("id").eq("agency_id", A).eq("uploaded", false);
       const todo = new Set((pending || []).map((d: any) => d.id));
       let n = 0;
       for (const d of T.documents as any[]) {
@@ -83,7 +88,7 @@ Deno.serve(async (req) => {
         if (Date.now() - started > 110000) break;
         const { error } = await db.storage.from("documents").upload(d.storage_path, b64ToBytes(d.uri), { contentType: d.mime, upsert: true });
         if (error) throw new Error("upload " + d.id + ": " + error.message);
-        await db.from("documents").update({ uploaded: true }).eq("id", d.id);
+        await db.from("documents").update({ uploaded: true }).eq("agency_id", A).eq("id", d.id);
         n++;
       }
       out.uploaded = n;
