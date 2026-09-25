@@ -53,7 +53,8 @@ begin
   perform setseed(p_seed);
 
   -- 1. Clear the demo agency (logins, their preferences and the agency row stay) ------------------------
-  delete from storage.objects o using public.documents dd where dd.agency_id = v_ag and o.bucket_id = 'documents' and o.name = dd.storage_path;
+  -- Files someone uploads while demoing stay in storage (Supabase only lets the Storage API delete them); with the
+  -- document rows gone they can't be read by anyone.
   delete from public.agency_login_log where agency_id = v_ag;  delete from public.agency_login_secrets where agency_id = v_ag;
   delete from public.agency_logins where agency_id = v_ag;      delete from public.licenses where agency_id = v_ag;
   delete from public.documents where agency_id = v_ag;          delete from public.book_policies where agency_id = v_ag;
