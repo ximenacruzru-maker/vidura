@@ -41,7 +41,7 @@ button, select, input { font: inherit; }
   background: linear-gradient(135deg, #0b2a8a 0%, #1238a8 55%, #081b5c 100%); }
 .login-card { width: 100%; max-width: 380px; background: var(--card); border-radius: 20px; padding: 36px 32px;
   display: flex; flex-direction: column; gap: 14px; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
-.login-logo { width: 190px; align-self: center; }
+.login-logo { width: 300px; max-width: 100%; align-self: center; border-radius: 14px; box-shadow: 0 6px 20px rgba(20, 6, 40, .35); }
 .login-sub { text-align: center; font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: var(--blue); font-weight: 700; margin-bottom: 8px; }
 .login-card label { display: flex; flex-direction: column; gap: 6px; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--blue); }
 .login-card input { border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px; font-size: 15px; color: var(--ink); text-transform: none; letter-spacing: 0; font-weight: 500; }
@@ -200,7 +200,7 @@ button, select, input { font: inherit; }
   background: linear-gradient(145deg, var(--sideA) 0%, var(--sideB) 47%, var(--sideC) 100%); box-shadow: 12px 0 30px rgba(12,43,120,.08); }
 .side-brand { padding: 20px 22px 12px; margin: 0 14px; text-align: center; border-bottom: 1px solid color-mix(in srgb, var(--side-ink) 28%, transparent); }
 .brand-tile { display: inline-block; border-radius: 14px; }
-.brand-logo { width: 156px; max-width: 100%; height: auto; display: block; margin: 0 auto; }
+.brand-logo { width: 176px; max-width: 100%; height: auto; display: block; margin: 0 auto; border-radius: 10px; box-shadow: 0 4px 14px rgba(0, 0, 0, .28); }
 .side-for { margin: 8px 0 0; font-size: 12px; font-weight: 500; color: var(--side-ink); }
 .side-sub { margin: 2px 0 0; font-size: 12px; font-weight: 800; line-height: 1.3; color: var(--side-sub); }
 .nav { display: flex; flex-direction: column; gap: 2px; padding: 4px 14px; }
