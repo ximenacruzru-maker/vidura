@@ -14,7 +14,7 @@ const GROUPS = ['Carriers & wholesalers', 'Raters & agency tools', 'Leads & mark
 const blank = { id: null as string | null, grp: 'Carriers & wholesalers', name: '', url: '', username: '', notes: '', password: '' }
 const when = (iso: string) => new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles' })
 
-export default function Passwords() {
+export default function Passwords({ embedded = false }: { embedded?: boolean }) {
   const { me } = useAuth()
   const admin = isAdmin(me?.role)
   const [reload, setReload] = useState(0)
@@ -67,7 +67,7 @@ export default function Passwords() {
     if (error) alert(error.message); else { setEdit(null); setReload((n) => n + 1) }
   }
 
-  const head = <PageHead kicker="Agency management" title="Agency passwords" sub="Carrier portals and agency systems. Passwords are encrypted, and every view is logged." />
+  const head = embedded ? null : <PageHead kicker="Agency management" title="Agency passwords" sub="Carrier portals and agency systems. Passwords are encrypted, and every view is logged." />
   if (error) return <>{head}<ErrorBox error={error} /></>
   if (!data) return <>{head}<Loading /></>
 
@@ -130,7 +130,7 @@ export default function Passwords() {
           ))}</tbody></table>
         </Panel>
       )}
-      <p className="note">{admin ? 'Staff see this page only when you switch on “Agency passwords” for them under Settings › Producers & access. Only admins can add, change or delete logins.' : 'Only admins can add or change logins.'}</p>
+      <p className="note">{admin ? `Staff see ${embedded ? 'this tab' : 'this page'} only when you switch on “Agency passwords” for them under Settings › Producers & access. Only admins can add, change or delete logins.` : 'Only admins can add or change logins.'}</p>
 
       <Drawer open={!!edit} onClose={() => setEdit(null)} title={edit?.id ? 'Edit login' : 'Add login'} sub="The password is encrypted in the database the moment you save.">
         {edit && (

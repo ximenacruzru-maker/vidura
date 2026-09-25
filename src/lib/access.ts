@@ -4,7 +4,7 @@ import type { Role, StaffAccount } from './data'
 export const SECTIONS: { key: string; label: string; note: string }[] = [
   { key: 'performance', label: 'Performance (admins only)', note: 'Agency-wide numbers and everyone’s pay. Staff see only their own pay under My Pay.' },
   { key: 'books', label: 'P&C book & renewals', note: 'Clients, policies and their documents' },
-  { key: 'resources', label: 'Resources & markets', note: 'Forms, carrier markets, appetite guide' },
+  { key: 'resources', label: 'Agency Resources', note: 'Forms, carrier markets, appetite guide, platforms' },
   { key: 'work', label: 'Work queue', note: 'Shared work items' },
   { key: 'chat', label: 'Team chat', note: 'Channels and direct messages' },
   { key: 'training', label: 'Training', note: 'New Agent Training classroom' },
