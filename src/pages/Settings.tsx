@@ -211,7 +211,7 @@ function Appearance({ look, userId }: { look: Look; userId: string }) {
               <div key={k} className={'th-r' + (look.theme === k ? ' th-on' : '')} tabIndex={0} role="button"
                 onClick={() => pick({ ...look, theme: k })} onKeyDown={(e) => e.key === 'Enter' && pick({ ...look, theme: k })}>
                 <div className="th-sw">{t.swatch.map((c) => <i key={c} style={{ background: c }} />)}</div>
-                <div className="th-n">{t.name}</div>
+                <div className="th-n">{t.name}{t.note && <span className="th-s">{t.note}</span>}</div>
                 <div className="th-c">{look.theme === k ? 'In use' : 'Use'}</div>
               </div>
             ))}

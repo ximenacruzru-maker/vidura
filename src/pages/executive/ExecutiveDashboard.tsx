@@ -4,6 +4,7 @@ import { ErrorBox, Loading } from '../../components/ui'
 import { loadPerfData, saveGoals, type PerfData } from '../../lib/perf/data'
 import { computeExecutive, execProduction, execRows, isFarmersCarrier, money0, today, type Book, type Client, type Drill, type Filters, type Row } from '../../lib/perf/executive'
 import { getLook, onLook, type Look } from '../../lib/theme'
+import { EXTRA_FONTS, EXTRA_THEMES } from '../../lib/perf/looks'
 import { useAsync } from '../../lib/useAsync'
 import { Bars, DayChart, Donut, ICO, Meter, RenewalChart, ScoreCard } from './parts'
 import './executive.css'
@@ -406,9 +407,10 @@ function useLegacyLook(D: PerfData): { style: CSSProperties; dark: boolean; them
     const a = t.season.from, b = t.season.to
     return a <= b ? md >= a && md <= b : md >= a || md <= b
   }
-  const key = D.THEMES[look.theme] && inSeason(D.THEMES[look.theme]) ? look.theme : 'vidura'
-  const t = D.THEMES[key] || D.THEMES.vidura
-  const font = (D.FONTS || {})[look.font]
+  const themes: PerfData['THEMES'] = { ...EXTRA_THEMES, ...D.THEMES }, fonts = { ...EXTRA_FONTS, ...(D.FONTS || {}) }
+  const key = themes[look.theme] && inSeason(themes[look.theme]) ? look.theme : 'vidura'
+  const t = themes[key] || themes.vidura
+  const font = fonts[look.font]
   const style = { ...(t?.vars || {}), ...(font ? { '--serif': font.serif, '--sans': font.sans } : {}) } as CSSProperties
   return { style, dark: !!t?.dark, theme: key }
 }
