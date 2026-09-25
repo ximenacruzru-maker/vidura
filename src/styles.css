@@ -41,7 +41,7 @@ button, select, input { font: inherit; }
   background: linear-gradient(135deg, #0b2a8a 0%, #1238a8 55%, #081b5c 100%); }
 .login-card { width: 100%; max-width: 380px; background: var(--card); border-radius: 20px; padding: 36px 32px;
   display: flex; flex-direction: column; gap: 14px; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
-.login-logo { width: 230px; max-width: 100%; align-self: center; border-radius: 14px; box-shadow: 0 6px 20px rgba(20, 6, 40, .35); }
+.login-logo { width: 190px; max-width: 100%; align-self: center; border-radius: 14px; box-shadow: 0 6px 20px rgba(20, 6, 40, .35); }
 .login-sub { text-align: center; font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: var(--blue); font-weight: 700; margin-bottom: 8px; }
 .login-card label { display: flex; flex-direction: column; gap: 6px; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--blue); }
 .login-card input { border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px; font-size: 15px; color: var(--ink); text-transform: none; letter-spacing: 0; font-weight: 500; }

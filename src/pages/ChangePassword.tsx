@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '../auth'
 import { supabase } from '../lib/supabase'
-import logo from '../assets/logo.jpg'
+import logo from '../assets/login-logo.jpg'
 
 /** Set your own password. Shown automatically after signing in with a temporary password. */
 export default function ChangePassword({ forced, embedded, onDone }: { forced?: boolean; embedded?: boolean; onDone?: () => void }) {
