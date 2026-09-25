@@ -176,6 +176,16 @@ Deno.serve(async (req) => {
       const soldById = new Map<string, any>();
       const ranges = start.slice(0, 7) < today.slice(0, 7) ? ["mtd", "lastmonth"] : ["mtd"];
       for (const r of ranges) for (const l of await leadsList(token, { status: 2, soldPeriod: r })) if (l.id) soldById.set(String(l.id), l);
+      // Lead source of each converted customer, from the won lead (latest win when a household has several).
+      // Customers who never came through a won lead keep no source rather than a guessed one.
+      const custSource = new Map<string, { source: string; sold: string }>();
+      for (const l of soldById.values()) {
+        const src = String(l.leadSourceName || "").trim();
+        if (!l.convertedHouseholdId || !src) continue;
+        const cid = String(l.convertedHouseholdId), sold = isoDate(l.soldDate) || "";
+        const prev = custSource.get(cid);
+        if (!prev || sold > prev.sold) custSource.set(cid, { source: src, sold });
+      }
       let wonInWindow = 0;
       for (const l of soldById.values()) {
         const d = isoDate(l.soldDate);
@@ -210,6 +220,8 @@ Deno.serve(async (req) => {
             az_ref: `pol-${x.id}`, sale_date: sold, producer, client_name: cname,
             premium, source: carrier ? (FAMILY_RX.test(carrier) ? "Farmers" : "Brokered") : null,
             carrier, policy_type: x.policyTypeName || null, customer_id: String(cid), confirmed: true,
+            // only when known, so a later run without the won lead in view never blanks a captured source
+            ...(custSource.has(cid) ? { lead_source: custSource.get(cid)!.source } : {}),
           }, { onConflict: "az_ref" });
           if (error) err(`daily_sales pol-${x.id}: ${error.message}`); else { stats.soldRows++; synced[producer] = (synced[producer] || 0) + premium; }
         }
