@@ -4,7 +4,7 @@ import { supabase } from './lib/supabase'
 import { getMe, type StaffAccount } from './lib/data'
 import { loadLook } from './lib/theme'
 import { claimBrowserStorage } from './lib/agencyStorage'
-import logo from './assets/logo.png'
+import logo from './assets/logo.jpg'
 
 interface AuthState {
   session: Session | null
