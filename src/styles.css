@@ -409,6 +409,42 @@ html[data-theme="talavera"] .hd-kai { background: linear-gradient(135deg, #B4461
 html[data-theme="talavera"] .login { background: var(--tal-strip) left top / 30px auto repeat-y, var(--tal-strip) right top / 30px auto repeat-y, linear-gradient(135deg, #A94F21, #C8692F 55%, #1E2E86); }
 html[data-theme="talavera"] .set-band { background: linear-gradient(135deg, #1E2E86, #23359A 60%, #B4461E); }
 
+
+/* Talavera: raised cobalt buttons and cobalt-rimmed fields everywhere */
+html[data-theme="talavera"] .btn-primary { background: linear-gradient(#2A3DA6, #1E2E86); box-shadow: inset 0 -3px 0 rgba(0,0,0,.28), 0 3px 7px rgba(27,42,107,.28); border-radius: 10px; }
+html[data-theme="talavera"] .fld, html[data-theme="talavera"] .set-page input, html[data-theme="talavera"] .set-page select { border: 2px solid #23359A; border-radius: 9px; background: #FFFBF3; }
+/* Talavera Proteges: each protégé as a painted card with a cobalt header band and a round cobalt avatar */
+html[data-theme="talavera"] .pg-cards .tiles { grid-template-columns: repeat(auto-fill, minmax(220px, 250px)); gap: 22px; }
+html[data-theme="talavera"] .pg-cards .tile { position: relative; aspect-ratio: auto; justify-content: flex-start; padding: 116px 26px 26px;
+  border-image: url('./assets/talavera-frame.png') 118 fill / 40px / 0 stretch; }
+html[data-theme="talavera"] .pg-cards .tile::before { content: 'Protégé'; position: absolute; top: 12px; left: 42px; right: 42px; padding: 5px 0 6px; background: #23359A; color: #FFF6E8;
+  font-family: 'Merriweather', Georgia, serif; font-weight: 700; font-size: 15px; letter-spacing: 0; border-radius: 0 0 8px 8px; box-shadow: inset 0 -2px 0 rgba(0,0,0,.2); }
+html[data-theme="talavera"] .pg-cards .tile::after { content: ''; position: absolute; top: 48px; left: 50%; width: 60px; height: 60px; margin-left: -30px; border-radius: 50%;
+  background: #23359A url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 60'%3E%3Ccircle cx='30' cy='23' r='11' fill='%23FFF6E8'/%3E%3Cpath d='M9 54c2-12 11-18 21-18s19 6 21 18z' fill='%23FFF6E8'/%3E%3C/svg%3E") center / 100% no-repeat;
+  box-shadow: 0 0 0 3px #C8692F, 0 0 0 5px #FBF4E6; }
+html[data-theme="talavera"] .pg-cards .tile-l { color: #1B2A6B; font-size: 13px; letter-spacing: .04em; }
+html[data-theme="talavera"] .pg-cards .tile-v { color: #B4461E; }
+html[data-theme="talavera"] .pg-cards .tile-s { display: inline-block; align-self: center; color: #1B2A6B; border: 1.5px solid #C8692F; border-radius: 14px; padding: 5px 12px; margin-top: 8px; background: #FFFBF3; }
+/* Talavera Settings: the banner as a terracotta painted tile, tile-button tabs, flourish-ruled section headings */
+html[data-theme="talavera"] .set-band { background: none; color: #1B2A6B; border: 1px solid transparent; border-radius: 0;
+  border-image: url('./assets/kpi-tile.png') 118 fill / 44px / 0 stretch; padding: 40px 48px; filter: drop-shadow(0 5px 8px rgba(90,45,15,.25)); }
+html[data-theme="talavera"] .set-band .eye { opacity: 1; color: #FFF3E2; }
+html[data-theme="talavera"] .set-band h2, html[data-theme="talavera"] .set-stats b { color: #1B2A6B; }
+html[data-theme="talavera"] .set-stats small { color: #FFF3E2; opacity: 1; }
+html[data-theme="talavera"] .set-tabs { display: inline-flex; gap: 0; border: 0; padding: 0; border-radius: 10px; overflow: hidden; box-shadow: 0 0 0 2px #23359A, 0 4px 8px rgba(27,42,107,.18); margin: 8px 0 22px; }
+html[data-theme="talavera"] .set-tabs button { padding: 10px 20px; letter-spacing: .08em; background: #FBF4E6; color: #1B2A6B; border-bottom: 0; border-right: 2px solid #23359A; }
+html[data-theme="talavera"] .set-tabs button:last-child { border-right: 0; }
+html[data-theme="talavera"] .set-tabs button.on { background: linear-gradient(#2A3DA6, #1E2E86); color: #FFF6E8; }
+html[data-theme="talavera"] .set-page .panel { background: transparent; box-shadow: none; border: 0; }
+html[data-theme="talavera"] .set-page .panel-h { border-bottom: 0; padding-bottom: 20px; background: url('./assets/talavera-flourish.svg') left bottom / auto 18px repeat-x; }
+html[data-theme="talavera"] .set-page .panel-t { font-size: 21px; color: #1B2A6B; }
+html[data-theme="talavera"] .set-page .th-r { border-bottom: 1px solid #E6D3B6; border-radius: 10px; padding: 12px 10px; }
+html[data-theme="talavera"] .set-page .th-r:hover { background: #F1DFC2; }
+html[data-theme="talavera"] .set-page .th-on { background: #FBF4E6; box-shadow: inset 0 0 0 2px #23359A; }
+html[data-theme="talavera"] .set-page .th-sw i { width: 20px; height: 26px; border-radius: 4px; box-shadow: inset 0 0 0 1.5px rgba(27,42,107,.35); }
+html[data-theme="talavera"] .set-page .th-c { color: #23359A; border: 1.5px solid #23359A; border-radius: 999px; padding: 4px 10px; }
+html[data-theme="talavera"] .set-page .th-on .th-c { color: #FFF6E8; background: #23359A; }
+html[data-theme="talavera"] .set-page .th-fp { color: #1B2A6B; }
 /* Halloween (seasonal, until Nov 1), built from the Halloween artwork in src/assets/halloween: the purple sidebar with
    cobwebs, spider, bats, trees and jack-o'-lanterns; a black top bar with the moon, ghosts and bats over a dripping orange
    edge; a foggy purple page with cobweb corners; KPI cards in the stamp-edged orange frame; skulls in the donuts. */
@@ -653,6 +689,10 @@ html[data-theme="dark"] .renew-warn { border-color: #6b4a14; background: var(--w
   html[data-theme="halloween"] .topbar { position: sticky; background: #000; }
   html[data-theme="halloween"] .page { padding-top: 58px; background-size: 130px auto; }
   html[data-theme="halloween"] .side-foot { padding-bottom: 120px; }
+  html[data-theme="talavera"] .set-tabs { display: flex; flex-direction: column; width: 100%; }
+  html[data-theme="talavera"] .set-tabs button { border-right: 0; border-bottom: 2px solid #23359A; text-align: left; }
+  html[data-theme="talavera"] .set-tabs button:last-child { border-bottom: 0; }
+  html[data-theme="talavera"] .set-band { padding: 30px 32px; }
 }
 @media (max-width: 420px) {
   .hd-logo { height: 34px; }

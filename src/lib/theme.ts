@@ -19,7 +19,7 @@ export const FONTS: Record<string, { name: string; note: string; serif: string; 
   retro: { name: 'Retro', note: 'Bold vintage display headlines over a warm, rounded body face', serif: "'Abril Fatface',Georgia,serif", sans: "'Poppins',Helvetica,Arial,sans-serif" },
   calligraphy: { name: 'Calligraphy', note: 'Elegant flowing script headlines over a clean, readable body', serif: "'Alex Brush',cursive", sans: "'Montserrat',Helvetica,Arial,sans-serif" },
   groovy: { name: 'Groovy', note: 'Chunky seventies headlines over a soft, rounded body', serif: "'Shrikhand',Georgia,serif", sans: "'Nunito',Helvetica,Arial,sans-serif" },
-  modern: { name: 'Modern', note: 'Geometric grotesque headlines over a neutral body — pairs with Modern', serif: "'Space Grotesk',ui-sans-serif,system-ui,sans-serif", sans: "'Inter',ui-sans-serif,system-ui,sans-serif" },
+  modern: { name: 'Modern', note: 'Geometric grotesque headlines over a neutral body', serif: "'Space Grotesk',ui-sans-serif,system-ui,sans-serif", sans: "'Inter',ui-sans-serif,system-ui,sans-serif" },
   classical: { name: 'Classical', note: 'Old-style Garamond headlines over a bookish serif body', serif: "'Cormorant Garamond',Garamond,Georgia,serif", sans: "'Lora',Georgia,serif" },
 }
 export function inSeason(t?: { season?: Season }, d = new Date()) {
