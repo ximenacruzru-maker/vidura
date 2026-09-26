@@ -6,6 +6,8 @@ import { agencyName } from '../lib/data'
 import { bookLabel, getAccounts, getBookPolicies, type Account, type BookPolicy } from '../lib/books'
 import { money0 } from '../lib/format'
 import logo from '../assets/logo.jpg'
+import logoHalloween from '../assets/logo-halloween.jpg'
+import { getLook, onLook } from '../lib/theme'
 import { Icon } from './icons'
 import LegacyHost, { LEGACY_ROUTES } from './LegacyHost'
 import SyncControl from './SyncControl'
@@ -21,6 +23,9 @@ export default function Layout({ children }: { children: ReactNode }) {
   const go = useNavigate()
   const [visited, setVisited] = useState(false)
   const [menu, setMenu] = useState(false)
+  // The seasonal Halloween theme has its own logo; every other theme shows the DECLARA tile.
+  const [theme, setTheme] = useState(getLook().theme)
+  useEffect(() => onLook((l) => setTheme(l.theme)), [])
   useEffect(() => { if (LEGACY_ROUTES[pathname]) setVisited(true); setMenu(false) }, [pathname])
 
   const c = (k: string) => can(me, k)
@@ -61,7 +66,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     <div className="shell">
       <aside className="side">
         <div className="side-brand">
-          <div className="brand-tile"><img className="brand-logo" src={logo} alt="Declara" /></div>
+          <div className="brand-tile"><img className="brand-logo" src={theme === 'halloween' ? logoHalloween : logo} alt="Declara" /></div>
           <p className="side-for">For</p>
           <p className="side-sub">{agencyName(me)}</p>
         </div>
