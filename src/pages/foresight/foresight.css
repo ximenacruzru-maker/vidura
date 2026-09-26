@@ -1,4 +1,4 @@
-/* Vida Foresight charts. Series colours were run through the dataviz palette validator against the card
+/* Declara Foresight charts. Series colours were run through the dataviz palette validator against the card
    surface in each mode: one hue for single-series charts; teal (current) + blue (recommended) for the pair. */
 .fs { --fs-bar: #1a4be6; --fs-cur: #0e8f86; --fs-rec: #1a4be6; --fs-grid: var(--line); }
 html[data-theme="dark"] .fs { --fs-bar: #5b7bff; --fs-cur: #1f9e94; --fs-rec: #5b7bff; }

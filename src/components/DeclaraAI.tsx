@@ -9,7 +9,7 @@ import { mdy, money0, money2, todayPacific } from '../lib/format'
 import { supabase } from '../lib/supabase'
 import { getWork, isDone } from '../pages/WorkQueue'
 
-/* Vida AI: answers questions from the agency's own data — the book, markets, the Farmers appetite guide,
+/* Declara AI: answers questions from the agency's own data — the book, markets, the Farmers appetite guide,
    training notes, licenses, work and (for the people allowed to see them) sales and commissions.
    Rule and search based, like the original: nothing leaves the agency's database. */
 
@@ -270,7 +270,7 @@ async function commission(q: string, all: boolean): Promise<Answer> {
 }
 
 /* ---------- the button and panel ---------- */
-export default function VidaAI() {
+export default function DeclaraAI() {
   const { me } = useAuth()
   const go = useNavigate()
   const [open, setOpen] = useState(false)
@@ -296,15 +296,15 @@ export default function VidaAI() {
 
   return (
     <>
-      <button className="hd-kai" onClick={() => setOpen(true)} aria-label="Open Vida AI">
+      <button className="hd-kai" onClick={() => setOpen(true)} aria-label="Open Declara AI">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5l1.9 5.6 5.6 1.9-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.9L12 2.5zM5 15.5l.9 2.6 2.6.9-2.6.9L5 22.5l-.9-2.6-2.6-.9 2.6-.9.9-2.6z" /></svg>
-        <span>Vida AI</span>
+        <span>Declara AI</span>
       </button>
       {open && createPortal(
         <div className="drawer-bg" onClick={() => setOpen(false)}>
-          <aside className="drawer ai-drawer" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Vida AI">
+          <aside className="drawer ai-drawer" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Declara AI">
             <div className="drawer-h">
-              <div><div className="panel-t">Vida AI</div><div className="panel-s">Answers from {agencyShort(me)}’s own book, markets, appetite guide, training and sales.</div></div>
+              <div><div className="panel-t">Declara AI</div><div className="panel-s">Answers from {agencyShort(me)}’s own book, markets, appetite guide, training and sales.</div></div>
               <div className="row-actions">
                 {msgs.length > 0 && <button className="btn-ghost" onClick={() => { setMsgs([]); ctx.current = {} }}>Clear</button>}
                 <button className="btn-ghost" onClick={() => setOpen(false)}>Close</button>
@@ -321,7 +321,7 @@ export default function VidaAI() {
             <div className="ai-foot">
               <div className="ai-chips">{chips.map((x) => <button key={x.q} className="chip" onClick={() => ask(x.q)} disabled={busy}>{x.q}</button>)}</div>
               <form className="ai-ask" onSubmit={(e) => { e.preventDefault(); ask(q) }}>
-                <input className="fld" autoFocus placeholder="Ask Vida…" value={q} onChange={(e) => setQ(e.target.value)} />
+                <input className="fld" autoFocus placeholder="Ask Declara AI…" value={q} onChange={(e) => setQ(e.target.value)} />
                 <button className="btn-primary" disabled={busy || !q.trim()}>Ask</button>
               </form>
             </div>

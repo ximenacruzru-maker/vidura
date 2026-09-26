@@ -1,12 +1,12 @@
 // Browser storage belongs to one agency at a time. Screens keep things in localStorage (an imported
 // AgencyZoom report, commission drafts, remembered filters, the original screens' settings). When a
 // login from a different agency signs in on this browser, the previous agency's items are set aside
-// under "vidura_stash:<agency>" and the new agency's are put back, so nothing crosses agencies and
+// under "declara_stash:<agency>" and the new agency's are put back, so nothing crosses agencies and
 // nothing is lost. The colour theme and the sign-in session are the person's, not the agency's.
-const OWNER = 'vidura_agency'
-const STASH = 'vidura_stash:'
+const OWNER = 'declara_agency'
+const STASH = 'declara_stash:'
 const LEGACY = STASH + 'before-agencies'
-const personal = (k: string) => k === OWNER || k === 'vidura_look_v2' || k.startsWith(STASH) || k.startsWith('sb-')
+const personal = (k: string) => k === OWNER || k === 'declara_look_v2' || k.startsWith(STASH) || k.startsWith('sb-')
 
 export function claimBrowserStorage(agencyId: string, isDemo: boolean) {
   try {

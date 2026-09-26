@@ -1,4 +1,4 @@
-// Vida Foresight: sales patterns, producer ranking and lead-spend analysis, computed only from what is on
+// Declara Foresight: sales patterns, producer ranking and lead-spend analysis, computed only from what is on
 // file — daily_sales (sold policies), lead_spend (what each source cost) and the AgencyZoom folio reports'
 // premium by lead source (lg:AZ_REPORTS) for the months before lead source was captured on each sale.
 import { supabase } from './supabase'
@@ -10,7 +10,7 @@ export interface Spend { id: string; source: string; period_start: string; perio
 export interface FolioSources { start: string; end: string; rows: { source: string; premium: number; policies: number }[] }
 export interface ForesightData {
   sales: Sale[]; spend: Spend[]; folios: FolioSources[]
-  /** False until the Vida Foresight migration has run: no lead source column, no lead_spend table. */
+  /** False until the Declara Foresight migration has run: no lead source column, no lead_spend table. */
   hasLeadSource: boolean; hasSpendTable: boolean
 }
 
@@ -233,7 +233,7 @@ export function project(s: SourceStat, pct: number, commissionRate: number | nul
 
 /** The new-business commission rate a person entered on the Foresight page (a percent), or null. Kept in
  *  this browser only; agency commission rates aren't in the data. */
-export const RATE_KEY = 'vidura_foresight_commission_rate'
+export const RATE_KEY = 'declara_foresight_commission_rate'
 export function savedRate(): number | null {
   try { const v = (localStorage.getItem(RATE_KEY) || '').trim(); return v === '' || isNaN(Number(v)) ? null : Math.max(0, Number(v)) / 100 } catch { return null }
 }

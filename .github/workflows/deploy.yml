@@ -1,6 +1,6 @@
-# Builds Vidura and publishes it to GitHub Pages on every change to main.
+# Builds Declara and publishes it to GitHub Pages on every change to main.
 # No more manual uploads: commit the source, and the live site updates in about a minute.
-name: Deploy Vidura
+name: Deploy Declara
 
 on:
   push:

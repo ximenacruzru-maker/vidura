@@ -17,7 +17,7 @@ const perDollar = (n: number | null) => (n == null ? '—' : '$' + n.toFixed(2))
 export default function Foresight() {
   const [reload, setReload] = useState(0)
   const { data, error } = useAsync(loadForesight, [reload])
-  const head = <PageHead kicker="Performance" title="Vida Foresight" sub="Sales patterns, producer ranking and lead spend, year to date (Jan 1 – today) unless you pick another period — from the policies AgencyZoom shows as sold and the spend you record here." />
+  const head = <PageHead kicker="Performance" title="Declara Foresight" sub="Sales patterns, producer ranking and lead spend, year to date (Jan 1 – today) unless you pick another period — from the policies AgencyZoom shows as sold and the spend you record here." />
   if (error) return <>{head}<ErrorBox error={error} /></>
   if (!data) return <>{head}<Loading /></>
   const today = todayPacific()
@@ -26,7 +26,7 @@ export default function Foresight() {
     <div className="fs">
       {head}
       {(!data.hasLeadSource || !data.hasSpendTable) && (
-        <div className="band-note">The Vida Foresight database migration hasn't been run yet ({[!data.hasLeadSource && 'no lead source on sold policies', !data.hasSpendTable && 'no lead spend table'].filter(Boolean).join(', ')}).
+        <div className="band-note">The Declara Foresight database migration hasn't been run yet ({[!data.hasLeadSource && 'no lead source on sold policies', !data.hasSpendTable && 'no lead spend table'].filter(Boolean).join(', ')}).
           Day-of-week and producer figures below are complete; lead-spend analysis uses the saved AgencyZoom folio reports only until it is.</div>
       )}
       <Weekdays D={data} today={today} first={first} />
@@ -260,7 +260,7 @@ function SpendRecords({ D, known, onChanged }: { D: ForesightData; known: string
   const rows = [...D.spend].sort((a, b) => b.period_start.localeCompare(a.period_start))
   return (
     <Panel title="Lead spend on file" sub="What each lead source cost, for a date range. Use the source name exactly as AgencyZoom spells it so spend lines up with the sales it bought.">
-      {!D.hasSpendTable ? <Empty>The lead_spend table doesn't exist yet — run the Vida Foresight migration first.</Empty> : <>
+      {!D.hasSpendTable ? <Empty>The lead_spend table doesn't exist yet — run the Declara Foresight migration first.</Empty> : <>
         {canEdit && (
           <div className="form-grid" style={{ marginBottom: 14 }}>
             <label>Source<input className="fld" list="fs-sources" value={f.source} onChange={set('source')} /></label>

@@ -11,12 +11,12 @@ import { getLook, onLook } from '../lib/theme'
 import { Icon } from './icons'
 import LegacyHost, { LEGACY_ROUTES } from './LegacyHost'
 import SyncControl from './SyncControl'
-import VidaAI from './VidaAI'
+import DeclaraAI from './DeclaraAI'
 import ForesightAI from './ForesightAI'
 
 type Item = { h: string } | { div: true } | { to: string; label: string; icon: string; show: boolean; also?: string[] }
 
-/** The app shell, laid out like the original Vidura platform: one sidebar, four sections. */
+/** The app shell, laid out like the original platform: one sidebar, four sections. */
 export default function Layout({ children }: { children: ReactNode }) {
   const { me, signOut } = useAuth()
   const { pathname } = useLocation()
@@ -100,7 +100,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           {c('books') ? <GlobalSearch /> : <div className="gsearch-none" />}
           <div className="hd-right">
           {c('performance') && <SyncControl />}
-          <VidaAI />
+          <DeclaraAI />
           {c('performance') && <ForesightAI />}
           <div className="hd-user">
             <span className="hd-av" role="button" tabIndex={0} aria-label="Account menu" onClick={() => setMenu(!menu)} onKeyDown={(e) => e.key === 'Enter' && setMenu(!menu)}>{initials}</span>
