@@ -1592,3 +1592,27 @@ aside.side, .workspace > header, #roleNote, #terms, #brief, #login { display:non
 .shell { height:100vh; }
 .pagehead { padding-top:22px !important; }
 #vxLoading { position:fixed; inset:0; display:grid; place-items:center; font:600 15px Inter,system-ui,sans-serif; color:#3155c9; background:#f6fbff; z-index:99999; }
+
+/* ===== phones: the original screens inside the app ===== */
+@media(max-width:700px){
+  .scg,.scg-nd{grid-template-columns:repeat(2,minmax(0,1fr))!important;grid-auto-flow:row!important;grid-auto-columns:auto!important;gap:10px}
+  .scgrid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px}
+  .sc,.sccard{min-width:0}
+  .sc-top{flex-direction:column;align-items:flex-start;gap:8px;padding:14px 14px 0}
+  .sc-i{width:34px;height:34px}
+  .sc-l{white-space:normal;overflow-wrap:normal}
+  .sc-body{padding:8px 14px 12px!important}
+  .dash-top,.fbar{flex-wrap:wrap;gap:8px}
+  .fb-g{flex:1 1 100%;min-width:0}
+  .fb-g .f,.fbar .f{max-width:100%;min-width:0}
+  .fb-u{white-space:normal;flex:1 1 100%}
+  .mc-btn{margin-left:0}
+  .panel-b,.htw{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .hs-2{grid-template-columns:minmax(0,1fr)!important}
+  .hs{min-width:0;max-width:100%}
+  .hs-band em{white-space:nowrap}
+  input,select,textarea{font-size:16px}
+}
+@media(max-width:560px){
+  .scgrid{grid-template-columns:minmax(0,1fr)!important}
+}

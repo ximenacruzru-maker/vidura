@@ -23,10 +23,18 @@ export default function Layout({ children }: { children: ReactNode }) {
   const go = useNavigate()
   const [visited, setVisited] = useState(false)
   const [menu, setMenu] = useState(false)
+  // On phones the sidebar is a drawer behind the ☰ button.
+  const [drawer, setDrawer] = useState(false)
   // The seasonal Halloween theme has its own logo; every other theme shows the DECLARA tile.
   const [theme, setTheme] = useState(getLook().theme)
   useEffect(() => onLook((l) => setTheme(l.theme)), [])
-  useEffect(() => { if (LEGACY_ROUTES[pathname]) setVisited(true); setMenu(false) }, [pathname])
+  useEffect(() => { if (LEGACY_ROUTES[pathname]) setVisited(true); setMenu(false); setDrawer(false) }, [pathname])
+  useEffect(() => {
+    if (!drawer) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setDrawer(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [drawer])
 
   const c = (k: string) => can(me, k)
   const first = (me?.display_name || '').split(' ')[0]
@@ -64,7 +72,8 @@ export default function Layout({ children }: { children: ReactNode }) {
 
   return (
     <div className="shell">
-      <aside className="side">
+      {drawer && <div className="side-scrim" onClick={() => setDrawer(false)} aria-hidden="true" />}
+      <aside className={'side' + (drawer ? ' open' : '')} id="side-nav">
         <div className="side-brand">
           <div className="brand-tile"><img className="brand-logo" src={theme === 'halloween' ? logoHalloween : logo} alt="Declara" /></div>
           <p className="side-for">For</p>
@@ -86,13 +95,15 @@ export default function Layout({ children }: { children: ReactNode }) {
 
       <div className="workspace">
         <header className="topbar">
-          {c('books') ? <GlobalSearch /> : <div />}
+          <button className="hd-burger" aria-label="Menu" aria-controls="side-nav" aria-expanded={drawer} onClick={() => setDrawer(!drawer)}><span /><span /><span /></button>
+          <img className="hd-logo" src={theme === 'halloween' ? logoHalloween : logo} alt="Declara" />
+          {c('books') ? <GlobalSearch /> : <div className="gsearch-none" />}
           <div className="hd-right">
           {c('performance') && <SyncControl />}
           <VidaAI />
           {c('performance') && <ForesightAI />}
           <div className="hd-user">
-            <span className="hd-av">{initials}</span>
+            <span className="hd-av" role="button" tabIndex={0} aria-label="Account menu" onClick={() => setMenu(!menu)} onKeyDown={(e) => e.key === 'Enter' && setMenu(!menu)}>{initials}</span>
             <span className="hd-un"><b>{me?.display_name || 'Signed in'}</b><em>{ROLE_LABEL[me?.role || ''] || ''}</em></span>
             <button className="hd-chev" aria-label="Account menu" onClick={() => setMenu(!menu)}><Icon name="chev" width={2} /></button>
             {menu && (
