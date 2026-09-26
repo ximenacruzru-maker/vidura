@@ -9,6 +9,11 @@ dumped under row-level security as the demo owner, so no real agency's data is i
 
 Locally, if Playwright's browser isn't installed: `CHROMIUM_PATH=/path/to/chrome npm run test:layout`.
 
+## Browser data (runs on every pull request)
+`npm run test:sync` checks that what the screens keep in the browser is saved to the database (`app_store`), that
+changes made by the app and by the original screens' frame are both saved, that sign-out leaves only the theme on the
+browser, that signing in again brings everything back, and that a Claude API key never stays in the browser.
+
 ## Data isolation (run in the database after any schema change)
 `select * from public.isolation_audit();` lists any table or policy that could let one agency see another's rows.
 An empty result is a pass.
