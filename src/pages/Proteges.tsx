@@ -88,12 +88,12 @@ export default function Proteges() {
     <>
       {head}
       <Tabs tabs={[{ key: 'progress', label: 'Progress to graduation' }, { key: 'training', label: 'Training checklist' }]} value={tab} onChange={setTab} />
-      <Tiles>
+      <div className="pg-cards"><Tiles>
         {calc.map((c) => (
           <Tile key={c.p.name} label={`${c.p.short} · month ${c.cur}`} value={money0(c.withLife)}
             sub={c.gaps.length ? 'Needs ' + c.gaps.join(', ') : 'Every graduation goal met'} tone={c.gaps.length ? (c.gaps.length === 1 ? 'warn' : undefined) : 'good'} />
         ))}
-      </Tiles>
+      </Tiles></div>
 
       {tab === 'progress' && (
         <Panel title="Milestones" sub="Farmers-family P&C premium by program month, plus life. Completed months are from the official program report; the current month onward is live from AgencyZoom.">

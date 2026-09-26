@@ -190,9 +190,11 @@ export default function Settings() {
         </div>
       </div>
       <div className="set-tabs">{tabs.map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>)}</div>
-      {tab === 'appearance' && <Appearance look={look} userId={me?.user_id || ''} />}
-      {tab === 'access' && admin && <TeamAccess />}
-      {tab === 'password' && <ChangePassword embedded />}
+      <div className="set-page">
+        {tab === 'appearance' && <Appearance look={look} userId={me?.user_id || ''} />}
+        {tab === 'access' && admin && <TeamAccess />}
+        {tab === 'password' && <ChangePassword embedded />}
+      </div>
     </>
   )
 }
