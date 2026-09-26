@@ -384,7 +384,7 @@ html[data-theme="talavera"] .panel { box-shadow: var(--shadow), inset 0 0 0 1px 
 /* KPI cards: the terracotta tile with cobalt bars and fan corners (src/assets/kpi-tile.png), drawn as a
    nine-slice frame so the fans keep their shape at any card size and only the bars and centre stretch. */
 html[data-theme="talavera"] .tile, html[data-theme="talavera"] .xd .sc {
-  background: none; border: 1px solid transparent; border-image: url('./assets/kpi-tile.png') 118 fill / 40px / 0 stretch;
+  background: none; border: 1px solid transparent; border-image: url('./assets/kpi-tile.png') 74 fill / 40px / 0 stretch;
   border-radius: 0; box-shadow: none; filter: drop-shadow(0 5px 7px rgba(90,45,15,.28)); padding: 30px 30px 26px; }
 html[data-theme="talavera"] .tile { text-align: center; }
 /* Cards take the tile's own near-square shape (480 x 509), growing taller only if their content needs it */
@@ -416,7 +416,7 @@ html[data-theme="talavera"] .fld, html[data-theme="talavera"] .set-page input, h
 /* Talavera Proteges: each protégé as a painted card with a cobalt header band and a round cobalt avatar */
 html[data-theme="talavera"] .pg-cards .tiles { grid-template-columns: repeat(auto-fill, minmax(220px, 250px)); gap: 22px; }
 html[data-theme="talavera"] .pg-cards .tile { position: relative; aspect-ratio: auto; justify-content: flex-start; padding: 116px 26px 26px;
-  border-image: url('./assets/talavera-frame.png') 118 fill / 40px / 0 stretch; }
+  border-image: url('./assets/talavera-frame.png') 74 fill / 40px / 0 stretch; }
 html[data-theme="talavera"] .pg-cards .tile::before { content: 'Protégé'; position: absolute; top: 12px; left: 42px; right: 42px; padding: 5px 0 6px; background: #23359A; color: #FFF6E8;
   font-family: 'Merriweather', Georgia, serif; font-weight: 700; font-size: 15px; letter-spacing: 0; border-radius: 0 0 8px 8px; box-shadow: inset 0 -2px 0 rgba(0,0,0,.2); }
 html[data-theme="talavera"] .pg-cards .tile::after { content: ''; position: absolute; top: 48px; left: 50%; width: 60px; height: 60px; margin-left: -30px; border-radius: 50%;
@@ -427,7 +427,7 @@ html[data-theme="talavera"] .pg-cards .tile-v { color: #B4461E; }
 html[data-theme="talavera"] .pg-cards .tile-s { display: inline-block; align-self: center; color: #1B2A6B; border: 1.5px solid #C8692F; border-radius: 14px; padding: 5px 12px; margin-top: 8px; background: #FFFBF3; }
 /* Talavera Settings: the banner as a terracotta painted tile, tile-button tabs, flourish-ruled section headings */
 html[data-theme="talavera"] .set-band { background: none; color: #1B2A6B; border: 1px solid transparent; border-radius: 0;
-  border-image: url('./assets/kpi-tile.png') 118 fill / 44px / 0 stretch; padding: 40px 48px; filter: drop-shadow(0 5px 8px rgba(90,45,15,.25)); }
+  border-image: url('./assets/kpi-tile.png') 74 fill / 44px / 0 stretch; padding: 40px 48px; filter: drop-shadow(0 5px 8px rgba(90,45,15,.25)); }
 html[data-theme="talavera"] .set-band .eye { opacity: 1; color: #FFF3E2; }
 html[data-theme="talavera"] .set-band h2, html[data-theme="talavera"] .set-stats b { color: #1B2A6B; }
 html[data-theme="talavera"] .set-stats small { color: #FFF3E2; opacity: 1; }
@@ -676,9 +676,9 @@ html[data-theme="dark"] .renew-warn { border-color: #6b4a14; background: var(--w
   .set-band h2 { font-size: 24px; }
   .drawer-h, .drawer-b { padding-left: 16px; padding-right: 16px; }
   /* Executive Dashboard: two cards per row instead of six */
-  .xd .scg { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px; }
-  .xd .sc { padding: 16px 14px 14px; }
-  .xd .sc-v { font-size: 26px; }
+  html .xd .scg { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px; }
+  html .xd .sc { padding: 16px 14px 14px; }
+  html .xd .sc-v { font-size: 26px; }
   /* painted-tile themes: frames keep their corners, but cards are shorter and two across */
   html[data-theme="talavera"] .tiles, html[data-theme="halloween"] .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   html[data-theme="talavera"] .tile, html[data-theme="talavera"] .xd .sc,
@@ -697,5 +697,5 @@ html[data-theme="dark"] .renew-warn { border-color: #6b4a14; background: var(--w
 @media (max-width: 420px) {
   .hd-logo { height: 34px; }
   .tile-v { font-size: 21px; }
-  .xd .sc-v { font-size: 22px; }
+  html .xd .sc-v { font-size: 22px; }
 }

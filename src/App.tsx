@@ -3,21 +3,23 @@ import { AuthProvider, LoginScreen, useAuth } from './auth'
 import { FolioProvider } from './components/FolioPicker'
 import Layout from './components/Layout'
 import { Loading } from './components/ui'
-import Settings from './pages/Settings'
-import Books from './pages/Books'
-import Resources from './pages/Resources'
-import WorkQueue from './pages/WorkQueue'
-import MySpace from './pages/MySpace'
-import Chat from './pages/Chat'
-import Proteges from './pages/Proteges'
-import Licensing from './pages/Licensing'
-import Training from './pages/Training'
 import ChangePassword from './pages/ChangePassword'
-import MyPay from './pages/MyPay'
-import ExecutiveDashboard from './pages/executive/ExecutiveDashboard'
-import Foresight from './pages/foresight/Foresight'
 import { can } from './lib/access'
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
+
+// Each page is its own file, downloaded the first time it's opened, so the first load stays small.
+const Settings = lazy(() => import('./pages/Settings'))
+const Books = lazy(() => import('./pages/Books'))
+const Resources = lazy(() => import('./pages/Resources'))
+const WorkQueue = lazy(() => import('./pages/WorkQueue'))
+const MySpace = lazy(() => import('./pages/MySpace'))
+const Chat = lazy(() => import('./pages/Chat'))
+const Proteges = lazy(() => import('./pages/Proteges'))
+const Licensing = lazy(() => import('./pages/Licensing'))
+const Training = lazy(() => import('./pages/Training'))
+const MyPay = lazy(() => import('./pages/MyPay'))
+const ExecutiveDashboard = lazy(() => import('./pages/executive/ExecutiveDashboard'))
+const Foresight = lazy(() => import('./pages/foresight/Foresight'))
 
 function Gate() {
   const { session, me, loading, signOut } = useAuth()
@@ -41,6 +43,7 @@ function Gate() {
   return (
     <FolioProvider>
       <Layout>
+        <Suspense fallback={<div className="center"><Loading what="Loading" /></div>}>
         <Routes>
           <Route path="/" element={can(me, 'performance') ? <ExecutiveDashboard /> : <Navigate to="/today" replace />} />
           {/* Performance screens not yet rebuilt: the original screens, shown by the layout's LegacyHost */}
@@ -65,6 +68,7 @@ function Gate() {
           {can(me, 'training') && <Route path="/training" element={<Training />} />}
           <Route path="*" element={<Navigate to={home} replace />} />
         </Routes>
+        </Suspense>
       </Layout>
     </FolioProvider>
   )
