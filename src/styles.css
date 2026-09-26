@@ -251,21 +251,6 @@ button, select, input { font: inherit; }
 .hd-menu button { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 9px 12px; border-radius: 8px; color: var(--ink); cursor: pointer; font-weight: 600; }
 .hd-menu button:hover { background: var(--tint); }
 
-@media (max-width: 900px) {
-  .shell { flex-direction: column; height: auto; overflow: visible; }
-  .side { width: auto; flex: none; }
-  .side-brand { display: none; }
-  .nav { flex-direction: row; flex-wrap: wrap; padding: 8px; }
-  .nav-h, .nav-div { display: none; }
-  .nav button { width: auto; padding: 7px 10px; font-size: 13px; gap: 6px; }
-  .nav button svg { width: 15px; height: 15px; }
-  .side-foot { display: none; }
-  .workspace { overflow: visible; }
-  .topbar { padding: 10px 16px; }
-  .hd-un { display: none; }
-  .legacy-host { height: 80vh; flex: none; }
-}
-
 /* ================= themes (Settings › Appearance) ================= */
 html[data-theme="bubblegum"] {
   --navy: #0D2455; --blue: #1B3C79; --blue-2: #112E6D; --teal: #E06FB8; --ink: #0D2455; --muted: #8A5E7E;
@@ -613,3 +598,64 @@ html[data-theme="dark"] .renew-warn { border-color: #6b4a14; background: var(--w
 .date-range { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .date-range label { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--muted); }
 .date-range input { width: auto; padding: 7px 8px; }
+
+/* The ☰ button and the small top-bar logo only exist on phones */
+.hd-burger, .hd-logo, .side-scrim { display: none; }
+
+/* ================= phones and small tablets =================
+   The sidebar becomes a drawer behind a ☰ button; the top bar is one row of controls with the search
+   underneath; pages, cards and tiles tighten up; inputs are 16px so iOS doesn't zoom on focus. */
+@media (max-width: 900px) {
+  .shell { display: block; height: auto; overflow: visible; }
+  .side { position: fixed; top: 0; bottom: 0; left: 0; z-index: 90; width: 286px; max-width: 86vw; flex: none;
+    transform: translateX(-105%); transition: transform .22s ease; box-shadow: none; overscroll-behavior: contain; }
+  .side.open { transform: none; box-shadow: 12px 0 40px rgba(0,0,0,.35); }
+  .side-scrim { display: block; position: fixed; inset: 0; z-index: 85; background: rgba(8,12,30,.45); }
+  .side-foot { display: flex; }
+  .nav button { padding-top: 11px; padding-bottom: 11px; }
+  .workspace { overflow: visible; min-height: 100vh; }
+  .topbar { position: sticky; top: 0; display: grid; grid-template-columns: auto auto 1fr; grid-template-areas: "burger logo right" "search search search";
+    gap: 10px 10px; padding: 10px 14px 12px; min-height: 0; }
+  .hd-burger { grid-area: burger; display: inline-flex; flex-direction: column; justify-content: center; gap: 4px; width: 42px; height: 42px; padding: 0 11px;
+    border: 1px solid var(--line); border-radius: 12px; background: var(--card); cursor: pointer; }
+  .hd-burger span { display: block; height: 2px; border-radius: 2px; background: var(--ink); }
+  .hd-logo { grid-area: logo; display: block; height: 40px; width: auto; border-radius: 7px; }
+  .gsearch, .gsearch-none { grid-area: search; flex: none; min-width: 0; width: 100%; }
+  .gsearch-none { display: none; }
+  .hd-right { grid-area: right; justify-self: end; gap: 6px; min-width: 0; }
+  .hd-un, .hd-chev { display: none; }
+  .hd-av { width: 40px; height: 40px; font-size: 14px; cursor: pointer; }
+  .hd-kai { height: 40px; padding: 0 11px; }
+  .hd-kai span { display: none; }
+  .tsync-pill { height: 40px; padding: 0 10px; }
+  .page { padding: 16px 14px 40px; }
+  .page-head h1 { font-size: 25px; }
+  .legacy-host { height: calc(100vh - 128px); flex: none; }
+  input, select, textarea, .gq, .fld { font-size: 16px; }
+  .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .tile { padding: 14px 14px; }
+  .tile-v { font-size: 24px; }
+  .set-band { padding: 20px; }
+  .set-stats { flex-wrap: wrap; gap: 14px 24px; }
+  .set-band h2 { font-size: 24px; }
+  .drawer-h, .drawer-b { padding-left: 16px; padding-right: 16px; }
+  /* Executive Dashboard: two cards per row instead of six */
+  .xd .scg { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px; }
+  .xd .sc { padding: 16px 14px 14px; }
+  .xd .sc-v { font-size: 26px; }
+  /* painted-tile themes: frames keep their corners, but cards are shorter and two across */
+  html[data-theme="talavera"] .tiles, html[data-theme="halloween"] .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  html[data-theme="talavera"] .tile, html[data-theme="talavera"] .xd .sc,
+  html[data-theme="halloween"] .tile, html[data-theme="halloween"] .xd .sc { aspect-ratio: auto; min-height: 136px; padding: 22px 18px 20px; }
+  html[data-theme="talavera"] .tile, html[data-theme="talavera"] .xd .sc { border-image-width: 30px; }
+  html[data-theme="halloween"] .tile, html[data-theme="halloween"] .xd .sc { border-image-width: 32px; }
+  html[data-theme="talavera"] .side, html[data-theme="halloween"] .side { box-shadow: none; }
+  html[data-theme="halloween"] .topbar { position: sticky; background: #000; }
+  html[data-theme="halloween"] .page { padding-top: 58px; background-size: 130px auto; }
+  html[data-theme="halloween"] .side-foot { padding-bottom: 120px; }
+}
+@media (max-width: 420px) {
+  .hd-logo { height: 34px; }
+  .tile-v { font-size: 21px; }
+  .xd .sc-v { font-size: 22px; }
+}
