@@ -20,6 +20,7 @@ const Training = lazy(() => import('./pages/Training'))
 const MyPay = lazy(() => import('./pages/MyPay'))
 const ExecutiveDashboard = lazy(() => import('./pages/executive/ExecutiveDashboard'))
 const Foresight = lazy(() => import('./pages/foresight/Foresight'))
+const Agencies = lazy(() => import('./pages/Agencies'))
 
 function Gate() {
   const { session, me, loading, signOut } = useAuth()
@@ -51,6 +52,7 @@ function Gate() {
             <Route key={p} path={p} element={can(me, 'performance') ? null : <Navigate to="/today" replace />} />)}
           {can(me, 'performance') && <Route path="/foresight" element={<Foresight />} />}
           <Route path="/settings" element={<Settings />} />
+          {me.platform_admin && <Route path="/agencies" element={<Agencies />} />}
           <Route path="/team" element={<Navigate to="/settings" replace />} />
           <Route path="/password" element={<ChangePassword />} />
           <Route path="/pay" element={<MyPay />} />

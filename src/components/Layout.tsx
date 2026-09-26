@@ -58,6 +58,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     { to: '/proteges', label: 'Proteges', icon: 'proteges', show: c('proteges') },
     { div: true },
     { to: '/settings', label: 'Settings', icon: 'settings', show: true },
+    { to: '/agencies', label: 'Agencies', icon: 'book', show: !!me?.platform_admin },
   ]
   const visible = nav.filter((n, i) => {
     if ('to' in n) return n.show
