@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test:layout": "node tests/e2e/layout.mjs"
+    "test:layout": "node tests/e2e/layout.mjs",
+    "test:parity": "node tests/e2e/parity-sales.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.1",

@@ -149,4 +149,13 @@ xa-b
 xa-n
 xa-s
 xa-t
-xa-tag
+xa-tagsvtabs
+svtab
+exhd
+exhd-s
+exhd-u
+ph
+ph-card
+ph-tag
+dect
+lic-alert

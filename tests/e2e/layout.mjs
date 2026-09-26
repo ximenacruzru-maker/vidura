@@ -9,7 +9,7 @@ import path from 'path'
 import { install } from './supabase-stub.mjs'
 
 const DIST = path.resolve('dist')
-const ROUTES = ['/today', '/work', '/chat', '/', '/sales', '/huddle', '/reports', '/commissions', '/sdr', '/foresight', '/resources',
+const ROUTES = ['/today', '/work', '/chat', '/', '/sales', '/legacy-sales', '/huddle', '/reports', '/commissions', '/sdr', '/foresight', '/resources',
   '/books/farmers', '/books/commercial', '/training', '/hr', '/proteges', '/settings', '/agencies']
 const THEMES = ['talavera', 'declara', 'dark']
 const SIZES = [['phone', { ...devices['iPhone 13'] }], ['desktop', { viewport: { width: 1440, height: 900 } }]]

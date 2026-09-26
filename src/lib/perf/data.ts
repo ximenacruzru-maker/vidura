@@ -34,6 +34,7 @@ export interface PerfData {
   BOOK_NAME: Record<string, string>
   GOALS: { premium?: number | null; policies?: number | null; [k: string]: any }
   PERIODS: Record<string, { label: string; days: number }>
+  SALES_PERIODS: Record<string, { label: string }>
   EXEC_PROD_WINDOWS: [string, string][]
   WB_DATA: { folio: Record<string, Folio>; commissionsByFolio?: Record<string, Record<string, Json>>; [k: string]: any }
   WB_EXTRA: { daily: Record<string, Json>; quotes?: Json; [k: string]: any }
@@ -49,7 +50,7 @@ export interface PerfData {
   S: Json
 }
 
-const REF_KEYS = ['FARMERS_DECS', 'RETAIL_DOCS', 'RB_LINES', 'CHART', 'BOOK_TAB', 'BOOK_NAME', 'GOALS', 'PERIODS', 'EXEC_PROD_WINDOWS',
+const REF_KEYS = ['FARMERS_DECS', 'RETAIL_DOCS', 'RB_LINES', 'CHART', 'BOOK_TAB', 'BOOK_NAME', 'GOALS', 'PERIODS', 'SALES_PERIODS', 'EXEC_PROD_WINDOWS',
   'WB_DATA', 'WB_EXTRA', 'AZ_REPORTS', 'COMM_SEED', 'COMM_RESULTS', 'LIVE_FOLIO_ROWS', 'METRIC_DEFS', 'DASH_DEF_KEY', 'THEMES', 'FONTS', 'S']
 /** Saved copies of the books, used only when the live book tables can't be read (same fallback as loader.js). */
 const BOOK_SNAPSHOT_KEYS = ['DATA', 'CB_BINDERS', 'RB']
