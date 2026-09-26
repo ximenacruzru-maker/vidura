@@ -379,7 +379,7 @@ function MetricComponents({ D, open, live, onClose }: { D: PerfData; open: boole
   return <>
     <div className="dr-ov" hidden={!open} onClick={onClose} />
     <aside className={'dr' + (open ? ' open' : '')} aria-hidden={!open}>
-      <div className="dr-h"><div><span className="dr-eye">VIDURA COMPONENT LIBRARY</span><h2>Metric Components — Executive Dashboard</h2></div>
+      <div className="dr-h"><div><span className="dr-eye">DECLARA COMPONENT LIBRARY</span><h2>Metric Components — Executive Dashboard</h2></div>
         <button className="dr-x" onClick={onClose} aria-label="Close">&times;</button></div>
       <div className="dr-b">
         <p className="dr-intro">The measurements this section is meant to carry. Cards with a value are live from the file; the rest light up as their data source is connected.</p>
@@ -409,7 +409,7 @@ function useLegacyLook(D: PerfData): { style: CSSProperties; dark: boolean; them
   }
   const themes: PerfData['THEMES'] = { ...EXTRA_THEMES, ...D.THEMES }, fonts = { ...EXTRA_FONTS, ...D.FONTS }
   const key = themes[look.theme] && inSeason(themes[look.theme]) ? look.theme : 'talavera'
-  const t = themes[key] || themes.talavera || themes.vidura
+  const t = themes[key] || themes.talavera || themes.declara
   const font = fonts[look.font]
   const style = { ...(t?.vars || {}), ...(font ? { '--serif': font.serif, '--sans': font.sans } : {}) } as CSSProperties
   return { style, dark: !!t?.dark, theme: key }

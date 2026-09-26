@@ -4,8 +4,8 @@
 import type { FolioRow, Json, PerfData } from './data'
 import { wbFolioKeys } from './data'
 
-const COMM_KEY = 'vidura_comm_plans_v1'
-const RECON_KEY = 'vidura_comm_recon_v1'
+const COMM_KEY = 'declara_comm_plans_v1'
+const RECON_KEY = 'declara_comm_recon_v1'
 
 function lsGet<T>(k: string, d: T): T { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v) } catch { return d } }
 

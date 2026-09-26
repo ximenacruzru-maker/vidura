@@ -1,4 +1,4 @@
-// Outline icons from the original Vidura sidebar.
+// Outline icons from the original sidebar.
 const P: Record<string, string> = {
   today: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
   tickets: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 9h8M8 13h5M3 8h18"/>',

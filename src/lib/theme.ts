@@ -9,7 +9,7 @@ export const THEMES: Record<string, { name: string; swatch: string[]; note?: str
   talavera: { name: 'Talavera', note: 'Terracotta, cobalt and cream, with hand-painted tile frames and borders', swatch: ['#C8692F', '#23359A', '#B4461E', '#E7B98E', '#F6EBD6'] },
   bubblegum: { name: 'Bubble Gum', swatch: ['#EFAAD6', '#F6CBE7', '#112E6D', '#C8102E', '#FDEFF7'] },
   dark: { name: 'Dark Mode', dark: true, swatch: ['#0B1020', '#151C2E', '#5B7BFF', '#8FA6D8', '#E9EEFB'] },
-  vidura: { name: 'Declara Blue', swatch: ['#164fec', '#4d60ff', '#4263d6', '#1a4be6', '#eefaff'] },
+  declara: { name: 'Declara Blue', swatch: ['#164fec', '#4d60ff', '#4263d6', '#1a4be6', '#eefaff'] },
   halloween: { name: 'Halloween', note: 'Limited time, until November 1 — jack-o’-lanterns, bats and cobwebs on midnight purple', dark: true, season: { from: '09-25', to: '11-01' }, swatch: ['#1C0B33', '#2A1245', '#F07A12', '#6BD13A', '#F3E6CF'] },
 }
 // Each typeface pairs a distinct display face (headlines, titles, big numbers) with its own body
@@ -31,7 +31,7 @@ export function inSeason(t?: { season?: Season }, d = new Date()) {
 export function availableThemes() { return Object.entries(THEMES).filter(([, t]) => inSeason(t)) }
 export interface Look { theme: string; font: string }
 export const DEFAULT_LOOK: Look = { theme: 'talavera', font: 'normal' }
-const KEY = 'vidura_look_v2'
+const KEY = 'declara_look_v2'
 const listeners = new Set<(l: Look) => void>()
 let current: Look = DEFAULT_LOOK
 
@@ -39,6 +39,7 @@ export function getLook() { return current }
 export function onLook(fn: (l: Look) => void) { listeners.add(fn); return () => { listeners.delete(fn) } }
 
 export function applyLook(l: Partial<Look>) {
+  if (l.theme === 'vidura') l = { ...l, theme: 'declara' } // the Blue theme's id before the rename to Declara
   current = { theme: THEMES[l.theme || ''] && inSeason(THEMES[l.theme!]) ? l.theme! : DEFAULT_LOOK.theme, font: FONTS[l.font || ''] ? l.font! : DEFAULT_LOOK.font }
   const r = document.documentElement
   r.setAttribute('data-theme', current.theme)

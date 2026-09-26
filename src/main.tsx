@@ -5,6 +5,21 @@ import './styles.css'
 import { applyLook, cachedLook } from './lib/theme'
 import { supabase } from './lib/supabase'
 
+/* Declara used to be called Vidura, and saved its settings in this browser under "vidura…" names. Move them to the
+   new names once (theme choice, cached screens, saved plans and the per-agency stash), before anything reads them. */
+function renameSavedSettings() {
+  const OLD = 'vidura', NEW = 'declara'
+  for (const store of [localStorage, sessionStorage]) {
+    for (const k of Object.keys(store)) {
+      if (!k.startsWith(OLD)) continue
+      const nk = NEW + k.slice(OLD.length), v = store.getItem(k)
+      if (v != null && store.getItem(nk) == null) store.setItem(nk, v.replace(/"vidura_/g, '"declara_').replace(/"theme":"vidura"/g, '"theme":"declara"'))
+      store.removeItem(k)
+    }
+  }
+}
+try { renameSavedSettings() } catch { /* storage blocked (private mode): nothing to move */ }
+
 applyLook(cachedLook())
 
 /* Password-reset and invite links land here as #access_token=…&type=recovery. Sign the person in

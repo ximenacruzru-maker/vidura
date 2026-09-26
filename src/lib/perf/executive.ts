@@ -108,6 +108,8 @@ export function execProdRange(D: PerfData, k: string, custom?: { from: string; t
     if (a > b) [a, b] = [b, a]
     return { start: a, end: b, label: 'Custom range · ' + a + ' to ' + b }
   }
+  // A new agency has no folios yet: those windows fall back to month to date until its first folio exists.
+  if ((k === 'folio' || k === 'last' || k === 'all') && !D.WB_DATA.folio[ks[k === 'last' ? 1 : 0]]) k = 'mtd'
   if (k === 'folio' || k === 'last') {
     const key = k === 'folio' ? ks[0] : ks[1]; const f = D.WB_DATA.folio[key]
     return { key, start: f.start, end: f.end, label: f.label.replace(' (in progress)', ''), folio: key }

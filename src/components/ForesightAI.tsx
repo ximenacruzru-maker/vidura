@@ -6,9 +6,9 @@ import {
 } from '../lib/foresight'
 import { money0, shortDate, todayPacific } from '../lib/format'
 
-/* Foresight AI: answers Vida Foresight questions — best selling day, top producer, lead-source returns,
+/* Foresight AI: answers Declara Foresight questions — best selling day, top producer, lead-source returns,
    where to shift spend, what a spend change would do — from the same calculations as the Foresight page.
-   Rule based like Vida AI: nothing leaves the agency's database, and every projection says it's linear. */
+   Rule based like Declara AI: nothing leaves the agency's database, and every projection says it's linear. */
 
 interface Answer { body: ReactNode; go?: boolean }
 interface Msg { who: 'me' | 'ai'; q?: string; a?: Answer }
@@ -191,7 +191,7 @@ function answer(qRaw: string, D: ForesightData): Answer {
     }
   }
 
-  return { body: <>I answer Vida Foresight questions from the agency's sold policies and recorded lead spend: which day you sell the most, the top producer, what each lead source returns, where to shift lead spend, and what a spend change would do (e.g. "what if we spent 20% more on EverQuote?"). Figures are year to date unless you name a period — "this month", "last 90 days", or a range like "from Aug 1 to Sep 5".</> }
+  return { body: <>I answer Declara Foresight questions from the agency's sold policies and recorded lead spend: which day you sell the most, the top producer, what each lead source returns, where to shift lead spend, and what a spend change would do (e.g. "what if we spent 20% more on EverQuote?"). Figures are year to date unless you name a period — "this month", "last 90 days", or a range like "from Aug 1 to Sep 5".</> }
 }
 
 export default function ForesightAI() {
@@ -230,7 +230,7 @@ export default function ForesightAI() {
             <div className="drawer-h">
               <div><div className="panel-t">Foresight AI</div><div className="panel-s">Sales patterns, producers and lead spend — year to date unless you name a period.</div></div>
               <div className="row-actions">
-                <button className="btn-primary" onClick={() => { setOpen(false); go('/foresight') }}>Open Vida Foresight</button>
+                <button className="btn-primary" onClick={() => { setOpen(false); go('/foresight') }}>Open Declara Foresight</button>
                 {msgs.length > 0 && <button className="btn-ghost" onClick={() => setMsgs([])}>Clear</button>}
                 <button className="btn-ghost" onClick={() => setOpen(false)}>Close</button>
               </div>
@@ -239,7 +239,7 @@ export default function ForesightAI() {
               {!msgs.length && <div className="ai-hello">Ask which day you sell the most, who the top producer is, what each lead source returns, where to shift lead spend, or what a spend change would do.</div>}
               {msgs.map((m, i) => m.who === 'me'
                 ? <div key={i} className="ai-me">{m.q}</div>
-                : <div key={i} className="ai-a">{m.a!.body}{m.a!.go && <div><button className="ai-go" onClick={() => { setOpen(false); go('/foresight') }}>Open Vida Foresight →</button></div>}</div>)}
+                : <div key={i} className="ai-a">{m.a!.body}{m.a!.go && <div><button className="ai-go" onClick={() => { setOpen(false); go('/foresight') }}>Open Declara Foresight →</button></div>}</div>)}
               {busy && <div className="ai-a ai-think">Working that out…</div>}
               <div ref={end} />
             </div>

@@ -14,6 +14,8 @@ export interface StaffAccount {
   agency_id: string
   /** The agency this login belongs to (every row the login can reach is this agency's). */
   agency?: { name: string; short_name: string | null; is_demo: boolean; agencyzoom_sync: boolean } | null
+  /** Runs Declara itself (public.platform_admins): can see the Agencies page and create agencies. */
+  platform_admin?: boolean
 }
 
 export interface Folio {
@@ -96,8 +98,11 @@ export const agencyShort = (me: StaffAccount | null | undefined) => me?.agency?.
 export async function getMe(): Promise<StaffAccount | null> {
   const { data: u } = await supabase.auth.getUser()
   if (!u.user) return null
-  const { data } = await supabase.from('staff_accounts').select('*, agency:agencies(name, short_name, is_demo, agencyzoom_sync)').eq('user_id', u.user.id).maybeSingle()
-  return (data as StaffAccount) || null
+  const [{ data }, { data: pa }] = await Promise.all([
+    supabase.from('staff_accounts').select('*, agency:agencies(name, short_name, is_demo, agencyzoom_sync)').eq('user_id', u.user.id).maybeSingle(),
+    supabase.from('platform_admins').select('user_id').eq('user_id', u.user.id).maybeSingle(),
+  ])
+  return data ? ({ ...data, platform_admin: !!pa } as StaffAccount) : null
 }
 
 export async function getFolios(): Promise<Folio[]> {

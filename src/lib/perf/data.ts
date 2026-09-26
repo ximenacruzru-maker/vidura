@@ -111,7 +111,7 @@ export const rbKey = (s: string) => String(s || '').toLowerCase().replace(/[^a-z
 /** engine.js azRestore: an AgencyZoom CSV imported in this browser adds its clients to the Farmers book. */
 function azRestore(D: PerfData) {
   try {
-    const saved = JSON.parse(localStorage.getItem('vidura_az_import_v1') || 'null')
+    const saved = JSON.parse(localStorage.getItem('declara_az_import_v1') || 'null')
     if (saved && saved.clients) saved.clients.forEach((c: Json) => D.DATA.farmers.push(c))
   } catch { /* nothing imported */ }
 }

@@ -1,4 +1,4 @@
--- Vida Foresight: lead spend by source, and the lead source on each sold policy.
+-- Declara Foresight: lead spend by source, and the lead source on each sold policy.
 --
 -- Run this BEFORE deploying the updated agencyzoom-sync function: the new sync writes
 -- daily_sales.lead_source, and upserts would fail on a database without the column.

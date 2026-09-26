@@ -515,7 +515,7 @@ begin
     (v_ag, 'lg:GOALS', jsonb_build_object('premium', 72000, 'policies', 58, 'newClients', 40), true),
     (v_ag, 'lg:OWNER_IDENTITY', jsonb_build_object('name', 'Alex Morgan', 'first', 'Alex', 'role', 'Agency owner'), true),
     (v_ag, 'lg:SIGNED_IN', jsonb_build_object('name', 'Alex Morgan', 'first', 'Alex', 'role', 'Agency owner'), true),
-    (v_ag, 'lg:SETTINGS', jsonb_build_object('theme', 'vidura', 'font', 'inter', 'producers', (select jsonb_agg(jsonb_build_object('code', code, 'name', name, 'role', 'producer', 'email', email)) from dp)), true),
+    (v_ag, 'lg:SETTINGS', jsonb_build_object('theme', 'declara', 'font', 'inter', 'producers', (select jsonb_agg(jsonb_build_object('code', code, 'name', name, 'role', 'producer', 'email', email)) from dp)), true),
     (v_ag, 'lg:HR_STAFF', (select jsonb_agg(jsonb_build_object('name', name, 'role', role, 'hourly', hourly, 'rate', rate)) from public.hr_staff where agency_id = v_ag), true),
     (v_ag, 'lg:HR_PUNCHES', (select jsonb_object_agg(name, pl) from (select name, jsonb_agg(jsonb_build_object('date', to_char(work_date, mdy), 'start', start_time, 'end', end_time, 'breaks', breaks) order by work_date) pl from public.hr_punches where agency_id = v_ag group by name) z), true),
     (v_ag, 'lg:LICENSES', (select jsonb_agg(jsonb_build_object('name', name, 'role', role, 'state', state, 'authority', authority, 'type', license_type, 'number', number,
