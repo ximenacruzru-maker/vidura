@@ -676,7 +676,15 @@ html[data-theme="dark"] .renew-warn { border-color: #6b4a14; background: var(--w
   .set-band h2 { font-size: 24px; }
   .drawer-h, .drawer-b { padding-left: 16px; padding-right: 16px; }
   /* Executive Dashboard: two cards per row instead of six */
-  html .xd .scg { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px; }
+  html .xd .scg { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; grid-auto-flow: row !important; grid-auto-columns: auto !important; gap: 10px; }
+  html .xd .sc { min-width: 0; }
+  .xd .sc-h { flex-wrap: wrap; gap: 6px; }
+  .xd .sc-nb { white-space: nowrap; }
+  .xd .panel, .xd .panel-b { min-width: 0; max-width: 100%; }
+  .xd .panel-b { overflow-x: auto; }
+  details.fs-table { overflow-x: auto; }
+  .xd .p2, .xd .p21, .p2 { grid-template-columns: minmax(0, 1fr) !important; }
+  .xd .p2 > *, .xd .p21 > * { min-width: 0; }
   html .xd .sc { padding: 16px 14px 14px; }
   html .xd .sc-v { font-size: 26px; }
   /* painted-tile themes: frames keep their corners, but cards are shorter and two across */

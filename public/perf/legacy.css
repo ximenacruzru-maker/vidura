@@ -1610,6 +1610,9 @@ aside.side, .workspace > header, #roleNote, #terms, #brief, #login { display:non
   .panel-b,.htw{overflow-x:auto;-webkit-overflow-scrolling:touch}
   .hs-2{grid-template-columns:minmax(0,1fr)!important}
   .hs{min-width:0;max-width:100%}
+  .hs-band{flex-wrap:wrap;gap:4px 10px}
+  .p2,.p21,.p3{grid-template-columns:minmax(0,1fr)!important}
+  .p2>*,.p21>*,.p3>*{min-width:0}
   .hs-band em{white-space:nowrap}
   input,select,textarea{font-size:16px}
 }

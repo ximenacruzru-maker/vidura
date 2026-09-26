@@ -111,13 +111,13 @@ export default function Training() {
             </Panel>
           </div>
           <Panel title="Modules" sub="The training roadmap in order">
-            <table className="tbl">
+            <div className="tbl-wrap"><table className="tbl">
               <thead><tr><th>Module</th><th>Title</th><th className="r">Lessons</th><th className="r">Progress</th></tr></thead>
               <tbody>{cls.map((m) => (
                 <tr key={m.key}><td className="strong">{m.num}</td><td>{m.title}</td><td className="r">{m.lessons}</td>
                   <td className="r"><span className={'pill ' + (m.progress >= 100 ? 'pill-good' : m.progress > 0 ? 'pill-warn' : 'pill-muted')}>{m.progress}%</span></td></tr>
               ))}</tbody>
-            </table>
+            </table></div>
           </Panel>
         </>
       )}
