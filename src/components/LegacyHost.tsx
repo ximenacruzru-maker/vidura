@@ -5,7 +5,7 @@ import { getLook, onLook } from '../lib/theme'
  *  Dashboard is now React (pages/executive); /legacy-dashboard keeps the original for side-by-side checks. */
 export const LEGACY_ROUTES: Record<string, [string, string?]> = {
   '/legacy-dashboard': ['executive'],
-  '/sales': ['sales', 'kpi'],
+  '/legacy-sales': ['sales', 'kpi'],
   '/huddle': ['sales', 'huddle'],
   '/reports': ['reports'],
   '/commissions': ['reports', 'commissions'],

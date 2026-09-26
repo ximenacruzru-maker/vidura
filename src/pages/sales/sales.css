@@ -1,0 +1,6 @@
+/* The Sales KPIs / Daily Huddle Report tab bar, from the original screens (its rule sits behind a comment in
+   legacy.css, which the stylesheet scoper skips). */
+.xd .svtabs { display: flex; gap: 3px; background: #EEF3FB; border: 1px solid var(--line); border-radius: 11px;
+  padding: 4px; margin-bottom: 18px; width: fit-content; max-width: 100%; flex-wrap: wrap; }
+.xd a.svtab { text-decoration: none; display: inline-block; }
+.xd[data-mode="dark"] .svtabs { background: var(--pale); }

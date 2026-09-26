@@ -28,3 +28,5 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Layout check (phone + desktop, every page)
         run: npm run test:layout
+      - name: Parity check (rebuilt screens match the originals)
+        run: npm run test:parity
