@@ -1,4 +1,6 @@
 /* Loads the report data from the database (admin-only), then starts the original screens. */
+/* Hand this frame's storage writes to the app first, so what the screens save is kept in the database, not only here. */
+try { if (parent !== window && parent.__declaraStore) parent.__declaraStore(window); } catch (e) {}
 (async function () {
   var URL = "https://sikgwlhwsezrhiylfmnx.supabase.co", KEY = "sb_publishable_OlAqQqzr4PRb8sTOCf5JVg__j2VYqR6";
   var msg = function (t) { var el = document.getElementById("vxLoading"); if (el) el.textContent = t; };

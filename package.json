@@ -9,7 +9,8 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "test:layout": "node tests/e2e/layout.mjs",
-    "test:parity": "node tests/e2e/parity-sales.mjs"
+    "test:parity": "node tests/e2e/parity-sales.mjs",
+    "test:sync": "node tests/e2e/device-sync.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.1",
