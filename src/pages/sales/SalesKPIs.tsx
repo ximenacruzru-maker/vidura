@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ErrorBox, Loading } from '../../components/ui'
 import { loadPerfData, wbFolioKeys, type PerfData } from '../../lib/perf/data'
+import { useSyncStamp } from '../../lib/syncEvents'
 import { money0, today } from '../../lib/perf/executive'
 import { computeSales, cusRange } from '../../lib/perf/sales'
 import { useAsync } from '../../lib/useAsync'
@@ -13,7 +14,8 @@ import './sales.css'
 let saved: { period: string; chart: string; from: string; to: string } | null = null
 
 export default function SalesKPIs() {
-  const { data, error } = useAsync(loadPerfData, [])
+  const synced = useSyncStamp() // reload when an AgencyZoom sync finishes
+  const { data, error } = useAsync(loadPerfData, [synced])
   if (error) return <ErrorBox error={error} />
   if (!data) return <Loading what="Loading sales" />
   return <Sales D={data} />

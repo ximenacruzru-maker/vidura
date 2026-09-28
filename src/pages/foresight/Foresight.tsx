@@ -7,6 +7,7 @@ import {
 } from '../../lib/foresight'
 import { money0, shortDate, todayPacific } from '../../lib/format'
 import { useAsync } from '../../lib/useAsync'
+import { useSyncStamp } from '../../lib/syncEvents'
 import { DateRange } from '../../components/DateRange'
 import './foresight.css'
 
@@ -16,7 +17,8 @@ const perDollar = (n: number | null) => (n == null ? '—' : '$' + n.toFixed(2))
 
 export default function Foresight() {
   const [reload, setReload] = useState(0)
-  const { data, error } = useAsync(loadForesight, [reload])
+  const synced = useSyncStamp() // reload when an AgencyZoom sync finishes
+  const { data, error } = useAsync(loadForesight, [reload, synced])
   const head = <PageHead kicker="Performance" title="Declara Foresight" sub="Sales patterns, producer ranking and lead spend, year to date (Jan 1 – today) unless you pick another period — from the policies AgencyZoom shows as sold and the spend you record here." />
   if (error) return <>{head}<ErrorBox error={error} /></>
   if (!data) return <>{head}<Loading /></>

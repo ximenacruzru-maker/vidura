@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { getLook, onLook } from '../lib/theme'
+import { useSyncStamp } from '../lib/syncEvents'
 
 /** Routes that show the original performance screens, and where each one opens. The Executive
  *  Dashboard is now React (pages/executive); /legacy-dashboard keeps the original for side-by-side checks. Sales KPIs and Reports
@@ -20,6 +21,7 @@ export default function LegacyHost({ path }: { path: string }) {
   const frame = useRef<HTMLIFrameElement>(null)
   const [ready, setReady] = useState(false)
   const target = LEGACY_ROUTES[path]
+  const synced = useSyncStamp()
 
   useEffect(() => {
     const onMsg = (e: MessageEvent) => { if (e.origin === location.origin && e.data?.vx === 'ready') setReady(true) }
@@ -39,6 +41,12 @@ export default function LegacyHost({ path }: { path: string }) {
     const w = frame.current?.contentWindow as any
     try { w?.__vxGo?.(target[0], target[1]) } catch (e) { console.error(e) }
   }, [ready, path, target])
+
+  // an AgencyZoom sync finished: the original screens re-read the synced tables and redraw where they are
+  useEffect(() => {
+    if (!ready || !synced) return
+    try { void (frame.current?.contentWindow as any)?.supaSyncLoad?.() } catch (e) { console.error(e) }
+  }, [ready, synced])
 
   return (
     <div className="legacy-host" style={{ display: target ? 'block' : 'none' }}>

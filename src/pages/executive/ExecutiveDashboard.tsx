@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ErrorBox, Loading } from '../../components/ui'
 import { loadPerfData, saveGoals, type PerfData } from '../../lib/perf/data'
+import { useSyncStamp } from '../../lib/syncEvents'
 import { computeExecutive, execProduction, execRows, isFarmersCarrier, money0, today, type Book, type Client, type Drill, type Filters, type Row } from '../../lib/perf/executive'
 import { useAsync } from '../../lib/useAsync'
 import { Bars, DayChart, Donut, ICO, Meter, RenewalChart, ScoreCard } from './parts'
@@ -14,7 +15,8 @@ let saved: Filters & { chart: string; goals: boolean; drill: string | null } | n
 const BOOK_ROUTE: Record<Book, string> = { Farmers: 'farmers', Commercial: 'brokered_commercial', Retail: 'brokered_personal' }
 
 export default function ExecutiveDashboard() {
-  const { data, error } = useAsync(loadPerfData, [])
+  const synced = useSyncStamp() // reload when an AgencyZoom sync finishes
+  const { data, error } = useAsync(loadPerfData, [synced])
   if (error) return <ErrorBox error={error} />
   if (!data) return <Loading what="Loading the dashboard" />
   return <Dashboard D={data} />
