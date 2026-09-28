@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ErrorBox, Loading, Panel } from '../components/ui'
 import { useAuth } from '../auth'
 import { useAsync } from '../lib/useAsync'
 import { todayPacific } from '../lib/format'
 import {
   CERT_CSS, EMPTY_PRODUCER, LETTERS, LINES, certificateHTML, coiProblems, fillFromClient, fillFromDecs, getCoiClients, getCoiProfile, lineName, mergeInsurers, newCert,
-  plusYear, printCertificate, saveCoiProfile, standardOps, type Cert, type CoiClient, type DecRead, type Insurer, type LineKey, type Producer,
+  plusYear, printCertificate, saveCertificate, saveCoiProfile, standardOps, type Cert, type CoiClient, type DecRead, type Insurer, type LineKey, type Producer,
 } from '../lib/coi'
 
 // The certificate being worked on is kept (and saved with the login's other items) so it survives a reload, and a
@@ -39,6 +39,8 @@ export default function Coi() {
   // the Brokered Commercial clients, to fill a certificate from (someone without the book simply doesn't get the search)
   const clients = useAsync(() => getCoiClients().catch(() => [] as CoiClient[]), [])
   const [q, setQ] = useState('')
+  const [saved, setSaved] = useState<{ ok: boolean; text: string } | null>(null)
+  const lastSaved = useRef('') // the certificate last filed, so printing it again doesn't file a copy
   const [filled, setFilled] = useState<{ key: string; label: string; used: string[]; skipped: string[]; expired: string[]; reads: DecRead[] | null } | null>(null)
 
   useEffect(() => {
@@ -83,7 +85,22 @@ export default function Coi() {
     printCertificate(producer, cert)
     const merged = mergeInsurers(known, c.insurers)
     if (JSON.stringify(merged) !== JSON.stringify(known)) { setKnown(merged); saveCoiProfile(me.agency_id, { insurers: merged }).catch(() => { /* kept for next time */ }) }
+    // file it on the client's profile: the client it was filled from, or a broker-book client with the insured's name
+    const byName = (clients.data || []).find((cl) => [cl.insuredName, cl.label].some((n) => n.trim().toLowerCase() === c.insuredName.trim().toLowerCase()))
+    const withClient = cert.accountId ? cert : byName ? { ...cert, accountId: byName.accountId, clientLabel: byName.label } : null
+    if (!withClient) { setSaved({ ok: false, text: 'Not saved to a client profile — pick the client from the broker-book search above to file certificates on their profile.' }); return }
+    const sig = JSON.stringify(withClient)
+    if (sig === lastSaved.current) return
+    setSaved({ ok: true, text: `Saving to ${withClient.clientLabel}’s profile…` })
+    try {
+      const title = await saveCertificate(producer, withClient, me.agency_id)
+      lastSaved.current = sig
+      setSaved({ ok: true, text: `Saved to ${withClient.clientLabel}’s profile — ${title}. It’s in the client’s documents in the Brokered Commercial book.` })
+    } catch (e) { setSaved({ ok: false, text: 'Printed, but it could not be saved to the client’s profile: ' + ((e as Error)?.message || 'error') }) }
   }
+
+  // clears the certificate (the agency's details and the remembered companies stay)
+  const reset = () => { if (confirm('Reset the certificate? Everything but your agency details is cleared.')) { setC(newCert(today)); setFilled(null); setSaved(null); setQ('') } }
   const pickClient = (cl: CoiClient) => {
     const r = fillFromClient(c, cl, known)
     setC(r.cert); setFilled({ key: cl.key, label: cl.label, used: r.used, skipped: r.skipped, expired: r.expired, reads: null }); setQ('')
@@ -118,7 +135,10 @@ export default function Coi() {
 
   return (
     <>
-      <div className="note-box coi-warn"><b>This is a tool.</b> Please verify the additional insureds are on the policy before creating a COI.</div>
+      <div className="coi-top">
+        <div className="note-box coi-warn"><b>This is a tool.</b> Please verify the additional insureds are on the policy before creating a COI.</div>
+        <button className="btn-ghost" onClick={reset}>Reset</button>
+      </div>
 
       <Panel title="Your agency" sub="Typed in once — every certificate carries it as the producer."
         right={!editAgency && <button className="btn-ghost" onClick={() => setEditAgency(true)}>Edit</button>}>
@@ -247,9 +267,10 @@ export default function Coi() {
       <Panel title="Certificate" sub="ACORD 25 · Certificate of Liability Insurance"
         right={<div className="row-actions coi-acts">
           <button className="btn-ghost" onClick={() => set({ holderName: '', holderAddress: '' })}>Same policies, new holder</button>
-          <button className="btn-ghost" onClick={() => { if (confirm('Clear this certificate and start a new one?')) { setC(newCert(today)); setFilled(null) } }}>Start over</button>
+          <button className="btn-ghost" onClick={reset}>Reset</button>
           <button className="btn-primary" disabled={!!problems.length} onClick={issue}>Print / save as PDF</button>
         </div>}>
+        {saved && <div className={'note-box ' + (saved.ok ? 'coi-saved' : 'coi-notsaved')}>{saved.text}</div>}
         {problems.length > 0 && <div className="note-box">Still needed: {problems.join(', ')}.</div>}
         <iframe className="coi-preview" title="Certificate preview" srcDoc={html} />
       </Panel>
