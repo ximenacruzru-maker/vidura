@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { lazy, Suspense, useMemo, useState } from 'react'
 import { Empty, ErrorBox, Loading, PageHead, Panel, Search, Tabs } from '../components/ui'
 import { getDocs, getReference, openDoc } from '../lib/books'
 import { useAsync } from '../lib/useAsync'
@@ -9,9 +9,11 @@ import LoginCreds from '../components/LoginCreds'
 import Passwords from './Passwords'
 import { useSearchParams } from 'react-router-dom'
 
-type T = 'forms' | 'markets' | 'appetite' | 'kb' | 'platforms' | 'passwords'
+const Coi = lazy(() => import('./Coi'))
+
+type T = 'forms' | 'coi' | 'markets' | 'appetite' | 'kb' | 'platforms' | 'passwords'
 const TABS: { key: T; label: string }[] = [
-  { key: 'forms', label: 'Forms & guides' }, { key: 'markets', label: 'Carrier markets' },
+  { key: 'forms', label: 'Forms & guides' }, { key: 'coi', label: 'COI generator' }, { key: 'markets', label: 'Carrier markets' },
   { key: 'appetite', label: 'Farmers appetite guide' }, { key: 'kb', label: 'Farmers Q&A' }, { key: 'platforms', label: 'Platforms' },
 ]
 
@@ -31,7 +33,7 @@ export default function Resources() {
     const logins = pw ? await getLogins().catch(() => [] as Login[]) : []
     return { resources: resources || [], markets: markets || [], bi, kb: kb || [], systems: systems || [], docs, logins }
   }, [pw])
-  const head = <PageHead kicker="Agency" title="Agency Resources" sub={`Forms, carrier markets, the Farmers appetite guide${pw ? ', platforms and the agency passwords' : ' and the platforms the agency works in'}.`} />
+  const head = <PageHead kicker="Agency" title="Agency Resources" sub={`Forms, the COI generator, carrier markets, the Farmers appetite guide${pw ? ', platforms and the agency passwords' : ' and the platforms the agency works in'}.`} />
   if (error) return <>{head}<ErrorBox error={error} /></>
   if (!data) return <>{head}<Loading /></>
   return (
@@ -39,6 +41,7 @@ export default function Resources() {
       {head}
       <Tabs tabs={tabs} value={tab} onChange={setTab} />
       {tab === 'forms' && <Forms resources={data.resources} docs={data.docs} />}
+      {tab === 'coi' && <Suspense fallback={<Loading />}><Coi /></Suspense>}
       {tab === 'markets' && <Markets markets={data.markets} logins={data.logins} />}
       {tab === 'appetite' && <Appetite bi={data.bi} />}
       {tab === 'kb' && <Kb kb={data.kb} />}

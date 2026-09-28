@@ -12,7 +12,7 @@ export const LEGACY_ROUTES: Record<string, [string, string?]> = {
   '/year-end': ['reports', 'annual'],
   '/legacy-commissions': ['reports', 'commissions'],
   '/commission-setup': ['settings', 'commission'],
-  '/sdr': ['reports', 'sdr'],
+  '/legacy-sdr': ['reports', 'sdr'],
 }
 
 /** Keeps one copy of the original screens loaded and switches it as the sidebar changes. */

@@ -18,6 +18,7 @@ and fails on any difference in text, bar lengths or gauges:
   carrier / business type / metric, the Daily tab for every day, and the To do list.
 - Commissions: every folio, then a carrier statement uploaded (a cancellation, a sale missing from it, an extra row),
   one decision overridden, and the statement removed. The upload must actually exclude sales.
+- SDR Transfer: every pay period.
 
 ## Browser data (runs on every pull request)
 `npm run test:sync` checks that what the screens keep in the browser is saved to the database (`app_store`), that

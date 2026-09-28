@@ -3,7 +3,7 @@
 // rebuild covers: the dashboard for each period and book, and in Details the Scorecard, Producer (with a drill-down),
 // Folio and Written Business tabs for every folio, Written Business for every carrier / business type / metric on the
 // current folio, the Daily tab for every day, the To do list, and Commissions for every folio with a carrier statement
-// uploaded, overridden and removed. Text, bar lengths and gauges must match exactly.
+// uploaded, overridden and removed, and SDR Transfer for every pay period. Text, bar lengths and gauges must match exactly.
 import { chromium } from 'playwright'
 import { createServer } from 'http'
 import fs from 'fs'
@@ -156,6 +156,13 @@ await page.locator('select.wk-st').nth(1).selectOption('include'); await old('co
 await same('Commissions · a flagged sale paid anyway')
 await page.click('.brief-s:has-text("Remove")'); await old('S.rcMsg=arg;commRecalc();render()', rc)
 await same('Commissions · statement removed')
+
+// SDR transfer: every pay period
+await tab('sdr', 'SDR Transfer')
+await same('SDR · opening period')
+const sdrMonths = await page.locator('.fbar select').first().evaluate((s) => [...s.options].map((o) => o.value))
+if (!sdrMonths.length) failures.push('SDR · no pay periods in the demo data')
+for (const mo of sdrMonths) { await pick('.fbar', 0, mo); await old('reportSetSdrMonth(arg)', mo); await same(`SDR · ${mo}`) }
 
 await browser.close(); server.close()
 if (errors.length) failures.push('page error: ' + errors[0])

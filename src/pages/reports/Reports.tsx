@@ -10,14 +10,15 @@ import { Gauge, ICO } from '../executive/parts'
 import { useDarkFix, useFitFigures, useLegacyLook } from '../executive/look'
 import { ReportsDash, type DashState } from './ReportsDash'
 import { Commissions } from './Commissions'
+import { Sdr } from './Sdr'
 import { agencyShort } from '../../lib/data'
 import '../executive/executive.css'
 import './reports.css'
 
 /** Tabs that still open the original screens (they are rebuilt separately). */
-const ELSEWHERE: Record<string, string> = { sdr: '/sdr', annual: '/year-end' }
+const ELSEWHERE: Record<string, string> = { annual: '/year-end' }
 
-interface View extends DashState { mode: 'dash' | 'details'; tab: string; folio: string | null; kind: string | null; who: string | null; day: string | null; carrier: string; biz: string; metric: string }
+interface View extends DashState { mode: 'dash' | 'details'; tab: string; sdrMonth: string | null; folio: string | null; kind: string | null; who: string | null; day: string | null; carrier: string; biz: string; metric: string }
 /** Choices survive leaving and coming back within a session, as they did in the original screen. */
 let saved: View | null = null
 
@@ -36,7 +37,7 @@ export function ReportsView({ D, open }: { D: PerfData; open?: string }) {
   const agency = me?.agency?.name || 'Your agency'
   const S = D.S || {}
   const [v, setV] = useState<View>(saved || { mode: (S.view || {}).reports === 'details' ? 'details' : 'dash',
-    win: S.repWin || 'folio', book: S.repBook || 'all', line: S.repLine || 'all', goals: !!S.exGoals, from: S.cusFrom || '', to: S.cusTo || '', tab: S.repTab || 'scorecard', folio: S.repFolio || null, kind: S.repKind || null, who: S.repProducer || null,
+    sdrMonth: S.repSdrMonth || null, win: S.repWin || 'folio', book: S.repBook || 'all', line: S.repLine || 'all', goals: !!S.exGoals, from: S.cusFrom || '', to: S.cusTo || '', tab: S.repTab || 'scorecard', folio: S.repFolio || null, kind: S.repKind || null, who: S.repProducer || null,
     day: null, carrier: S.repCarrier || 'all', biz: S.repBizType || 'all', metric: S.repMetric || 'premium' })
   useEffect(() => { if (open) setV((x) => ({ ...x, mode: 'details', tab: open })) }, [open])
   useEffect(() => { saved = v }, [v])
@@ -117,6 +118,7 @@ export function ReportsView({ D, open }: { D: PerfData; open?: string }) {
       </div>
     </>
   } else if (tab === 'commissions') body = <Commissions D={D} folio={v.folio} setFolio={setFolio} agency={agency} agencyShort={agencyShort(me)} />
+  else if (tab === 'sdr') body = <Sdr D={D} month={v.sdrMonth} setMonth={(sdrMonth) => set({ sdrMonth })} agency={agency} />
   else if (tab === 'written') body = <Written D={D} v={v} set={set} setFolio={setFolio} />
   else if (tab === 'daily') body = <Daily D={D} chosen={v.day} setDay={(day) => set({ day })} />
   else {

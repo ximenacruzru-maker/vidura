@@ -5,6 +5,7 @@ import { createRequire } from 'module'
 // The demo agency's rows (made up, never a real agency's), dumped under row-level security as the demo owner.
 const DB = JSON.parse(zlib.gunzipSync(fs.readFileSync(new URL('../fixtures/northwind.json.gz', import.meta.url))).toString('utf8'))
 DB.platform_admins = [{ user_id: 'a62b5895-e9fa-4d54-902c-4a89cf0b3f5d' }] // so the Agencies page is checked too
+DB.coi_profile = [] // the COI generator's saved agency details
 DB.app_store = [] // what screens save for the signed-in login (kept in memory, so sign-out/sign-in can be checked)
 for (const k of Object.keys(DB)) DB[k] = DB[k] || []
 export const store = () => DB.app_store
