@@ -146,6 +146,40 @@ Deno.serve(async (req) => {
   const azUser = Deno.env.get("AGENCYZOOM_USERNAME"), azPass = Deno.env.get("AGENCYZOOM_PASSWORD");
   if (!azUser || !azPass) return new Response(JSON.stringify({ ok: false, error: "AgencyZoom secrets not set" }), { status: 500 });
 
+  // Probe (read-only, writes nothing): reports the shape of AgencyZoom's answers — field names, date fields and
+  // counts, no client details — so the sync can be pointed at the right filters.
+  if (params.probe) {
+    const out: Record<string, unknown> = {};
+    try {
+      const { token } = await azLogin(azUser, azPass);
+      const keysOf = (o: any) => (o && typeof o === "object" ? Object.keys(o) : []);
+      const dates = (o: any) => Object.fromEntries(Object.entries(o || {}).filter(([k, v]) => /date|time|modif|updat|creat|activ|sold|effect|expir/i.test(k) && (typeof v === "string" || typeof v === "number" || v === null)));
+      const list = (r: any) => (Array.isArray(r) ? r : (r?.customers || r?.data || []));
+      const base = { page: 0, pageSize: 100, sort: "id", order: "desc" };
+      const tryCust = async (label: string, body: Record<string, unknown>) => {
+        try { const r = await az(token, "POST", "/v1/api/customers", body); const cs = list(r); out[label] = { n: cs.length, total: r?.totalCount ?? r?.total ?? null, ids: cs.slice(0, 5).map((c: any) => c.id), dates: cs.slice(0, 3).map(dates) }; }
+        catch (e) { out[label] = { error: String(e).slice(0, 200) }; }
+      };
+      await tryCust("customers_plain", base);
+      const r0: any = await az(token, "POST", "/v1/api/customers", { ...base, pageSize: 1 });
+      out.customer_response_keys = keysOf(r0); out.customer_keys = keysOf(list(r0)[0]);
+      await tryCust("customers_created_window", { ...base, startDate: addDays(start, -1), endDate: addDays(end, 1) });
+      await tryCust("customers_lastActivity", { ...base, lastActivityEarliestDate: start, lastActivityLatestDate: end });
+      await tryCust("customers_lastActivity_ts", { ...base, lastActivityStartDate: start, lastActivityEndDate: end });
+      await tryCust("customers_modified", { ...base, modifiedStartDate: start, modifiedEndDate: end });
+      await tryCust("customers_updated", { ...base, updateStartDate: start, updateEndDate: end });
+      await tryCust("customers_dateType_activity", { ...base, startDate: start, endDate: end, dateType: "lastActivity" });
+      for (const sortBy of ["lastActivityDate", "modifyDate", "updateDate", "lastModifiedDate"]) await tryCust("customers_sort_" + sortBy, { ...base, pageSize: 5, sort: sortBy, order: "desc" });
+      const c0 = list(r0)[0];
+      if (c0?.id) { const pol: any = await az(token, "GET", `/v1/api/customers/${c0.id}/policies`); const pl = Array.isArray(pol) ? pol : (pol.policies || pol.data || []); out.policy_keys = keysOf(pl[0]); out.policy_dates = pl.slice(0, 3).map(dates); }
+      const dash: any = await az(token, "POST", "/v1/api/dashboard-data/sales-data", { period: `${start}|${end}` });
+      out.dash_keys = keysOf(dash); out.dash_agent_keys = keysOf((dash.agents || [])[0]);
+      out.dash_other = Object.fromEntries(Object.entries(dash).filter(([k]) => k !== "agents").map(([k, v]) => [k, Array.isArray(v) ? { array: v.length, keys: keysOf(v[0]) } : typeof v === "object" ? keysOf(v) : v]));
+      out.calls = calls;
+    } catch (e) { out.fatal = String(e).slice(0, 300); }
+    return new Response(JSON.stringify(out), { headers: { "Content-Type": "application/json" } });
+  }
+
   const { data: agency, error: agErr } = await supabase.from("agencies").select("id, history_cutoff").eq("agencyzoom_sync", true).maybeSingle();
   if (agErr || !agency) return new Response(JSON.stringify({ ok: false, error: "No agency is set up for the AgencyZoom sync" }), { status: 500 });
   const A = agency.id as string;
