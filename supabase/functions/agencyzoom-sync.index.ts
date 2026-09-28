@@ -160,6 +160,17 @@ Deno.serve(async (req) => {
         try { const r = await az(token, "POST", "/v1/api/customers", body); const cs = list(r); out[label] = { n: cs.length, total: r?.totalCount ?? r?.total ?? null, ids: cs.slice(0, 5).map((c: any) => c.id), dates: cs.slice(0, 3).map(dates) }; }
         catch (e) { out[label] = { error: String(e).slice(0, 200) }; }
       };
+      if (params.probe === 2) {
+        // what policySummary holds (no names), and whether the search filters by producer
+        const r: any = await az(token, "POST", "/v1/api/customers", { ...base, pageSize: 5 });
+        out.policySummary = list(r).map((c: any) => ({ type: typeof c.policySummary, value: c.policySummary, agentId: c.agentId }));
+        const agent = list(r)[0]?.agentId;
+        for (const [label, body] of [["agentId", { agentId: agent }], ["agentIds", { agentIds: [agent] }], ["producerId", { producerId: agent }]] as const) {
+          try { const x: any = await az(token, "POST", "/v1/api/customers", { ...base, pageSize: 1, ...body }); out["filter_" + label] = x?.totalCount; } catch (e) { out["filter_" + label] = String(e).slice(0, 120); }
+        }
+        const t: any = await az(token, "POST", "/v1/api/customers", { ...base, pageSize: 1 }); out.total = t?.totalCount; out.calls = calls;
+        return new Response(JSON.stringify(out), { headers: { "Content-Type": "application/json" } });
+      }
       await tryCust("customers_plain", base);
       const r0: any = await az(token, "POST", "/v1/api/customers", { ...base, pageSize: 1 });
       out.customer_response_keys = keysOf(r0); out.customer_keys = keysOf(list(r0)[0]);
