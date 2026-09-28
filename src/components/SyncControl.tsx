@@ -4,6 +4,7 @@ import { timeAgo } from '../lib/format'
 import { supabase } from '../lib/supabase'
 import { Icon } from './icons'
 import { useAuth } from '../auth'
+import { announceSynced } from '../lib/syncEvents'
 
 const LIMIT = 3
 const fmtWhen = (iso: string) =>
@@ -18,6 +19,7 @@ export default function SyncControl() {
   const [msg, setMsg] = useState('')
   const [open, setOpen] = useState(false)
   const box = useRef<HTMLDivElement>(null)
+  const seen = useRef<string | null | undefined>(undefined)
   const { me } = useAuth()
   const demo = !!me?.agency?.is_demo, connected = !!me?.agency?.agencyzoom_sync
 
@@ -28,6 +30,9 @@ export default function SyncControl() {
       supabase.from('force_refresh_log').select('requested_at').gt('requested_at', since).order('requested_at'),
     ])
     setSync(s)
+    // a sync finished since the last look: the screens showing sales reload
+    if (seen.current !== undefined && s?.finished_at && s.finished_at !== seen.current && s.status !== 'error') announceSynced()
+    seen.current = s?.finished_at ?? null
     setUses(((r.data || []) as { requested_at: string }[]).map((x) => x.requested_at))
     return s
   }, [])
@@ -59,7 +64,7 @@ export default function SyncControl() {
     for (let i = 0; i < 24; i++) {
       await new Promise((r) => setTimeout(r, 10000))
       const s = await load()
-      if (s?.finished_at && s.finished_at > before) { setMsg(s.status === 'error' ? 'Refresh failed — see the message above' : 'Refreshed — reload a page to see new numbers'); break }
+      if (s?.finished_at && s.finished_at > before) { setMsg(s.status === 'error' ? 'Refresh failed — see the message above' : 'Refreshed — the numbers on screen are up to date'); break }
     }
     setBusy(false)
   }

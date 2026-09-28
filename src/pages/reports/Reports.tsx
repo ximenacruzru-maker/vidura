@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ErrorBox, Loading } from '../../components/ui'
 import { useAuth } from '../../auth'
 import { loadPerfData, wbFolioKeys, type Json, type PerfData } from '../../lib/perf/data'
+import { useSyncStamp } from '../../lib/syncEvents'
 import { money0 } from '../../lib/perf/executive'
 import { azSyncWhen, computeDaily, computeWritten, metricValue, reportFolioKey, wbFolioLabel } from '../../lib/perf/reports'
 import { useAsync } from '../../lib/useAsync'
@@ -24,7 +25,8 @@ let saved: View | null = null
 
 /** open: a Details tab to show on arrival (the /commissions address opens the Commissions tab). */
 export default function Reports({ open }: { open?: string }) {
-  const { data, error } = useAsync(loadPerfData, [])
+  const synced = useSyncStamp() // reload when an AgencyZoom sync finishes
+  const { data, error } = useAsync(loadPerfData, [synced])
   if (error) return <ErrorBox error={error} />
   if (!data) return <Loading what="Loading reports" />
   return <ReportsView D={data} open={open} />

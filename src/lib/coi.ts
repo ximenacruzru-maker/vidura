@@ -22,6 +22,8 @@ export interface Cert {
   gl: Gl; auto: Auto; umb: Umb; wc: Wc
   holderName: string; holderAddress: string
   ops: string; opsEdited: boolean
+  /** the broker-book client it was filled from, so it is saved to that client's profile */
+  accountId?: string; clientLabel?: string
   number: string; revision: string
 }
 
@@ -170,6 +172,7 @@ export function fillFromClient(c: Cert, client: CoiClient, known: Insurer[]) {
   const today = c.date
   const next = newCert(today)
   next.holderName = c.holderName; next.holderAddress = c.holderAddress
+  next.accountId = client.accountId; next.clientLabel = client.label
   next.insuredName = client.insuredName; next.insuredAddress = client.address
   next.insurers = []
   const used: string[] = [], skipped: string[] = [], expired: string[] = []
@@ -450,6 +453,50 @@ td, th { vertical-align: top; padding: 2px 4px; text-align: left; }
 .form { font-size: 7px; margin-top: 3px; }
 @media screen { body { padding: 16px; background: #f1f3f5; } .coi { background: #fff; padding: 12px; box-shadow: 0 1px 6px rgba(0,0,0,.15); } }
 `
+
+/* ---------- saving the certificate to the client's profile ---------- */
+/** The certificate as a letter-size PDF (drawn from the same page that prints), for the client's documents. */
+export async function certificatePdf(p: Producer, c: Cert): Promise<Blob> {
+  const w = window as any
+  if (!w.html2canvas) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js')
+  if (!w.jspdf) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js')
+  const fr = document.createElement('iframe')
+  // laid out at the printed width (7.7in plus margins), off screen
+  fr.style.cssText = 'position:fixed;left:-10000px;top:0;width:850px;height:1100px;border:0'
+  document.body.appendChild(fr)
+  try {
+    const d = fr.contentDocument!
+    d.open(); d.write(`<!doctype html><html><head><meta charset="utf-8"><style>${CERT_CSS} body{padding:0!important;background:#fff!important} .coi{box-shadow:none!important;padding:0!important}</style></head><body>${certificateHTML(p, c)}</body></html>`); d.close()
+    await new Promise((r) => setTimeout(r, 60))
+    const canvas = await w.html2canvas(d.querySelector('.coi'), { scale: 2, backgroundColor: '#ffffff', windowWidth: 850 })
+    const pdf = new w.jspdf.jsPDF({ unit: 'in', format: 'letter' })
+    const width = 7.7, height = Math.min(10.2, (canvas.height / canvas.width) * width)
+    pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', (8.5 - width) / 2, 0.4, width, height)
+    pdf.setProperties({ title: `Certificate of Liability Insurance — ${c.insuredName} — ${c.holderName}` })
+    return pdf.output('blob') as Blob
+  } finally { fr.remove() }
+}
+
+/** Files the certificate on the client's profile (Documents, as a certificate) and returns its title. */
+export async function saveCertificate(p: Producer, c: Cert, agencyId: string) {
+  if (!c.accountId) throw new Error('no client')
+  const blob = await certificatePdf(p, c)
+  const slug = (x: string) => x.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40)
+  const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)
+  const id = `coi-${c.accountId}-${stamp}`
+  const fileName = `COI-${slug(c.insuredName)}-${slug(c.holderName)}-${c.date}.pdf`
+  const path = `${agencyId}/coi/${id}.pdf`
+  const up = await supabase.storage.from('documents').upload(path, blob, { contentType: 'application/pdf' })
+  if (up.error) throw up.error
+  const first = LINES.find((l) => c[l.key].on)
+  const title = `Certificate — ${c.holderName.trim() || 'holder'} (${mdy(c.date)})`
+  const { error } = await supabase.from('documents').insert({
+    id, category: 'coi', account_id: c.accountId, policy_number: first ? c[first.key].policy || null : null, title,
+    file_name: fileName, mime: 'application/pdf', storage_path: path, size_bytes: blob.size, admin_only: false, uploaded: true,
+  })
+  if (error) throw error
+  return title
+}
 
 /** Prints the certificate from a hidden frame (Save as PDF from the print dialog), leaving the page as it is. */
 export function printCertificate(p: Producer, c: Cert) {

@@ -714,7 +714,10 @@ html[data-theme="dark"] .renew-warn { border-color: #6b4a14; background: var(--w
 .ag-go { display: flex; align-items: end; }
 
 /* ---------- COI generator (Agency Resources) ---------- */
-.coi-warn { border-color: var(--warn); background: var(--warn-bg); color: var(--warn); margin: 0 0 16px; }
+.coi-top { display: flex; gap: 12px; align-items: center; margin: 0 0 16px; }
+.coi-warn { border-color: var(--warn); background: var(--warn-bg); color: var(--warn); margin: 0; flex: 1; }
+.coi-saved { border-color: var(--good, #2e7d32); }
+.coi-notsaved { border-color: var(--warn); color: var(--warn); }
 .coi-agency { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 24px; }
 .coi-ins { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .coi-ins .fld { flex: 1; min-width: 0; }

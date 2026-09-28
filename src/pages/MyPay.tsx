@@ -6,6 +6,7 @@ import { agencyShort, getSdrPeriods, getSdrTransfers, type SdrPeriod } from '../
 import { downloadCsv, mdy, money0, money2, pct, shortDate } from '../lib/format'
 import { supabase } from '../lib/supabase'
 import { useAsync } from '../lib/useAsync'
+import { useSyncStamp } from '../lib/syncEvents'
 
 /** My Pay: each person sees only their own commission and/or SDR bonus. The database only returns
  *  their own sales and transfers, and the commission calculator only returns their own row. */
@@ -48,6 +49,7 @@ export function MyCommission() {
   const { me } = useAuth()
   const { folio } = useFolio()
   const [open, setOpen] = useState<string | null>('__all')
+  const synced = useSyncStamp() // reload when an AgencyZoom sync finishes
   const { data, error, loading } = useAsync(async () => {
     if (!folio) return null
     const { data, error } = await supabase.functions.invoke('commissions', { body: { folio: folio.start_date } })
@@ -56,7 +58,7 @@ export function MyCommission() {
       throw new Error(msg || error.message)
     }
     return data as Resp
-  }, [folio?.start_date])
+  }, [folio?.start_date, synced])
 
   const admin = false
   void me
