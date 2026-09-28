@@ -3,7 +3,7 @@ import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabase'
 import { getMe, type StaffAccount } from './lib/data'
 import { loadLook } from './lib/theme'
-import { claimBrowserStorage } from './lib/agencyStorage'
+import { clearBrowserData, endDeviceSync, startDeviceSync } from './lib/deviceSync'
 import logo from './assets/login-logo.jpg'
 
 interface AuthState {
@@ -23,8 +23,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const uid = useRef<string | null>(null)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSession(data.session))
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
+    supabase.auth.getSession().then(({ data }) => {
+      // Opened with no one signed in (signed out elsewhere, or the sign-in expired): nothing of an agency's stays here.
+      if (!data.session) clearBrowserData()
+      setSession(data.session)
+    })
+    const { data: sub } = supabase.auth.onAuthStateChange((e, s) => {
+      // Signed out in another tab: this tab stops saving and clears its copy too.
+      if (e === 'SIGNED_OUT') void endDeviceSync(true)
       // A different person signed in (another tab, or after sign-out): start from a clean page so no
       // screen keeps data it loaded for the previous login.
       if (uid.current && s?.user?.id && s.user.id !== uid.current) { location.reload(); return }
@@ -38,17 +44,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!session) { setMe(null); setLoading(false); return }
     uid.current = session.user.id
     setLoading(true)
-    getMe().then((m) => {
+    getMe().then(async (m) => {
       if (!alive) return
-      if (m) claimBrowserStorage(m.agency_id, !!m.agency?.is_demo)
+      // Fill the browser's working copy before any screen reads it.
+      if (m) await startDeviceSync(m.agency_id, session.user.id, !!m.agency?.is_demo)
+      if (!alive) return
       setMe(m); setLoading(false)
     })
     loadLook(session.user.id).catch(() => {})
     return () => { alive = false }
   }, [session?.user?.id])
 
-  // Reload after signing out so nothing the screens loaded stays in memory for the next login.
-  const signOut = async () => { await supabase.auth.signOut(); location.reload() }
+  // Save what is waiting, clear the agency's items from the browser, then reload so nothing the screens loaded
+  // stays in memory for the next login.
+  const signOut = async () => {
+    if (!(await endDeviceSync()) && !confirm('Your latest changes could not be saved (check the connection). Sign out anyway and lose them?')) return
+    await endDeviceSync(true)
+    await supabase.auth.signOut(); location.reload()
+  }
 
   return <AuthCtx.Provider value={{ session, me, loading, signOut }}>{children}</AuthCtx.Provider>
 }

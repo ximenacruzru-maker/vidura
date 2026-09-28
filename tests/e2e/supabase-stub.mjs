@@ -5,7 +5,10 @@ import { createRequire } from 'module'
 // The demo agency's rows (made up, never a real agency's), dumped under row-level security as the demo owner.
 const DB = JSON.parse(zlib.gunzipSync(fs.readFileSync(new URL('../fixtures/northwind.json.gz', import.meta.url))).toString('utf8'))
 DB.platform_admins = [{ user_id: 'a62b5895-e9fa-4d54-902c-4a89cf0b3f5d' }] // so the Agencies page is checked too
+DB.app_store = [] // what screens save for the signed-in login (kept in memory, so sign-out/sign-in can be checked)
 for (const k of Object.keys(DB)) DB[k] = DB[k] || []
+export const store = () => DB.app_store
+export const demoAgency = () => DB.agencies[0]
 const USER = { id: 'a62b5895-e9fa-4d54-902c-4a89cf0b3f5d', aud: 'authenticated', role: 'authenticated', email: 'demo@vidura.app', app_metadata: { provider: 'email' }, user_metadata: {}, created_at: '2026-09-25T00:00:00Z' }
 const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url')
 const exp = Math.floor(Date.now() / 1000) + 36000
@@ -50,6 +53,15 @@ export async function install(page, log = () => {}) {
     if (p.startsWith('/storage/')) return json({ error: 'offline' }, 404)
     if (p.startsWith('/rest/v1/')) {
       const table = p.slice(9)
+      if (table === 'app_store' && m === 'POST') {
+        const body = [].concat(JSON.parse(req.postData() || '[]'))
+        for (const r of body) { DB.app_store = DB.app_store.filter((x) => x.key !== r.key); DB.app_store.push(r) }
+        log('POST app_store ' + body.map((r) => r.key).join(',')); return json([], 201)
+      }
+      if (table === 'app_store' && m === 'DELETE') {
+        const f = [...u.searchParams]; DB.app_store = DB.app_store.filter((r) => !f.every(([k, v]) => test(r, k, v)))
+        return route.fulfill({ status: 204 })
+      }
       if (m !== 'GET' && m !== 'HEAD') { log(m + ' ' + table); return m === 'DELETE' ? route.fulfill({ status: 204 }) : json([], 201) }
       let rows = (DB[table] || []).slice(); if (!DB[table]) log('missing table ' + table)
       let order = null, limit = null, offset = 0, select = '*'

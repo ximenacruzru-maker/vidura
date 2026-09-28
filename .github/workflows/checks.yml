@@ -30,3 +30,5 @@ jobs:
         run: npm run test:layout
       - name: Parity check (rebuilt screens match the originals)
         run: npm run test:parity
+      - name: Browser data is saved to the database and cleared at sign-out
+        run: npm run test:sync
