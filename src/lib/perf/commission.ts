@@ -105,11 +105,14 @@ function commLegacy(plan: Json, res: Json) {
 }
 
 /* ---------- carrier statement exclusions ---------- */
-function reconNorm(s: string) {
+/** Uploaded carrier statements and the owner's pay / exclude decisions, per folio. */
+export const reconStore = (): Record<string, Json> => lsGet<Record<string, Json>>(RECON_KEY, {})
+export function reconSave(v: Record<string, Json>) { try { localStorage.setItem(RECON_KEY, JSON.stringify(v)) } catch { /* private mode */ } }
+export function reconNorm(s: string) {
   return String(s || '').toLowerCase().replace(/\b(llc|inc|corp|dba|the|and|&|co|company|mr|mrs|ms)\b/g, ' ').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim()
 }
-function reconRowId(r: FolioRow) { return reconNorm(r.client) + '|' + reconNorm(r.line) + '|' + Math.round(Number(r.premium) || 0) }
-function reconExcluded(k: string) {
+export function reconRowId(r: FolioRow) { return reconNorm(r.client) + '|' + reconNorm(r.line) + '|' + Math.round(Number(r.premium) || 0) }
+export function reconExcluded(k: string) {
   const r = lsGet<Json>(RECON_KEY, {})[k]
   if (!r) return new Set<string>()
   return new Set(Object.entries(r.decisions || {}).filter(([, v]) => v === 'exclude').map(([id]) => id))

@@ -49,6 +49,7 @@ export interface PerfData {
   REP_BOOKS: [string, string][]
   DASH_TONE: Record<string, string>
   DASH_SOURCE: Record<string, string>
+  COMM_METRICS: Record<string, string>
   COMM_SEED: Json
   COMM_RESULTS: Record<string, { plan: Json; results: Record<string, Json> }>
   LIVE_FOLIO_ROWS: Record<string, FolioRow[]>
@@ -61,7 +62,7 @@ export interface PerfData {
 
 const REF_KEYS = ['FARMERS_DECS', 'RETAIL_DOCS', 'RB_LINES', 'CHART', 'BOOK_TAB', 'BOOK_NAME', 'GOALS', 'PERIODS', 'SALES_PERIODS', 'EXEC_PROD_WINDOWS',
   'WB_DATA', 'WB_EXTRA', 'AZ_REPORTS', 'COMM_SEED', 'COMM_RESULTS', 'LIVE_FOLIO_ROWS', 'METRIC_DEFS', 'DASH_DEF_KEY', 'THEMES', 'FONTS', 'S',
-  'REPORT_TABS', 'METRIC_ORDER', 'METRIC_ICON', 'METRIC_TONE', 'REP_BOOKS', 'DASH_TONE', 'DASH_SOURCE']
+  'REPORT_TABS', 'METRIC_ORDER', 'METRIC_ICON', 'METRIC_TONE', 'REP_BOOKS', 'DASH_TONE', 'DASH_SOURCE', 'COMM_METRICS']
 /** Saved copies of the books, used only when the live book tables can't be read (same fallback as loader.js). */
 const BOOK_SNAPSHOT_KEYS = ['DATA', 'CB_BINDERS', 'RB']
 

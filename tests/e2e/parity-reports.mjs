@@ -2,7 +2,8 @@
 // screen (/reports) and the original (/legacy-reports) against the demo agency's data and compares every view the
 // rebuild covers: the dashboard for each period and book, and in Details the Scorecard, Producer (with a drill-down),
 // Folio and Written Business tabs for every folio, Written Business for every carrier / business type / metric on the
-// current folio, the Daily tab for every day, and the To do list. Text, bar lengths and gauges must match exactly.
+// current folio, the Daily tab for every day, the To do list, and Commissions for every folio with a carrier statement
+// uploaded, overridden and removed. Text, bar lengths and gauges must match exactly.
 import { chromium } from 'playwright'
 import { createServer } from 'http'
 import fs from 'fs'
@@ -122,6 +123,39 @@ await same('Daily · opening day')
 const days = await page.locator('.fbar select').first().evaluate((s) => [...s.options].map((o) => o.value))
 for (const d of days) { await pick('.fbar', 0, d); await old('reportSetDay(arg)', d); await same(`Daily · ${d}`) }
 await tab('todo', 'To do list'); await same('To do list')
+
+// commissions: every folio, then a carrier statement (a cancellation, a sale missing from it, an extra row) and an override
+await tab('commissions', 'Commissions')
+for (const k of await page.locator('.fbar select').first().evaluate((s) => [...s.options].map((o) => o.value))) {
+  await pick('.fbar', 0, k); await old('reportSetFolio(arg)', k)
+  await same(`Commissions · folio ${k}`)
+}
+// a folio from before the live sync, where statement exclusions change what is paid
+const ck = D.folios.find((k) => k < '2026-08-20')
+await pick('.fbar', 0, ck); await old('reportSetFolio(arg)', ck)
+const before = (await newRead()).text
+const sales = await frame.evaluate((k) => commFolioRows(k).map((r) => ({ client: r.client, premium: r.premium })), ck)
+const lines = ['Policy Number,Insured Name,Written Premium,Commission,Transaction Type']
+sales.forEach((r, i) => {
+  if (i === 1) return // not on the statement
+  const cancel = i === 0
+  lines.push([String(4100000 + i), '"' + r.client + '"', cancel ? -r.premium : r.premium, ((cancel ? -1 : 1) * r.premium * 0.1).toFixed(2), cancel ? 'Cancellation' : 'New Business'].join(','))
+})
+lines.push('4199999,"Somebody Else",812.00,81.20,Renewal')
+const csv = path.join(fs.mkdtempSync(path.join((await import('os')).tmpdir(), 'stmt-')), 'efolio-statement.csv')
+fs.writeFileSync(csv, lines.join('\n'))
+page.on('dialog', (d) => d.accept())
+await page.locator('input[type=file][accept*=".csv"]').setInputFiles(csv)
+await page.waitForFunction(() => /Done —/.test(document.querySelector('#rcStatus')?.textContent || ''), null, { timeout: 15000 })
+const rc = await page.evaluate(() => document.querySelector('#rcStatus').textContent)
+await old('S.rcMsg=arg;commRecalc();render()', rc)
+await same('Commissions · carrier statement uploaded')
+{ const after = (await newRead()).text
+  if (after === before || !/excluded after carrier reconciliation/.test(after)) failures.push('Commissions · the statement upload did not exclude anything') }
+await page.locator('select.wk-st').nth(1).selectOption('include'); await old('commRecalc();render()')
+await same('Commissions · a flagged sale paid anyway')
+await page.click('.brief-s:has-text("Remove")'); await old('S.rcMsg=arg;commRecalc();render()', rc)
+await same('Commissions · statement removed')
 
 await browser.close(); server.close()
 if (errors.length) failures.push('page error: ' + errors[0])
