@@ -48,7 +48,7 @@ export function downloadCommissionCsv(D: PerfData, k: string, agencyShort: strin
 }
 
 /* ---------- Excel (ExcelJS, loaded on demand as the original did) ---------- */
-function loadScript(src: string) {
+export function loadScript(src: string) {
   return new Promise<void>((ok, bad) => {
     if (document.querySelector('script[src="' + src + '"]')) { ok(); return }
     const s = document.createElement('script'); s.src = src; s.onload = () => ok(); s.onerror = () => bad(new Error('Could not load ' + src)); document.head.appendChild(s)

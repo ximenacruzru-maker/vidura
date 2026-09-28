@@ -2,6 +2,8 @@
 // producer block) and the insurance companies used before are kept per agency in public.coi_profile; a certificate
 // is laid out here as a printable page, one letter-size sheet per certificate.
 import { supabase } from './supabase'
+import { getAccounts, getBookPolicies, getDocs, type BookPolicy, type Doc } from './books'
+import { loadScript } from './perf/commissionFiles'
 
 export interface Producer { name: string; address: string; contact: string; phone: string; fax: string; email: string; rep: string }
 export interface Insurer { name: string; naic: string }
@@ -100,12 +102,246 @@ export function coiProblems(p: Producer, c: Cert) {
   return out
 }
 
+/* ---------- filling a certificate from the broker book ---------- */
+// A client (or, for an owner with several stores, one location) in the Brokered Commercial book, with its policies.
+export interface CoiClient { key: string; accountId: string; label: string; sub: string; insuredName: string; address: string; policies: BookPolicy[]; search: string }
+
+export async function getCoiClients(): Promise<CoiClient[]> {
+  const [accounts, policies] = await Promise.all([getAccounts('brokered_commercial'), getBookPolicies('brokered_commercial')])
+  const out: CoiClient[] = []
+  for (const a of accounts) {
+    const mine = policies.filter((p) => p.account_id === a.id)
+    const locs: { id: string; name: string; address: string }[] = Array.isArray(a.data?.locations) ? a.data.locations : []
+    const base = a.dba && a.dba !== a.name ? `${a.name} DBA ${a.dba}` : a.name
+    if (locs.length) {
+      // an owner account: each location is insured under its own policies
+      for (const l of locs) {
+        const ps = mine.filter((p) => p.data?.locationId === l.id)
+        out.push({ key: a.id + ':' + l.id, accountId: a.id, label: l.name, sub: `${a.dba || a.name} · ${l.address}`, insuredName: `${a.name} DBA ${l.name}`, address: splitAddress(l.address), policies: ps,
+          search: [a.name, a.dba, l.name, l.address, ...ps.map((p) => p.policy_number)].join(' ').toLowerCase() })
+      }
+    } else if (Array.isArray(a.data?.sites) && a.data.sites.length > 1) {
+      // a client with several sites, each under its own policies (named in the site's list); policies no site names
+      // (workers comp, usually) cover them all
+      const sites: { label: string; address: string; policies?: string[] }[] = a.data.sites
+      const named = (st: (typeof sites)[number], p: BookPolicy) => !!p.policy_number && (st.policies || []).some((t) => t.includes(p.policy_number!))
+      for (const st of sites) {
+        const ps = mine.filter((p) => named(st, p) || !sites.some((o) => named(o, p)))
+        out.push({ key: a.id + ':' + st.label, accountId: a.id, label: `${a.dba || a.name} — ${st.label}`, sub: st.address, insuredName: base, address: splitAddress(st.address || a.address || ''), policies: ps,
+          search: [a.name, a.dba, st.label, st.address, ...ps.map((p) => p.policy_number)].join(' ').toLowerCase() })
+      }
+    } else {
+      out.push({ key: a.id, accountId: a.id, label: a.dba || a.name, sub: [a.dba && a.dba !== a.name ? a.name : '', a.address].filter(Boolean).join(' · '), insuredName: base, address: splitAddress(a.address || ''), policies: mine,
+        search: [a.name, a.dba, a.address, ...mine.map((p) => p.policy_number)].join(' ').toLowerCase() })
+    }
+  }
+  return out.sort((x, y) => x.label.localeCompare(y.label))
+}
+
+/** "1896 Senter Road, San Jose, CA 95112" → street on one line, city/state/ZIP on the next. */
+function splitAddress(s: string) {
+  const i = s.indexOf(', ')
+  return i > 0 ? s.slice(0, i) + '\n' + s.slice(i + 2) : s
+}
+
+/** The company that writes the policy: "Farmers Insurance (Mid-Century Insurance Company)" → "Mid-Century Insurance Company". */
+export function writingCompany(carrier: string) {
+  const m = /^(.*?)\s*\(([^)]+)\)\s*$/.exec(carrier.trim())
+  return m && /insurance|exchange|company|assurance|indemnity|casualty|surety/i.test(m[2]) ? m[2].trim() : carrier.trim()
+}
+
+/** Which certificate line a book policy is, if any (property-only and professional policies aren't on an ACORD 25). */
+export function policyLine(p: BookPolicy): LineKey | null {
+  const t = `${p.product || ''} ${p.data?.kind || ''} ${p.data?.coverageType || ''}`.toLowerCase()
+  if (/work\w* comp/.test(t)) return 'wc'
+  if (/umbrella|excess/.test(t)) return 'umb'
+  if (/auto/.test(t)) return 'auto'
+  if (/professional|e&o|errors/.test(t)) return null
+  if (/general liability|casualty|businessowners|\bbop\b|package|liability/.test(t)) return 'gl'
+  return null
+}
+
+/**
+ * Fills the insured, insurance companies and policies from a broker-book client. For each line the policy in force
+ * on the certificate date is used (the latest one if none is); limits keep their standard values, since the book
+ * doesn't hold them. Returns the certificate and what was filled and left out, to show the person.
+ */
+export function fillFromClient(c: Cert, client: CoiClient, known: Insurer[]) {
+  const today = c.date
+  const next = newCert(today)
+  next.holderName = c.holderName; next.holderAddress = c.holderAddress
+  next.insuredName = client.insuredName; next.insuredAddress = client.address
+  next.insurers = []
+  const used: string[] = [], skipped: string[] = [], expired: string[] = []
+  const insurerFor = (p: BookPolicy) => {
+    const name = writingCompany(p.carrier || '')
+    let i = next.insurers.findIndex((r) => r.name.toLowerCase() === name.toLowerCase())
+    if (i < 0 && next.insurers.length < LETTERS.length) {
+      const naic = String(p.data?.naic || known.find((k) => k.name.toLowerCase() === name.toLowerCase())?.naic || '')
+      next.insurers.push({ name, naic }); i = next.insurers.length - 1
+    }
+    return Math.max(0, i)
+  }
+  for (const l of LINES) {
+    const ps = client.policies.filter((p) => policyLine(p) === l.key)
+    if (!ps.length) continue
+    // prefer a policy dedicated to the line (a GL policy over a package that includes GL), then one in force, then the latest
+    const inForce = (p: BookPolicy) => (!p.effective || p.effective <= today) && (!p.expiration || p.expiration >= today)
+    const exact = (p: BookPolicy) => new RegExp(l.label, 'i').test(`${p.product} ${p.data?.kind || ''}`)
+    const best = ps.slice().sort((a, b) => Number(inForce(b)) - Number(inForce(a)) || Number(exact(b)) - Number(exact(a)) || String(b.effective).localeCompare(String(a.effective)))[0]
+    const x = next[l.key] as Base
+    x.on = true; x.ins = insurerFor(best); x.policy = best.policy_number || ''; x.eff = best.effective || ''; x.exp = best.expiration || ''
+    // the named insured as the liability policy prints it, when the book holds it
+    if (l.key === 'gl' && best.data?.named) next.insuredName = String(best.data.named)
+    used.push(`${l.label}: ${writingCompany(best.carrier || '')} ${best.policy_number || ''}`)
+    if (!inForce(best)) expired.push(`${l.label} ${best.policy_number || ''} (${best.expiration ? 'expired ' + best.expiration : 'not yet in force'})`)
+  }
+  for (const p of client.policies) if (!policyLine(p)) skipped.push(`${p.product || 'Policy'} ${p.policy_number || ''}`.trim())
+  if (!next.insurers.length) next.insurers = [{ name: '', naic: '' }]
+  return { cert: next, used, skipped, expired }
+}
+
+/* ---------- reading the dec sheets and binders on file ---------- */
+// A client's declarations pages and binders sit in Documents. For each policy on the certificate with one on file,
+// its text is read (pdf.js, as for carrier statements) and the limits are picked out by the standard labels
+// ("Each Occurrence", "General Aggregate", "Bodily Injury by Accident"…). Only what is found replaces the standard
+// limits; the person is shown which figures came from which file so they can check them.
+
+/** The document on file for a policy: filed under its number, or naming it in the title or file name. */
+export function docFor(p: BookPolicy, docs: Doc[]) {
+  const norm = (x: string) => x.toUpperCase().replace(/[^A-Z0-9]/g, '')
+  const pn = norm(p.policy_number || '')
+  if (pn.length < 5) return null
+  const pdfs = docs.filter((d) => d.uploaded && /pdf/i.test(d.mime || d.file_name))
+  return pdfs.find((d) => norm(d.policy_number || '') === pn) || pdfs.find((d) => norm(d.title + ' ' + d.file_name).includes(pn)) || null
+}
+
+/** A PDF's text, one line per printed row (so a label and its amount stay together). */
+export async function pdfRows(data: ArrayBuffer) {
+  const w = window as any
+  if (!w.pdfjsLib) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js')
+  w.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
+  const doc = await w.pdfjsLib.getDocument({ data }).promise
+  const rows: string[] = []
+  for (let i = 1; i <= doc.numPages; i++) {
+    const items = (await (await doc.getPage(i)).getTextContent()).items.filter((x: any) => x.str?.trim())
+    const byY = new Map<number, { x: number; s: string }[]>()
+    for (const it of items) {
+      const y = Math.round(it.transform[5] / 3) * 3
+      const k = [...byY.keys()].find((v) => Math.abs(v - y) <= 3) ?? y
+      byY.set(k, [...(byY.get(k) || []), { x: it.transform[4], s: it.str }])
+    }
+    ;[...byY.entries()].sort((a, b) => b[0] - a[0]).forEach(([, r]) => rows.push(r.sort((a, b) => a.x - b.x).map((t) => t.s.trim()).join(' ')))
+  }
+  return rows
+}
+
+const AMT = String.raw`\$?\s?(\d{1,3}(?:,\d{3})+|\d{4,})(?:\.00)?`
+/** The amount printed with a label: on the same row after it (a few words between at most), or on the next row. */
+function amountAfter(rows: string[], label: RegExp, after?: RegExp) {
+  for (let i = 0; i < rows.length; i++) {
+    const m = label.exec(rows[i]); if (!m) continue
+    const rest = rows[i].slice(m.index + m[0].length)
+    if (/^[^\d$]{0,40}?\b(excluded|not covered)\b/i.test(rest)) return 'Excluded'
+    const same = new RegExp('^[^\\d$]{0,40}?' + AMT + (after ? '[^\\d]{0,30}?' + after.source : ''), 'i').exec(rest)
+    if (same) return same[1]
+    const next = rows[i + 1] && new RegExp('^[^\\d$]{0,20}?' + AMT, 'i').exec(rows[i + 1])
+    if (next && !after && !/[a-z]{4,}.*[a-z]{4,}/i.test(rest)) return next[1]
+  }
+  return ''
+}
+/** An amount printed before its label ("$1,000,000 each employee"), as workers comp dec pages often do. */
+function amountBefore(rows: string[], label: RegExp) {
+  for (const r of rows) { const m = new RegExp(AMT + '\\s*(?:-|–)?\\s*' + label.source, 'i').exec(r); if (m) return m[1] }
+  return ''
+}
+
+export interface DecRead { line: LineKey; policy: string; file: string; found: [string, string][]; addl: string; waiver: boolean; problem?: string }
+
+/** Picks out one policy's limits from its dec sheet or binder text. */
+export function readLimits(line: LineKey, rows: string[]) {
+  const text = rows.join('\n')
+  const f: Record<string, string> = {}
+  const put = (k: string, v: string) => { if (v) f[k] = v }
+  if (line === 'gl') {
+    put('each', amountAfter(rows, /each occurrence(?: limit)?|liability and medical expenses/i))
+    put('rented', amountAfter(rows, /damage to (?:premises )?rented(?: to you)?(?: premises)?|premises rented to you|fire (?:legal|damage)(?: liability| limit)?/i))
+    put('med', amountAfter(rows, /(?<!and )medical expenses?(?: limit)?|med\.? exp/i))
+    put('personal', amountAfter(rows, /personal (?:and|&) advertising injury(?: limit)?|personal (?:and|&) adv\.?(?: injury)?/i))
+    put('agg', amountAfter(rows, /general aggregate(?: limit)?(?: \(other than products[\w\s/-]*\))?/i))
+    put('products', amountAfter(rows, /products[\s/-]*(?:and\s*)?completed operations(?: aggregate)?(?: limit)?|products[\s/-]*comp(?:leted)?[\s/-]*op(?:eration)?s?\.?(?: agg\.?| aggregate)?/i))
+  } else if (line === 'wc') {
+    put('accident', amountAfter(rows, /(?:bodily injury by )?accident/i, /each accident/i) || amountBefore(rows, /each accident/i) || amountAfter(rows, /bodily injury by accident/i))
+    put('employee', amountBefore(rows, /each employee/i) || amountAfter(rows, /disease[^\n]{0,20}each employee|each employee/i))
+    put('disease', amountBefore(rows, /policy limit/i) || amountAfter(rows, /disease[^\n]{0,20}policy limit|policy limit/i))
+  } else if (line === 'auto') {
+    put('csl', amountAfter(rows, /combined single limit|\bcsl\b/i))
+    put('biPerson', amountAfter(rows, /bodily injury[^\n]{0,10}(?:each|per) person/i))
+    put('biAccident', amountAfter(rows, /bodily injury[^\n]{0,10}(?:each|per) accident/i))
+    put('pd', amountAfter(rows, /property damage[^\n]{0,10}(?:each|per) accident|property damage/i))
+  } else {
+    put('each', amountAfter(rows, /each occurrence(?: limit)?/i))
+    put('agg', amountAfter(rows, /aggregate(?: limit)?/i))
+    put('retention', amountAfter(rows, /self[- ]insured retention|retention/i))
+  }
+  if (line === 'gl' || line === 'umb') {
+    if (/claims[- ]made/i.test(text) && !/occurrence basis|per occurrence basis/i.test(text)) f.form = 'claims'
+  }
+  if (line === 'gl') { if (/per project/i.test(text)) f.aggPer = 'project'; else if (/per location/i.test(text)) f.aggPer = 'loc' }
+  // the endorsements that make someone an additional insured, or waive subrogation, as named on the page
+  const ai = [...new Set([...text.matchAll(/(?:CG|BP|IL|CA)\s?\d{2}\s?\d{2}[^\n;]{0,60}?additional insured[^\n;]{0,50}|additional insured[^\n;]{0,70}/gi)].map((m) => m[0].replace(/\s+/g, ' ').trim()))]
+  const waiver = /waiver of (?:our right to recover|transfer of rights|subrogation)/i.test(text)
+  return { found: f, addl: ai.slice(0, 2).join('; '), waiver }
+}
+
+const LABELS: Record<string, string> = {
+  each: 'Each occurrence', rented: 'Damage to rented premises', med: 'Med exp', personal: 'Personal & adv injury', agg: 'Aggregate', products: 'Products-comp/op agg',
+  accident: 'E.L. each accident', employee: 'E.L. disease - ea employee', disease: 'E.L. disease - policy limit', csl: 'Combined single limit',
+  biPerson: 'BI per person', biAccident: 'BI per accident', pd: 'Property damage', retention: 'Retention', form: 'Coverage', aggPer: 'Aggregate applies per',
+}
+
+/**
+ * Reads the dec sheets / binders on file for the policies a certificate was filled with, and returns the
+ * certificate with the limits found, plus what was read from each file.
+ */
+export async function fillFromDecs(c: Cert, client: CoiClient) {
+  let docs: Doc[] = []
+  try { docs = await getDocs(client.accountId) } catch { return { cert: c, reads: [] as DecRead[] } }
+  const next: Cert = JSON.parse(JSON.stringify(c))
+  const reads: DecRead[] = []
+  for (const l of LINES) {
+    const x = next[l.key] as unknown as Base & Record<string, unknown>
+    if (!x.on) continue
+    const p = client.policies.find((q) => q.policy_number === x.policy)
+    const d = p && docFor(p, docs)
+    if (!p || !d) continue
+    const r: DecRead = { line: l.key, policy: x.policy, file: d.title || d.file_name, found: [], addl: '', waiver: false }
+    try {
+      const { data, error } = await supabase.storage.from('documents').download(d.storage_path)
+      if (error || !data) throw error || new Error('not found')
+      const rows = await pdfRows(await data.arrayBuffer())
+      if (!rows.join('').trim()) r.problem = 'no readable text (a scanned page) — enter the limits by hand'
+      else {
+        const got = readLimits(l.key, rows)
+        for (const [k, v] of Object.entries(got.found)) {
+          x[k] = v
+          r.found.push([LABELS[k] || k, k === 'form' ? (v === 'claims' ? 'Claims-made' : 'Occurrence') : k === 'aggPer' ? v : v === 'Excluded' ? v : '$' + v])
+        }
+        r.addl = got.addl; r.waiver = got.waiver
+        if (!r.found.length) r.problem = 'no limits found on it — enter them by hand'
+      }
+    } catch (e) { r.problem = 'could not be opened (' + ((e as Error)?.message || 'error') + ')' }
+    reads.push(r)
+  }
+  return { cert: next, reads }
+}
+
 /* ---------- the printed certificate ---------- */
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]!))
 const lines = (s: string) => esc(s).split(/\r?\n/).filter((l) => l.trim()).join('<br>')
 const mdy = (iso: string) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso); return m ? `${m[2]}/${m[3]}/${m[1]}` : '' }
 const box = (on: boolean, label: string) => `<span class="ck">${on ? '&#9746;' : '&#9744;'} ${label}</span>`
-const amt = (v: string) => (v.trim() ? '$ ' + esc(v.trim().replace(/^\$\s*/, '')) : '$')
+const amt = (v: string) => (!v.trim() ? '$' : /\d/.test(v) ? '$ ' + esc(v.trim().replace(/^\$\s*/, '')) : esc(v.trim()))
 const limits = (rows: [string, string][]) => '<table class="lim">' + rows.map(([l, v]) => `<tr><td>${l}</td><td class="lv">${v}</td></tr>`).join('') + '</table>'
 
 export function certificateHTML(p: Producer, c: Cert) {
