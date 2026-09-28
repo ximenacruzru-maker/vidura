@@ -10,7 +10,8 @@ export const LEGACY_ROUTES: Record<string, [string, string?]> = {
   '/huddle': ['sales', 'huddle'],
   '/legacy-reports': ['reports'],
   '/year-end': ['reports', 'annual'],
-  '/commissions': ['reports', 'commissions'],
+  '/legacy-commissions': ['reports', 'commissions'],
+  '/commission-setup': ['settings', 'commission'],
   '/sdr': ['reports', 'sdr'],
 }
 

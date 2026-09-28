@@ -229,3 +229,12 @@ brief-s
 dr-msg
 dr-ctx
 dr-sec
+hd-kai
+doc-dl
+comm-own
+cm-status
+wk-note
+wk-st
+today-done
+an-fn
+an-empty

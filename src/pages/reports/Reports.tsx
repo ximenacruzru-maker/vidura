@@ -9,23 +9,27 @@ import { useAsync } from '../../lib/useAsync'
 import { Gauge, ICO } from '../executive/parts'
 import { useDarkFix, useFitFigures, useLegacyLook } from '../executive/look'
 import { ReportsDash, type DashState } from './ReportsDash'
+import { Commissions } from './Commissions'
+import { agencyShort } from '../../lib/data'
 import '../executive/executive.css'
+import './reports.css'
 
 /** Tabs that still open the original screens (they are rebuilt separately). */
-const ELSEWHERE: Record<string, string> = { commissions: '/commissions', sdr: '/sdr', annual: '/year-end' }
+const ELSEWHERE: Record<string, string> = { sdr: '/sdr', annual: '/year-end' }
 
 interface View extends DashState { mode: 'dash' | 'details'; tab: string; folio: string | null; kind: string | null; who: string | null; day: string | null; carrier: string; biz: string; metric: string }
 /** Choices survive leaving and coming back within a session, as they did in the original screen. */
 let saved: View | null = null
 
-export default function Reports() {
+/** open: a Details tab to show on arrival (the /commissions address opens the Commissions tab). */
+export default function Reports({ open }: { open?: string }) {
   const { data, error } = useAsync(loadPerfData, [])
   if (error) return <ErrorBox error={error} />
   if (!data) return <Loading what="Loading reports" />
-  return <ReportsView D={data} />
+  return <ReportsView D={data} open={open} />
 }
 
-export function ReportsView({ D }: { D: PerfData }) {
+export function ReportsView({ D, open }: { D: PerfData; open?: string }) {
   const root = useRef<HTMLDivElement>(null)
   const go = useNavigate()
   const { me } = useAuth()
@@ -34,6 +38,7 @@ export function ReportsView({ D }: { D: PerfData }) {
   const [v, setV] = useState<View>(saved || { mode: (S.view || {}).reports === 'details' ? 'details' : 'dash',
     win: S.repWin || 'folio', book: S.repBook || 'all', line: S.repLine || 'all', goals: !!S.exGoals, from: S.cusFrom || '', to: S.cusTo || '', tab: S.repTab || 'scorecard', folio: S.repFolio || null, kind: S.repKind || null, who: S.repProducer || null,
     day: null, carrier: S.repCarrier || 'all', biz: S.repBizType || 'all', metric: S.repMetric || 'premium' })
+  useEffect(() => { if (open) setV((x) => ({ ...x, mode: 'details', tab: open })) }, [open])
   useEffect(() => { saved = v }, [v])
   const set = (p: Partial<View>) => setV((x) => ({ ...x, ...p }))
   const setFolio = (folio: string) => set({ folio, carrier: 'all', kind: null, who: null })
@@ -111,7 +116,8 @@ export function ReportsView({ D }: { D: PerfData }) {
         </div>
       </div>
     </>
-  } else if (tab === 'written') body = <Written D={D} v={v} set={set} setFolio={setFolio} />
+  } else if (tab === 'commissions') body = <Commissions D={D} folio={v.folio} setFolio={setFolio} agency={agency} agencyShort={agencyShort(me)} />
+  else if (tab === 'written') body = <Written D={D} v={v} set={set} setFolio={setFolio} />
   else if (tab === 'daily') body = <Daily D={D} chosen={v.day} setDay={(day) => set({ day })} />
   else {
     body = (

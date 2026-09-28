@@ -1,0 +1,4 @@
+/* The app's header button shares the original screens' "hd-kai" class; its theme colours (Talavera orange etc.)
+   must not reach the Commissions "Download Excel" button, which keeps the original's look in every theme. */
+html[data-theme] .xd .hd-kai { background: linear-gradient(135deg, var(--bistre), #4d60ff); border-color: #8ca5ff; box-shadow: 0 7px 18px rgba(22,79,236,.2); }
+.xd .cm-link { text-decoration: underline; }

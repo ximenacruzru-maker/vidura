@@ -14,6 +14,7 @@ azSyncLoad();
       setModule(m);
       S.view = S.view || {};
       if (m === "sales") { S.view.sales = tab === "huddle" ? "details" : (tab === "kpi" ? "details" : "dash"); if (tab) S.salesView = tab; render(); }
+      else if (m === "settings") { if (tab) S.sub = tab; render(); }
       else if (tab) { S.view[m] = "details"; S.repTab = tab; render(); }
       var w = document.querySelector(".workspace"); if (w) w.scrollTop = 0;
       var mn = document.getElementById("main"); if (mn) mn.scrollTop = 0;
