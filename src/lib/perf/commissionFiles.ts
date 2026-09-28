@@ -26,7 +26,7 @@ export function commPlanSummary(D: PerfData, plan: Json) {
     buckets.charAt(0).toUpperCase() + buckets.slice(1) + (bonuses ? ', ' + bonuses : '') + '.'
 }
 
-function save(name: string, blob: Blob) {
+export function save(name: string, blob: Blob) {
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name
   document.body.appendChild(a); a.click(); document.body.removeChild(a)
   setTimeout(() => URL.revokeObjectURL(a.href), 2000)
@@ -54,7 +54,7 @@ function loadScript(src: string) {
     const s = document.createElement('script'); s.src = src; s.onload = () => ok(); s.onerror = () => bad(new Error('Could not load ' + src)); document.head.appendChild(s)
   })
 }
-async function excelLib(): Promise<any> {
+export async function excelLib(): Promise<any> {
   const w = window as any
   if (!w.ExcelJS) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js')
   return w.ExcelJS

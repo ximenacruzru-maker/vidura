@@ -48,7 +48,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     { h: 'Performance' },
     { to: '/', label: 'Executive Dashboard', icon: 'executive', show: c('performance'), also: ['/legacy-dashboard'] },
     { to: '/sales', label: 'Sales KPIs', icon: 'sales', show: c('performance'), also: ['/huddle', '/legacy-sales'] },
-    { to: '/reports', label: 'Reports', icon: 'reports', show: c('performance'), also: ['/commissions', '/sdr', '/year-end', '/legacy-reports', '/legacy-commissions', '/commission-setup'] },
+    { to: '/reports', label: 'Reports', icon: 'reports', show: c('performance'), also: ['/commissions', '/sdr', '/year-end', '/legacy-reports', '/legacy-commissions', '/commission-setup', '/legacy-sdr'] },
     { h: 'Agency Management' },
     { to: '/resources', label: 'Agency Resources', icon: 'service', show: c('resources') || c('passwords') },
     { to: '/books/farmers', label: 'Books of Business', icon: 'book', show: c('books'), also: ['/books'] },
