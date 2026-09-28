@@ -2,12 +2,14 @@ import { useEffect, useRef, useState } from 'react'
 import { getLook, onLook } from '../lib/theme'
 
 /** Routes that show the original performance screens, and where each one opens. The Executive
- *  Dashboard is now React (pages/executive); /legacy-dashboard keeps the original for side-by-side checks. */
+ *  Dashboard is now React (pages/executive); /legacy-dashboard keeps the original for side-by-side checks. Sales KPIs and Reports
+ *  are rebuilt too; their originals stay at /legacy-sales and /legacy-reports. */
 export const LEGACY_ROUTES: Record<string, [string, string?]> = {
   '/legacy-dashboard': ['executive'],
   '/legacy-sales': ['sales', 'kpi'],
   '/huddle': ['sales', 'huddle'],
-  '/reports': ['reports'],
+  '/legacy-reports': ['reports'],
+  '/year-end': ['reports', 'annual'],
   '/commissions': ['reports', 'commissions'],
   '/sdr': ['reports', 'sdr'],
 }

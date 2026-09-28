@@ -28,7 +28,7 @@ export function useLegacyLook(D: PerfData): { style: CSSProperties; dark: boolea
 /** Shrinks a headline figure until it fits its card (engine.js fitFigures). */
 export function useFitFigures(root: React.RefObject<HTMLDivElement | null>) {
   useLayoutEffect(() => {
-    const fit = () => root.current?.querySelectorAll<HTMLElement>('.sc-v').forEach((el) => {
+    const fit = () => root.current?.querySelectorAll<HTMLElement>('.sc-v, .sccard-v').forEach((el) => {
       el.style.fontSize = ''
       const box = el.parentElement; if (!box) return
       const cs = getComputedStyle(box)

@@ -49,7 +49,7 @@ check(calls.some((c) => c.includes('rpc/ai_key_save')), 'the Claude key is hande
 
 // 2. Changes made by the app and by the original screens' frame are saved.
 await page.evaluate(() => localStorage.setItem('declara_foresight_commission_rate', '12'))
-await page.evaluate(() => { location.hash = '#/reports' }); await page.waitForTimeout(2500)
+await page.evaluate(() => { location.hash = '#/legacy-reports' }); await page.waitForTimeout(2500)
 await page.evaluate(() => document.querySelector('.legacy-host iframe').contentWindow.localStorage.setItem('declara_work_v1', '[{"id":1}]'))
 await page.evaluate(() => localStorage.removeItem('declara_comm_recon_v1'))
 await page.waitForTimeout(1500)

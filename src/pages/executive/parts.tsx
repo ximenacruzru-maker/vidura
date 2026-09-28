@@ -23,6 +23,9 @@ export const ICO: Record<string, ReactNode> = {
   shield: <svg {...F}><path d="M12 3l8 3v6c0 4.4-3.2 8.3-8 9-4.8-.7-8-4.6-8-9V6zM9 12l2 2 4-4" /></svg>,
   coin: <svg {...F}><circle cx="12" cy="12" r="8.6" /><path d="M12 7.6v8.8M14.4 9.6c0-1-1.1-1.6-2.4-1.6s-2.4.6-2.4 1.5 1.1 1.4 2.4 1.7 2.4.8 2.4 1.8-1.1 1.6-2.4 1.6-2.4-.6-2.4-1.6" /></svg>,
   target: <svg {...F}><circle cx="12" cy="12" r="8.4" /><circle cx="12" cy="12" r="4.6" /><circle cx="12" cy="12" r="1.2" /></svg>,
+  check: <svg {...F}><rect x="3.4" y="3.4" width="17.2" height="17.2" rx="3" /><path d="M8 12.3l2.6 2.6L16 9.5" /></svg>,
+  user: <svg {...F}><circle cx="12" cy="8.2" r="3.6" /><path d="M4.8 20a7.2 7.2 0 0 1 14.4 0" /></svg>,
+  box: <svg {...F}><path d="M12 3.2 20.2 7.6v8.8L12 20.8 3.8 16.4V7.6z" /><path d="M3.8 7.6 12 12l8.2-4.4M12 12v8.8" /></svg>,
 }
 
 /* ---------- score card ---------- */

@@ -40,6 +40,15 @@ export interface PerfData {
   WB_EXTRA: { daily: Record<string, Json>; quotes?: Json; [k: string]: any }
   AZ_REPORTS: Record<string, Json>
   REPORT_DEFAULT_FOLIO: string
+  /** The day the Reports › Daily tab opens on: the newest day with a synced sale. */
+  REPORT_DEFAULT_DAY?: string
+  REPORT_TABS: { key: string; label: string }[]
+  METRIC_ORDER: string[]
+  METRIC_ICON: Record<string, string>
+  METRIC_TONE: Record<string, string>
+  REP_BOOKS: [string, string][]
+  DASH_TONE: Record<string, string>
+  DASH_SOURCE: Record<string, string>
   COMM_SEED: Json
   COMM_RESULTS: Record<string, { plan: Json; results: Record<string, Json> }>
   LIVE_FOLIO_ROWS: Record<string, FolioRow[]>
@@ -51,7 +60,8 @@ export interface PerfData {
 }
 
 const REF_KEYS = ['FARMERS_DECS', 'RETAIL_DOCS', 'RB_LINES', 'CHART', 'BOOK_TAB', 'BOOK_NAME', 'GOALS', 'PERIODS', 'SALES_PERIODS', 'EXEC_PROD_WINDOWS',
-  'WB_DATA', 'WB_EXTRA', 'AZ_REPORTS', 'COMM_SEED', 'COMM_RESULTS', 'LIVE_FOLIO_ROWS', 'METRIC_DEFS', 'DASH_DEF_KEY', 'THEMES', 'FONTS', 'S']
+  'WB_DATA', 'WB_EXTRA', 'AZ_REPORTS', 'COMM_SEED', 'COMM_RESULTS', 'LIVE_FOLIO_ROWS', 'METRIC_DEFS', 'DASH_DEF_KEY', 'THEMES', 'FONTS', 'S',
+  'REPORT_TABS', 'METRIC_ORDER', 'METRIC_ICON', 'METRIC_TONE', 'REP_BOOKS', 'DASH_TONE', 'DASH_SOURCE']
 /** Saved copies of the books, used only when the live book tables can't be read (same fallback as loader.js). */
 const BOOK_SNAPSHOT_KEYS = ['DATA', 'CB_BINDERS', 'RB']
 
@@ -223,6 +233,43 @@ function applyLiveFolios(D: PerfData, folioRows: Json[], sales: Json[], quotes: 
   })
 }
 
+/** Folds the synced SDR transfers into the saved list and rebuilds each open pay period's bonuses (engine.js applyLiveSdr). */
+function applyLiveSdr(D: PerfData, rows: Json[], periods: Json[]) {
+  const sdr: Json = (D.WB_EXTRA.sdr = D.WB_EXTRA.sdr || { transfers: [], byMonth: {} })
+  sdr.transfers = sdr.transfers || []; sdr.byMonth = sdr.byMonth || {}
+  const byLead: Record<string, Json> = {}
+  rows.forEach((r) => { if (r.lead_id) byLead[String(r.lead_id)] = r })
+  const shape = (r: Json, old: Json | null) => ({
+    ...(old || {}), sdr: r.sdr, dateTime: String(r.date_time || '').slice(0, 10), month: r.month, leadId: String(r.lead_id), client: r.client,
+    producer: r.producer, csr: r.csr || '', leadSource: r.lead_source || '', stage: r.stage || '', status: r.status || '', lossReason: r.loss_reason || '',
+    action: r.action || '', outcome: r.outcome || '', azInPipeline: !!r.az_in_pipeline, azTagged: !!r.az_tagged, azQuotePremium: Number(r.az_quote_premium || 0),
+    quoteCount: r.quote_count || 0, quoteIds: (r.quotes || []).map((q: Json) => q.quoteId || q.id).filter(Boolean), quotes: r.quotes || [],
+    azQualifies: !!r.az_qualifies, bound: !!r.bound, boundViaLedger: !!r.bound_via_ledger, boundPremium: Number(r.bound_premium || 0), tags: r.tags || '', url: r.url || '',
+  })
+  const seen = new Set<string>()
+  sdr.transfers = sdr.transfers.map((t: Json) => { const r = byLead[String(t.leadId)]; if (!r) return t; seen.add(String(t.leadId)); return shape(r, t) })
+  Object.values(byLead).forEach((r) => { if (!seen.has(String(r.lead_id))) sdr.transfers.push(shape(r, null)) })
+  periods.forEach((p) => {
+    const day = String(p.pay_date).slice(0, 10)
+    const meta = { payDate: day, payDateLabel: new Date(day + 'T12:00:00Z').toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }),
+      periodLabel: p.period_label, closed: !!p.closed, qualifiedTransferBonus: Number(p.qualified_transfer_bonus) || 15, boundPolicyBonus: Number(p.bound_policy_bonus) || 35 }
+    if (p.closed && sdr.byMonth[p.month]) return
+    const out: Json = { meta }, acc: Record<string, Json> = {}
+    sdr.transfers.filter((t: Json) => t.month === p.month).forEach((t: Json) => {
+      const a = (acc[t.sdr || 'Unassigned'] = acc[t.sdr || 'Unassigned'] || { totalLogged: 0, qualifiedTransfers: 0, boundPolicies: 0, boundPremium: 0 })
+      a.totalLogged++; if (t.azQualifies) a.qualifiedTransfers++
+      if (t.bound) { a.boundPolicies++; a.boundPremium += Number(t.boundPremium) || 0 }
+    })
+    Object.entries(acc).forEach(([who, a]) => {
+      out[who] = { totalLogged: a.totalLogged, qualifiedTransfers: a.qualifiedTransfers, qualifiedBonus: a.qualifiedTransfers * meta.qualifiedTransferBonus,
+        boundPolicies: a.boundPolicies, boundBonus: a.boundPolicies * meta.boundPolicyBonus, boundPremium: Math.round(100 * a.boundPremium) / 100,
+        totalBonus: a.qualifiedTransfers * meta.qualifiedTransferBonus + a.boundPolicies * meta.boundPolicyBonus }
+    })
+    sdr.byMonth[p.month] = out
+  })
+  sdr.pulledAt = isoToMdy(new Date().toISOString().slice(0, 10))
+}
+
 /** Every row of a table, 1000 at a time (optionally in database order, as loader.js reads the books). */
 async function pageAll(table: string, order?: string) {
   let out: Json[] = []
@@ -241,9 +288,9 @@ async function pageAll(table: string, order?: string) {
  *  the saved copy stays in place, exactly as the original screens behave. */
 async function supaSyncLoad(D: PerfData) {
   try {
-    const [salesRaw, quotes, folios] = await Promise.all([
-      pageAll('daily_sales'), pageAll('quote_leads'),
-      pageAll('commission_folios').catch((e) => { console.error(e); return [] as Json[] }),
+    const soft = (t: string) => pageAll(t).catch((e) => { console.error(e); return [] as Json[] })
+    const [salesRaw, quotes, transfers, folios, payPeriods] = await Promise.all([
+      pageAll('daily_sales'), pageAll('quote_leads'), soft('sdr_transfers'), soft('commission_folios'), soft('sdr_pay_periods'),
     ])
     // Synced sales come from AgencyZoom policy records (az_ref "pol-<id>"); rows from the earlier
     // lead-based sync are superseded by those. Rows with no az_ref are the reconciled history.
@@ -262,13 +309,18 @@ async function supaSyncLoad(D: PerfData) {
       const day = r.quote_day; if (!day) return
       const p = (pipeline[day] = pipeline[day] || { count: 0, premium: 0, byProducer: {}, leads: [] })
       p.count += 1; p.premium += Number(r.quoted_premium || 0); p.byProducer[r.producer] = (p.byProducer[r.producer] || 0) + 1
-      p.leads.push({ leadId: r.lead_id || r.az_ref, name: r.name, producer: r.producer, leadSource: r.lead_source, quotedPremium: Number(r.quoted_premium || 0), quoteDay: r.quote_day })
+      p.leads.push({ leadId: r.lead_id || r.az_ref, name: r.name, created: r.created_date, producer: r.producer, pipeline: r.pipeline, leadSource: r.lead_source,
+        stageEntry: r.stage_entry, quotedPremium: Number(r.quoted_premium || 0), sdrTag: r.sdr_tag, quotes: r.quotes || [],
+        quoteCount: r.quote_count || (r.quotes || []).length || 1, quoteDay: r.quote_day, dayBasis: r.day_basis, lines: r.lines, url: r.url })
     })
     D.WB_EXTRA.daily = daily
     D.WB_EXTRA.quotes = { ...(D.WB_EXTRA.quotes || {}), byDay: pipeline, pulledAt: isoToMdy(new Date().toISOString().slice(0, 10)) }
+    const days = Object.keys(daily).sort()
+    if (days.length) D.REPORT_DEFAULT_DAY = days[days.length - 1]
     if (folios.length) applyLiveFolios(D, folios, sales, quotes)
     const newest = wbFolioKeys(D)[0]
     if (newest && D.AZ_REPORTS[newest]) D.REPORT_DEFAULT_FOLIO = newest
+    applyLiveSdr(D, transfers, payPeriods)
   } catch (err) {
     console.error('Live Supabase data load failed:', err)
   }

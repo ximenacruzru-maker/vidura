@@ -1615,6 +1615,7 @@ aside.side, .workspace > header, #roleNote, #terms, #brief, #login { display:non
   .p2>*,.p21>*,.p3>*{min-width:0}
   .hs-band em{white-space:nowrap}
   input,select,textarea{font-size:16px}
+  .an-t{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
 }
 @media(max-width:560px){
   .scgrid{grid-template-columns:minmax(0,1fr)!important}
