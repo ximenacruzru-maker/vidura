@@ -4,8 +4,8 @@ import { useAuth } from '../auth'
 import { useAsync } from '../lib/useAsync'
 import { todayPacific } from '../lib/format'
 import {
-  CERT_CSS, EMPTY_PRODUCER, LETTERS, LINES, certificateHTML, coiProblems, getCoiProfile, lineName, mergeInsurers, newCert,
-  plusYear, printCertificate, saveCoiProfile, standardOps, type Cert, type Insurer, type LineKey, type Producer,
+  CERT_CSS, EMPTY_PRODUCER, LETTERS, LINES, certificateHTML, coiProblems, fillFromClient, fillFromDecs, getCoiClients, getCoiProfile, lineName, mergeInsurers, newCert,
+  plusYear, printCertificate, saveCoiProfile, standardOps, type Cert, type CoiClient, type DecRead, type Insurer, type LineKey, type Producer,
 } from '../lib/coi'
 
 // The certificate being worked on is kept (and saved with the login's other items) so it survives a reload, and a
@@ -14,6 +14,13 @@ const DRAFT = 'declara_coi_draft'
 const loadDraft = (today: string): Cert => {
   try { const d = JSON.parse(localStorage.getItem(DRAFT) || 'null'); if (d && d.gl) { const n = newCert(today); return { ...n, ...d, gl: { ...n.gl, ...d.gl }, auto: { ...n.auto, ...d.auto }, umb: { ...n.umb, ...d.umb }, wc: { ...n.wc, ...d.wc }, date: today } } } catch { /* a fresh one */ }
   return newCert(today)
+}
+
+/** The limits read from a dec sheet, applied only where the person hasn't changed the field since it was filled. */
+function pickLimits<T extends object>(read: T, filledWith: T, now: T): Partial<T> {
+  const out: Partial<T> = {}
+  for (const k of Object.keys(read) as (keyof T)[]) if (read[k] !== filledWith[k] && now[k] === filledWith[k]) out[k] = read[k]
+  return out
 }
 
 const Field = ({ label, children, wide }: { label: string; children: ReactNode; wide?: boolean }) => <label style={wide ? { gridColumn: '1 / -1' } : undefined}>{label}{children}</label>
@@ -29,6 +36,10 @@ export default function Coi() {
   const [editAgency, setEditAgency] = useState(false)
   const [saving, setSaving] = useState('')
   const [c, setC] = useState<Cert>(() => loadDraft(today))
+  // the Brokered Commercial clients, to fill a certificate from (someone without the book simply doesn't get the search)
+  const clients = useAsync(() => getCoiClients().catch(() => [] as CoiClient[]), [])
+  const [q, setQ] = useState('')
+  const [filled, setFilled] = useState<{ key: string; label: string; used: string[]; skipped: string[]; expired: string[]; reads: DecRead[] | null } | null>(null)
 
   useEffect(() => {
     if (!data) return
@@ -73,6 +84,16 @@ export default function Coi() {
     const merged = mergeInsurers(known, c.insurers)
     if (JSON.stringify(merged) !== JSON.stringify(known)) { setKnown(merged); saveCoiProfile(me.agency_id, { insurers: merged }).catch(() => { /* kept for next time */ }) }
   }
+  const pickClient = (cl: CoiClient) => {
+    const r = fillFromClient(c, cl, known)
+    setC(r.cert); setFilled({ key: cl.key, label: cl.label, used: r.used, skipped: r.skipped, expired: r.expired, reads: null }); setQ('')
+    // then the limits from the dec sheets / binders on file (only if the same client is still picked)
+    fillFromDecs(r.cert, cl).then(({ cert, reads }) => {
+      setFilled((f) => (f && f.key === cl.key ? { ...f, reads } : f))
+      setC((x) => (x.insuredName === r.cert.insuredName ? { ...x, ...Object.fromEntries(LINES.map((l) => [l.key, { ...x[l.key], ...pickLimits(cert[l.key], r.cert[l.key], x[l.key]) }])) } : x))
+    })
+  }
+  const matches = q.trim().length < 2 ? [] : (clients.data || []).filter((cl) => q.toLowerCase().split(/\s+/).every((w) => cl.search.includes(w))).slice(0, 8)
   const P = (k: keyof Producer) => ({ value: producer[k], onChange: (e: { target: { value: string } }) => setProducer({ ...producer, [k]: e.target.value }) })
   const on = LINES.filter((l) => c[l.key].on)
   const letterPick = (k: LineKey) => (
@@ -124,6 +145,35 @@ export default function Coi() {
       </Panel>
 
       <Panel title="Insured" right={<input className="fld" type="date" value={c.date} onChange={(e) => set({ date: e.target.value })} title="Certificate date" style={{ width: 'auto' }} />}>
+        {!!clients.data?.length && <div className="coi-find">
+          <input className="fld" type="search" placeholder="Search the broker book — client, location or policy number" value={q} onChange={(e) => setQ(e.target.value)} />
+          {q.trim().length >= 2 && <div className="coi-hits">
+            {matches.map((cl) => (
+              <button key={cl.key} className="coi-hit" onClick={() => pickClient(cl)}>
+                <span className="strong">{cl.label}</span><span className="sub">{cl.sub}</span>
+                <span className="sub">{cl.policies.map((p) => p.product).filter(Boolean).join(' · ') || 'No policies on file'}</span>
+              </button>
+            ))}
+            {!matches.length && <div className="sub" style={{ padding: 10 }}>No broker-book client matches.</div>}
+          </div>}
+        </div>}
+        {filled && <div className="note-box coi-filled">
+          <b>Filled from the broker book — {filled.label}.</b> {filled.used.length ? filled.used.join(' · ') : 'No liability, auto, umbrella or workers comp policies on file for this client.'}
+          {filled.used.length > 0 && (filled.reads == null ? <><br /><i>Reading the dec sheets on file…</i></> : <>
+            {filled.reads.map((r) => <div key={r.line} className="coi-read">
+              <b>{r.policy} — {r.file}:</b> {r.problem ? r.problem : r.found.map(([k, v]) => `${k} ${v}`).join(' · ')}
+              {r.addl && <div>Additional insured wording on it: “{r.addl}”</div>}
+              {!r.problem && !r.addl && r.line !== 'wc' && <div>No additional insured wording found on it — check the policy before naming the holder.</div>}
+              {r.waiver && <div>Waiver of subrogation wording found on it.</div>}
+            </div>)}
+            {LINES.filter((l) => c[l.key].on && !filled.reads!.some((r) => r.line === l.key)).length > 0 && <div className="coi-read">
+              No dec sheet on file for {LINES.filter((l) => c[l.key].on && !filled.reads!.some((r) => r.line === l.key)).map((l) => lineName(c, l.key)).join(', ')} — the standard limits are shown; check them against the policy.
+            </div>}
+          </>)}
+          {filled.expired.length > 0 && <><br /><b>Check:</b> not in force today — {filled.expired.join(', ')}.</>}
+          {filled.skipped.length > 0 && <><br />Not on a certificate of liability: {filled.skipped.join(', ')}.</>}
+          <button className="linkbtn" style={{ marginLeft: 8 }} onClick={() => setFilled(null)}>Dismiss</button>
+        </div>}
         <div className="form-grid">
           <Field label="Insured name"><input className="fld" value={c.insuredName} onChange={(e) => set({ insuredName: e.target.value })} /></Field>
           <Field label="Insured address"><textarea className="fld" rows={2} value={c.insuredAddress} onChange={(e) => set({ insuredAddress: e.target.value })} placeholder={'Street\nCity, State ZIP'} /></Field>
@@ -197,7 +247,7 @@ export default function Coi() {
       <Panel title="Certificate" sub="ACORD 25 · Certificate of Liability Insurance"
         right={<div className="row-actions coi-acts">
           <button className="btn-ghost" onClick={() => set({ holderName: '', holderAddress: '' })}>Same policies, new holder</button>
-          <button className="btn-ghost" onClick={() => { if (confirm('Clear this certificate and start a new one?')) setC(newCert(today)) }}>Start over</button>
+          <button className="btn-ghost" onClick={() => { if (confirm('Clear this certificate and start a new one?')) { setC(newCert(today)); setFilled(null) } }}>Start over</button>
           <button className="btn-primary" disabled={!!problems.length} onClick={issue}>Print / save as PDF</button>
         </div>}>
         {problems.length > 0 && <div className="note-box">Still needed: {problems.join(', ')}.</div>}
