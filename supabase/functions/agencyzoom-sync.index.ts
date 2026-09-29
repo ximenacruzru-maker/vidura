@@ -179,7 +179,7 @@ async function sweep(supabase: any, A: string, cutoff: string, today: string, az
       let pol: any;
       try { pol = await az(token, "GET", `/v1/api/customers/${cid}/policies`); } catch (e) { complete = false; if (String(e).includes("__TIME__")) break; err(`policies ${cid}: ${e}`); continue; }
       stats.checked++; fps.push({ id: cid, fp: String(c.policySummary ?? "") });
-      await keepPolicies(supabase, A, cid, Array.isArray(pol) ? pol : (pol.policies || pol.data || []), carriers, err);
+      await keepPolicies(supabase, A, cid, Array.isArray(pol) ? pol : (pol.policies || pol.data || []), carriers, err, personName(c));
       for (const x of (Array.isArray(pol) ? pol : (pol.policies || pol.data || []))) {
         let sold = isoDate(x.soldDate);
         if (!sold || sold <= cutoff) continue;
@@ -213,11 +213,11 @@ async function sweep(supabase: any, A: string, cutoff: string, today: string, az
 }
 
 /** Keeps a customer's policies in az_policies, as AgencyZoom has them now. */
-async function keepPolicies(supabase: any, A: string, cid: string, list: any[], carriers: Record<string, string>, err: (m: string) => void) {
+async function keepPolicies(supabase: any, A: string, cid: string, list: any[], carriers: Record<string, string>, err: (m: string) => void, customer?: string) {
   if (!list.length) return;
   const now = new Date().toISOString();
   const { error } = await supabase.from("az_policies").upsert(list.filter((x) => x?.id != null).map((x) => ({
-    agency_id: A, policy_id: String(x.id), customer_id: cid, sold_date: isoDate(x.soldDate), effective_date: isoDate(x.effectiveDate), expiry_date: isoDate(x.expiryDate),
+    agency_id: A, policy_id: String(x.id), customer_id: cid, ...(customer ? { customer_name: customer } : {}), policy_number: x.policyNumber || null, sold_date: isoDate(x.soldDate), effective_date: isoDate(x.effectiveDate), expiry_date: isoDate(x.expiryDate),
     premium: Math.round(Number(x.premium || 0)) / 100, producer: (x.agentName || "").trim(), carrier: carriers[String(x.carrierId)] || x.carrierName || x.standardCarrierCode || null,
     policy_type: x.policyTypeName || null, status: x.status == null ? null : Number(x.status), seen_at: now,
   })), { onConflict: "agency_id,policy_id" });
@@ -243,7 +243,7 @@ async function fillPolicies(supabase: any, A: string, azUser: string, azPass: st
       let pol: any;
       try { pol = await az(token, "GET", `/v1/api/customers/${c.id}/policies`); } catch (e) { complete = false; if (String(e).includes("__TIME__")) break; err(`policies ${c.id}: ${e}`); continue; }
       const list = Array.isArray(pol) ? pol : (pol.policies || pol.data || []);
-      await keepPolicies(supabase, A, String(c.id), list, carriers, err);
+      await keepPolicies(supabase, A, String(c.id), list, carriers, err, personName(c));
       stats.customers++; stats.policies += list.length;
     }
     const done = cs.length < 100 && complete;
@@ -364,7 +364,7 @@ Deno.serve(async (req) => {
         try { pol = await az(token, "GET", `/v1/api/customers/${cid}/policies`); } catch (e) { if (String(e).includes("__TIME__")) break; err(`policies ${cid}: ${e}`); continue; }
         stats.customersChecked++; checkedIds.add(cid);
         const list = Array.isArray(pol) ? pol : (pol.policies || pol.data || []);
-        await keepPolicies(supabase, A, cid, list, carriers, err);
+        await keepPolicies(supabase, A, cid, list, carriers, err, cname);
         for (const x of list) {
           let sold = isoDate(x.soldDate);
           // soldDate is a UTC calendar day. When we have the matching UTC
