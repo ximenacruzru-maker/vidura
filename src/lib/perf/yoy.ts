@@ -35,7 +35,7 @@ export function lastYear(iso: string) {
 }
 
 export interface Sum { premium: number; policies: number }
-export interface Compare { key: string; label: string; range: string; now: Sum; prior: Sum; priorFrom: string }
+export interface Compare { key: string; label: string; range: string; now: Sum; prior: Sum; priorFrom: string; full?: Sum }
 export interface MonthRow { month: number; label: string; now: Sum | null; prior: Sum; priorToDate: Sum | null; partial: boolean }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -63,7 +63,9 @@ export function yoyFigures(Y: Yoy, today: string, o: { producer: string; dropCan
     ['t12', 'Last 12 months', addDay(lastYear(today)), today],
   ]
   // each against the same dates a year earlier (a month's last day lands on last year's last day, 29 Feb on the 28th)
-  const compares: Compare[] = periods.map(([key, label, a, b]) => ({
+  // the year so far is also measured against the whole of last year (Jan 1 – Dec 31): how far toward beating it
+  const fullYear = sum(`${y - 1}-01-01`, `${y - 1}-12-31`)
+  const compares: Compare[] = periods.map(([key, label, a, b]) => ({ ...(key === 'ytd' ? { full: fullYear } : {}),
     key, label, range: `${span(a, b)} vs ${span(lastYear(a), lastYear(b))}`, now: sum(a, b), prior: sum(lastYear(a), lastYear(b)), priorFrom: lastYear(a),
   }))
   const months: MonthRow[] = MONTHS.map((label, i) => {

@@ -59,6 +59,17 @@ export default function VsLastYear() {
         <div className="scg yoy-cards">
           {F.compares.map((c) => {
             const n = v(c.now), p = v(c.prior), up = n >= p, partial = gap(c.priorFrom)
+            if (c.full) {
+              // this year so far against all of last year
+              const f = v(c.full), share = f ? (n / f) * 100 : 0, beat = f > 0 && n >= f
+              return (
+                <div key={c.key} className="yoy-card"><ScoreCard icon={ICO.target} iconClass={beat ? 'i-green' : 'i-blue'} label={`${F.year} so far vs all of ${F.year - 1}`}
+                  value={n} display={show(n)} goalLine={`All of ${F.year - 1}: ${show(f)}`} pct={f ? Math.min(100, share) : n ? 100 : 0} tone={beat ? 'good' : 'warn'}
+                  delta={{ tone: beat ? 'up' : 'flat', arrow: beat ? '▲' : '', value: !f ? 'new' : beat ? '+' + (share - 100).toFixed(1) + '% over' : share.toFixed(0) + '%' }}
+                  goalNote={!f ? '' : beat ? `${F.year - 1} beaten` : `of ${F.year - 1} reached · ${show(f - n)} to go`} />
+                  <div className="yoy-range">Jan 1 – {new Date(today + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })} vs Jan 1 – Dec 31, {F.year - 1} · same dates last year {show(p)} ({partial ? 'partial' : change(n, p)})</div></div>
+              )
+            }
             return (
               <div key={c.key} className="yoy-card"><ScoreCard icon={c.key === 'lm' ? ICO.cal : c.key === 't12' ? ICO.trend : ICO.bars} iconClass={up ? 'i-green' : 'i-red'} label={c.label}
                 value={n} display={show(n)} goalLine={'Last year ' + show(p)} pct={p ? Math.min(100, (n / p) * 100) : n ? 100 : 0} tone={up ? 'good' : 'bad'}
@@ -106,10 +117,11 @@ export default function VsLastYear() {
               </tbody>
               {(() => {
                 const ytd = F.compares.find((c) => c.key === 'ytd')!, n = v(ytd.now), p = v(ytd.prior)
-                return <tfoot><tr><td>Year to date</td>
+                const f = v(ytd.full!)
+                return <tfoot><tr><td>{F.year} so far vs all of {F.year - 1}</td>
                   <td className="tr mono">{show(n)}</td>
-                  <td className="tr mono">{show(p)}<div className="yoy-sub">{show(F.months.reduce((a, m) => a + v(m.prior), 0))} full year</div></td>
-                  <td className={'tr mono ' + (gap(ytd.priorFrom) ? '' : p && n < p ? 'yoy-down' : 'yoy-up')}>{gap(ytd.priorFrom) ? 'partial' : change(n, p)}</td></tr></tfoot>
+                  <td className="tr mono">{show(f)}<div className="yoy-sub">{show(p)} to the same day</div></td>
+                  <td className={'tr mono ' + (f && n >= f ? 'yoy-up' : '')}>{f ? ((n / f) * 100).toFixed(0) + '% of ' + (F.year - 1) : '—'}</td></tr></tfoot>
               })()}
             </table>
             <div className="mix-note">Counted from every policy on every AgencyZoom customer, by its sold date and current premium{o.dropCancelled ? ', leaving out policies cancelled since' : ', including policies cancelled since (written business)'}. The current month is compared with last year to the same day.</div>
