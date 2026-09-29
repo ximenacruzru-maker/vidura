@@ -10,6 +10,9 @@
 // policy added to an existing customer shows. {"sweep": true} instead re-reads every customer's policies, a page
 // of 100 per call, adding sales after the history cutoff that aren't recorded yet (az_sync_state keeps its place).
 //
+// Every policy read is also kept in az_policies (for the last-year comparison); {"policies": true} fills it for all
+// customers, a page of 100 per call (az_sync_state.policies_page keeps its place).
+//
 // Window: by default re-syncs the last 3 days (Pacific time) every run, so
 // nothing is missed if a run fails. A backfill can pass {"start":"YYYY-MM-DD",
 // "end":"YYYY-MM-DD"} in the POST body, and {"parts":["sold"]} to run one part.
@@ -176,6 +179,7 @@ async function sweep(supabase: any, A: string, cutoff: string, today: string, az
       let pol: any;
       try { pol = await az(token, "GET", `/v1/api/customers/${cid}/policies`); } catch (e) { complete = false; if (String(e).includes("__TIME__")) break; err(`policies ${cid}: ${e}`); continue; }
       stats.checked++; fps.push({ id: cid, fp: String(c.policySummary ?? "") });
+      await keepPolicies(supabase, A, cid, Array.isArray(pol) ? pol : (pol.policies || pol.data || []), carriers, err);
       for (const x of (Array.isArray(pol) ? pol : (pol.policies || pol.data || []))) {
         let sold = isoDate(x.soldDate);
         if (!sold || sold <= cutoff) continue;
@@ -208,6 +212,46 @@ async function sweep(supabase: any, A: string, cutoff: string, today: string, az
   }
 }
 
+/** Keeps a customer's policies in az_policies, as AgencyZoom has them now. */
+async function keepPolicies(supabase: any, A: string, cid: string, list: any[], carriers: Record<string, string>, err: (m: string) => void) {
+  if (!list.length) return;
+  const now = new Date().toISOString();
+  const { error } = await supabase.from("az_policies").upsert(list.filter((x) => x?.id != null).map((x) => ({
+    agency_id: A, policy_id: String(x.id), customer_id: cid, sold_date: isoDate(x.soldDate), effective_date: isoDate(x.effectiveDate), expiry_date: isoDate(x.expiryDate),
+    premium: Math.round(Number(x.premium || 0)) / 100, producer: (x.agentName || "").trim(), carrier: carriers[String(x.carrierId)] || x.carrierName || x.standardCarrierCode || null,
+    policy_type: x.policyTypeName || null, status: x.status == null ? null : Number(x.status), seen_at: now,
+  })), { onConflict: "agency_id,policy_id" });
+  if (error) err(`az_policies ${cid}: ${error.message}`);
+}
+
+/** One page of the az_policies fill: 100 customers' policies. */
+async function fillPolicies(supabase: any, A: string, azUser: string, azPass: string) {
+  const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { "Content-Type": "application/json" } });
+  const { data: st } = await supabase.from("az_sync_state").select("policies_page, policies_done").eq("agency_id", A).maybeSingle();
+  if (st?.policies_done) return json({ ok: true, done: true });
+  const page = Number(st?.policies_page || 0);
+  const stats: Record<string, any> = { page, customers: 0, policies: 0, errors: [] as string[] };
+  const err = (m: string) => { if (stats.errors.length < 10) stats.errors.push(m); };
+  try {
+    const { token } = await azLogin(azUser, azPass);
+    const carriers: Record<string, string> = {};
+    try { const cr = await az(token, "GET", "/v1/api/carriers"); for (const c of (Array.isArray(cr) ? cr : (cr.carriers || cr.data || []))) carriers[String(c.id)] = c.name || c.carrierName || ""; } catch (e) { err(`carriers: ${e}`); }
+    const r = await az(token, "POST", "/v1/api/customers", { page, pageSize: 100, sort: "id", order: "desc" });
+    const cs = r.customers || r.data || [];
+    let complete = true;
+    for (const c of cs) {
+      let pol: any;
+      try { pol = await az(token, "GET", `/v1/api/customers/${c.id}/policies`); } catch (e) { complete = false; if (String(e).includes("__TIME__")) break; err(`policies ${c.id}: ${e}`); continue; }
+      const list = Array.isArray(pol) ? pol : (pol.policies || pol.data || []);
+      await keepPolicies(supabase, A, String(c.id), list, carriers, err);
+      stats.customers++; stats.policies += list.length;
+    }
+    const done = cs.length < 100 && complete;
+    await supabase.from("az_sync_state").upsert({ agency_id: A, policies_page: complete && !done ? page + 1 : page, policies_done: done, updated_at: new Date().toISOString() }, { onConflict: "agency_id" });
+    return json({ ok: true, ...stats, done, calls });
+  } catch (e) { return json({ ok: false, ...stats, fatal: String((e as any)?.message || e) }, 500); }
+}
+
 async function employeeNames(token: string) {
   const emp = await az(token, "GET", "/v1/api/employees");
   const names: Record<string, string> = {};
@@ -236,6 +280,7 @@ Deno.serve(async (req) => {
   const A = agency.id as string;
   const cutoff = String(agency.history_cutoff || "0000-00-00");
   if (params.sweep) return await sweep(supabase, A, cutoff, today, azUser, azPass);
+  if (params.policies) return await fillPolicies(supabase, A, azUser, azPass);
   const { data: logRow } = await supabase.from("sync_log").insert({ agency_id: A, source: "agencyzoom", status: "running" }).select().single();
   const stats: Record<string, any> = { window: { start, end }, parts, errors: [] as string[] };
   const err = (m: string) => { if (stats.errors.length < 10) stats.errors.push(m); };
@@ -319,6 +364,7 @@ Deno.serve(async (req) => {
         try { pol = await az(token, "GET", `/v1/api/customers/${cid}/policies`); } catch (e) { if (String(e).includes("__TIME__")) break; err(`policies ${cid}: ${e}`); continue; }
         stats.customersChecked++; checkedIds.add(cid);
         const list = Array.isArray(pol) ? pol : (pol.policies || pol.data || []);
+        await keepPolicies(supabase, A, cid, list, carriers, err);
         for (const x of list) {
           let sold = isoDate(x.soldDate);
           // soldDate is a UTC calendar day. When we have the matching UTC
