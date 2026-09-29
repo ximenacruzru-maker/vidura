@@ -10,10 +10,6 @@
 // policy added to an existing customer shows. {"sweep": true} instead re-reads every customer's policies, a page
 // of 100 per call, adding sales after the history cutoff that aren't recorded yet (az_sync_state keeps its place).
 //
-// {"history": true} fills az_sales_daily with AgencyZoom's own sales-dashboard totals per day (agency and producer),
-// from 2025-01-01 on, resuming where it stopped (az_sync_state.history_through); every hourly run refreshes the
-// last 7 days. {"history": true, "from", "to", "dry": true} only returns what it would store.
-//
 // Window: by default re-syncs the last 3 days (Pacific time) every run, so
 // nothing is missed if a run fails. A backfill can pass {"start":"YYYY-MM-DD",
 // "end":"YYYY-MM-DD"} in the POST body, and {"parts":["sold"]} to run one part.
@@ -212,49 +208,11 @@ async function sweep(supabase: any, A: string, cutoff: string, today: string, az
   }
 }
 
-/** AgencyZoom's sales dashboard for one day: the agency's totals and each producer's. */
-async function dashDay(token: string, names: Record<string, string>, day: string) {
-  const dash = await az(token, "POST", "/v1/api/dashboard-data/sales-data", { period: `${day}|${day}` });
-  const row = (agent: string, a: any) => ({ day, agent, premium: Number(a?.monthlyPremium || 0), policies: Number(a?.monthlyPolicies || 0), items: Number(a?.monthlyItems || 0) });
-  const out = [row("(agency)", dash.agency)];
-  for (const a of (dash.agents || [])) if (Number(a.monthlyPremium) || Number(a.monthlyPolicies)) out.push(row(names[String(a.agentId)] || String(a.agentId), a));
-  return out;
-}
 async function employeeNames(token: string) {
   const emp = await az(token, "GET", "/v1/api/employees");
   const names: Record<string, string> = {};
   for (const e of (Array.isArray(emp) ? emp : (emp.employees || emp.data || []))) names[String(e.id)] = [e.firstname, e.lastname].filter(Boolean).join(" ");
   return names;
-}
-/** Replaces the stored totals for a day (a producer with nothing that day has no row). */
-async function saveDay(supabase: any, A: string, day: string, rows: { day: string; agent: string; premium: number; policies: number; items: number }[]) {
-  const del = await supabase.from("az_sales_daily").delete().eq("agency_id", A).eq("day", day);
-  if (del.error) throw new Error(`az_sales_daily ${day}: ${del.error.message}`);
-  const ins = await supabase.from("az_sales_daily").insert(rows.map((r) => ({ agency_id: A, ...r, pulled_at: new Date().toISOString() })));
-  if (ins.error) throw new Error(`az_sales_daily ${day}: ${ins.error.message}`);
-}
-
-/** The history backfill: day by day from 2025-01-01 (or where it stopped) through yesterday, as time allows. */
-async function history(supabase: any, A: string, today: string, azUser: string, azPass: string, params: any) {
-  const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { "Content-Type": "application/json" } });
-  const { token } = await azLogin(azUser, azPass);
-  const names = await employeeNames(token);
-  if (params.dry) {
-    const out: any[] = [];
-    for (let d = isoDate(params.from) || today; d <= (isoDate(params.to) || d); d = addDays(d, 1)) out.push(...await dashDay(token, names, d));
-    return json({ ok: true, dry: true, rows: out, calls });
-  }
-  const { data: st } = await supabase.from("az_sync_state").select("history_through").eq("agency_id", A).maybeSingle();
-  const last = addDays(today, -1);
-  let d = st?.history_through ? addDays(st.history_through, 1) : (isoDate(params.from) || "2025-01-01");
-  let through = st?.history_through || null, days = 0, error = "";
-  while (d <= last) {
-    try { await saveDay(supabase, A, d, await dashDay(token, names, d)); } catch (e) { if (!String(e).includes("__TIME__")) error = String(e).slice(0, 300); break; }
-    through = d; days++; d = addDays(d, 1);
-  }
-  const done = !!through && through >= last;
-  await supabase.from("az_sync_state").upsert({ agency_id: A, history_through: through, history_done: done, updated_at: new Date().toISOString() }, { onConflict: "agency_id" });
-  return json({ ok: !error, days, through, done, error, calls });
 }
 
 Deno.serve(async (req) => {
@@ -278,10 +236,6 @@ Deno.serve(async (req) => {
   const A = agency.id as string;
   const cutoff = String(agency.history_cutoff || "0000-00-00");
   if (params.sweep) return await sweep(supabase, A, cutoff, today, azUser, azPass);
-  if (params.history) {
-    try { return await history(supabase, A, today, azUser, azPass, params); }
-    catch (e) { return new Response(JSON.stringify({ ok: false, error: String((e as any)?.message || e) }), { status: 500 }); }
-  }
   const { data: logRow } = await supabase.from("sync_log").insert({ agency_id: A, source: "agencyzoom", status: "running" }).select().single();
   const stats: Record<string, any> = { window: { start, end }, parts, errors: [] as string[] };
   const err = (m: string) => { if (stats.errors.length < 10) stats.errors.push(m); };
@@ -400,9 +354,6 @@ Deno.serve(async (req) => {
         const azTotals: Record<string, number> = {};
         for (const a of (dash.agents || [])) if (a.monthlyPremium) azTotals[names[String(a.agentId)] || String(a.agentId)] = a.monthlyPremium;
         stats.agencyZoomPremiumByProducer = azTotals;
-        // AgencyZoom's own daily totals for the last week (late entries included), for the last-year comparison
-        stats.historyDays = 0;
-        for (let d = addDays(today, -6); d <= today; d = addDays(d, 1)) { await saveDay(supabase, A, d, await dashDay(token, names, d)); stats.historyDays++; }
       } catch (e) { if (!String(e).includes("__TIME__")) err(`dashboard: ${e}`); }
     }
 
