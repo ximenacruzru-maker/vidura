@@ -7,6 +7,7 @@ import { computeExecutive, execProduction, execRows, isFarmersCarrier, money0, t
 import { useAsync } from '../../lib/useAsync'
 import { Bars, DayChart, Donut, ICO, Meter, RenewalChart, ScoreCard } from './parts'
 import { useDarkFix, useFitFigures, useLegacyLook } from './look'
+import VsLastYear from './VsLastYear'
 import './executive.css'
 
 /* Filters survive leaving and coming back within a session, as they did while the original screens stayed loaded. */
@@ -109,6 +110,7 @@ export function Dashboard({ D }: { D: PerfData }) {
         <div className="fcrumb">{f.book === 'all' ? 'All Books' : D.BOOK_NAME[f.book]} &middot; {f.line === 'all' ? 'All Lines' : f.line} &middot; {x.periodLabel}</div>
         <Production D={D} win={f.prod} setWin={(v) => set('prod', v)} range={{ from: f.prodFrom || '', to: f.prodTo || '' }}
           setRange={(r) => setF((x) => ({ ...x, prodFrom: r.from, prodTo: r.to }))} goals={goals} />
+        <VsLastYear />
 
         <div className="scg" style={{ gridTemplateColumns: 'repeat(6, minmax(0, 1fr))' }}>
           <ScoreCard icon={ICO.dollar} iconClass="i-blue" label="Written premium" value={x.total} display={money0(x.total)} drill="premium" onDrill={onDrill}

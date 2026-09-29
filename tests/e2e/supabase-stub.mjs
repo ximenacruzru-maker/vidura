@@ -8,6 +8,12 @@ DB.platform_admins = [{ user_id: 'a62b5895-e9fa-4d54-902c-4a89cf0b3f5d' }] // so
 DB.coi_profile = [] // the COI generator's saved agency details
 DB.app_store = [] // what screens save for the signed-in login (kept in memory, so sign-out/sign-in can be checked)
 for (const k of Object.keys(DB)) DB[k] = DB[k] || []
+// AgencyZoom policies for the last-year comparison: the demo's sales this year, and a somewhat smaller year before
+if (!DB.az_policies?.length) DB.az_policies = (DB.daily_sales || []).filter((r) => r.sale_date).flatMap((r, i) => {
+  const prior = String(+r.sale_date.slice(0, 4) - 1) + r.sale_date.slice(4)
+  const row = (id, day, premium) => ({ agency_id: r.agency_id, policy_id: id, customer_id: String(r.customer_id || i), sold_date: day, premium, producer: r.producer || 'Unassigned', status: i % 17 === 0 ? 0 : 1 })
+  return [row('p' + i, r.sale_date, Number(r.premium) || 0), ...(i % 5 === 0 ? [] : [row('q' + i, prior.endsWith('02-29') ? prior.slice(0, 8) + '28' : prior, Math.round((Number(r.premium) || 0) * 0.86))])]
+})
 export const store = () => DB.app_store
 export const demoAgency = () => DB.agencies[0]
 const USER = { id: 'a62b5895-e9fa-4d54-902c-4a89cf0b3f5d', aud: 'authenticated', role: 'authenticated', email: 'demo@vidura.app', app_metadata: { provider: 'email' }, user_metadata: {}, created_at: '2026-09-25T00:00:00Z' }
