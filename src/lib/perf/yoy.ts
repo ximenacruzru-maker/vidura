@@ -3,24 +3,29 @@
 // compared with the same dates a year earlier: year to date through today against Jan 1 – the same day last year.
 import { supabase } from '../supabase'
 
-export interface SoldPolicy { day: string; premium: number; producer: string; cancelled: boolean }
-export interface Yoy { rows: SoldPolicy[]; producers: string[]; loaded: boolean; first: string | null }
+export interface SoldPolicy { day: string; premium: number; producer: string; cancelled: boolean; type?: string }
+export interface Yoy { rows: SoldPolicy[]; producers: string[]; loaded: boolean; first: string | null; outliers: SoldPolicy[] }
+
+/** A single policy's premium at or above this is taken for an entry error (a limit typed as premium) and left out. */
+export const OUTLIER = 1_000_000
 
 export async function loadYoy(today: string): Promise<Yoy> {
   // back to the start of last year, and far enough for the last 12 months a year earlier
   const from = [`${+today.slice(0, 4) - 1}-01-01`, lastYear(lastYear(today))].sort()[0]
   let rows: SoldPolicy[] = []
   for (let at = 0; ; at += 1000) {
-    const { data, error } = await supabase.from('az_policies').select('sold_date, premium, producer, status')
+    const { data, error } = await supabase.from('az_policies').select('sold_date, premium, producer, status, policy_type')
       .gte('sold_date', from).lte('sold_date', today).order('sold_date').range(at, at + 999)
     if (error) throw error
-    rows = rows.concat((data || []).map((r: any) => ({ day: r.sold_date, premium: Number(r.premium) || 0, producer: r.producer || 'Unassigned', cancelled: r.status === 0 })))
+    rows = rows.concat((data || []).map((r: any) => ({ day: r.sold_date, premium: Number(r.premium) || 0, producer: r.producer || 'Unassigned', cancelled: r.status === 0, type: r.policy_type || '' })))
     if (!data || data.length < 1000) break
   }
+  const outliers = rows.filter((r) => r.premium >= OUTLIER)
+  rows = rows.filter((r) => r.premium < OUTLIER)
   const producers = [...new Set(rows.map((r) => r.producer))].sort()
   // the earliest sale AgencyZoom holds: before it, "last year" is missing rather than zero
   const { data: f } = await supabase.from('az_policies').select('sold_date').not('sold_date', 'is', null).order('sold_date').limit(1)
-  return { rows, producers, loaded: rows.length > 0, first: f?.[0]?.sold_date ?? null }
+  return { rows, producers, loaded: rows.length > 0, first: f?.[0]?.sold_date ?? null, outliers }
 }
 
 /** The same calendar day a year earlier (29 February falls back to the 28th). */

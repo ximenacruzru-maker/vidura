@@ -70,6 +70,7 @@ export default function VsLastYear() {
         </div>
 
         {first && gap(`${F.year - 1}-01-01`) && <div className="rb-band-note yoy-note">AgencyZoom's policy history starts {new Date(first + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' })}, so last year before then has no sales to compare with. Those months and any period reaching back before it are marked.</div>}
+        {data.outliers.length > 0 && <div className="rb-band-note yoy-note">Left out as a likely entry error (a premium of $1M or more on one policy): {data.outliers.map((r) => `${r.type || 'policy'} sold ${new Date(r.day + 'T12:00:00Z').toLocaleDateString('en-US', { timeZone: 'UTC' })}${r.producer && r.producer !== 'Unassigned' ? ' by ' + r.producer : ''}, ${money0(r.premium)}`).join('; ')}. Correct it in AgencyZoom and it's counted at the right amount.</div>}
         <div className="panel yoy-months">
           <div className="panel-h"><div><div className="panel-t">Month by month</div>
             <div className="panel-s">{F.year} against {F.year - 1}{cur ? ` · ${cur.label} is to date` : ''}{o.producer !== 'all' ? ' · ' + o.producer : ''}</div></div>
