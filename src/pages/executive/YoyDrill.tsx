@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { downloadCsv } from '../../lib/format'
 import { money0 } from '../../lib/perf/executive'
 import { change, type Drill, type Group, type SoldPolicy, type Sum } from '../../lib/perf/yoy'
+import { downloadYoyExcel } from '../../lib/perf/yoyExcel'
 
 type Col = 'day' | 'customer' | 'number' | 'type' | 'carrier' | 'producer' | 'premium'
 const COLS: [Col, string][] = [['day', 'Sold'], ['customer', 'Customer'], ['number', 'Policy #'], ['type', 'Line'], ['carrier', 'Carrier'], ['producer', 'Producer'], ['premium', 'Premium']]
@@ -19,20 +19,22 @@ export default function YoyDrill({ d, year, onClose }: { d: Drill; year: number;
   useEffect(() => { setWho(null); setSide(d.now ? 'now' : 'prior'); setQ(''); ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }, [d.range, d.now])
 
   const N = d.now, P = d.prior
-  const list = useMemo(() => {
-    const src = (side === 'now' ? N?.rows : P.rows) || []
+  // the policies shown for one year: the picked producer and search, in the chosen order
+  const shown = useMemo(() => (src: SoldPolicy[]) => {
     const t = q.trim().toLowerCase()
     const xs = src.filter((x) => (!who || x.producer === who) && (!t || `${x.customer} ${x.number} ${x.type} ${x.carrier} ${x.producer}`.toLowerCase().includes(t)))
     const k = sort.col, dir = sort.asc ? 1 : -1
     return [...xs].sort((a, b) => (k === 'premium' ? a.premium - b.premium : String(a[k] || '').localeCompare(String(b[k] || ''))) * dir || (a.day < b.day ? 1 : -1))
-  }, [side, N, P, who, q, sort])
+  }, [who, q, sort])
+  const list = useMemo(() => shown((side === 'now' ? N?.rows : P.rows) || []), [shown, side, N, P])
+  const [saving, setSaving] = useState<string | null>(null)
   const listSum = list.reduce((s, x) => s + x.premium, 0)
-  const yr = side === 'now' ? year : year - 1
-
-  const csv = () => downloadCsv(`sold-policies-${d.label.replace(/\W+/g, '-').toLowerCase()}-${yr}${who ? '-' + who.replace(/\W+/g, '-').toLowerCase() : ''}.csv`, [
-    ['Sold', 'Customer', 'Policy #', 'Line', 'Carrier', 'Producer', 'Premium', 'New customer', 'Cancelled since', 'AgencyZoom customer'],
-    ...list.map((x) => [x.day, x.customer || '', x.number || '', x.type || '', x.carrier || '', x.producer, x.premium, x.isNew ? 'yes' : 'no', x.cancelled ? 'yes' : 'no', x.cid ? azUrl(x.cid) : '']),
-  ])
+  
+  const excel = async () => {
+    setSaving('Preparing…')
+    try { await downloadYoyExcel(d, year, { now: N ? shown(N.rows) : null, prior: shown(P.rows) }, who); setSaving(null) }
+    catch (e) { setSaving('Download failed: ' + String((e as Error)?.message || e)) }
+  }
 
   return (
     <div className="panel yoy-drill" ref={ref}>
@@ -65,7 +67,8 @@ export default function YoyDrill({ d, year, onClose }: { d: Drill; year: number;
           {who && <button className="yoy-chip" onClick={() => setWho(null)}>{who} ✕</button>}
           <input className="f yoy-q" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a customer, policy #, line…" aria-label="Find a policy" />
           <span className="yoy-count">{list.length} {list.length === 1 ? 'policy' : 'policies'} · {money0(listSum)}</span>
-          <button className="yoy-csv" onClick={csv} disabled={!list.length}>Download CSV</button>
+          <button className="yoy-csv" onClick={excel} disabled={saving === 'Preparing…' || !(N?.rows.length || P.rows.length)} title="Excel workbook: a summary sheet and a sheet of policies for each year, colour-coded">{saving === 'Preparing…' ? saving : 'Download Excel'}</button>
+          {saving && saving !== 'Preparing…' && <span className="yoy-count" role="alert">{saving}</span>}
         </div>
         <div className="yoy-list">
           <table className="yoy-tbl yoy-pol">
