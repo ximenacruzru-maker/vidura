@@ -179,7 +179,7 @@ async function sweep(supabase: any, A: string, cutoff: string, today: string, az
       let pol: any;
       try { pol = await az(token, "GET", `/v1/api/customers/${cid}/policies`); } catch (e) { complete = false; if (String(e).includes("__TIME__")) break; err(`policies ${cid}: ${e}`); continue; }
       stats.checked++; fps.push({ id: cid, fp: String(c.policySummary ?? "") });
-      await keepPolicies(supabase, A, cid, Array.isArray(pol) ? pol : (pol.policies || pol.data || []), carriers, err);
+      await keepPolicies(supabase, A, cid, Array.isArray(pol) ? pol : (pol.policies || pol.data || []), carriers, err, personName(c));
       for (const x of (Array.isArray(pol) ? pol : (pol.policies || pol.data || []))) {
         let sold = isoDate(x.soldDate);
         if (!sold || sold <= cutoff) continue;
@@ -213,11 +213,11 @@ async function sweep(supabase: any, A: string, cutoff: string, today: string, az
 }
 
 /** Keeps a customer's policies in az_policies, as AgencyZoom has them now. */
-async function keepPolicies(supabase: any, A: string, cid: string, list: any[], carriers: Record<string, string>, err: (m: string) => void) {
+async function keepPolicies(supabase: any, A: string, cid: string, list: any[], carriers: Record<string, string>, err: (m: string) => void, customer?: string) {
   if (!list.length) return;
   const now = new Date().toISOString();
   const { error } = await supabase.from("az_policies").upsert(list.filter((x) => x?.id != null).map((x) => ({
-    agency_id: A, policy_id: String(x.id), customer_id: cid, sold_date: isoDate(x.soldDate), effective_date: isoDate(x.effectiveDate), expiry_date: isoDate(x.expiryDate),
+    agency_id: A, policy_id: String(x.id), customer_id: cid, ...(customer ? { customer_name: customer } : {}), policy_number: x.policyNumber || null, sold_date: isoDate(x.soldDate), effective_date: isoDate(x.effectiveDate), expiry_date: isoDate(x.expiryDate),
     premium: Math.round(Number(x.premium || 0)) / 100, producer: (x.agentName || "").trim(), carrier: carriers[String(x.carrierId)] || x.carrierName || x.standardCarrierCode || null,
     policy_type: x.policyTypeName || null, status: x.status == null ? null : Number(x.status), seen_at: now,
   })), { onConflict: "agency_id,policy_id" });
@@ -243,7 +243,7 @@ async function fillPolicies(supabase: any, A: string, azUser: string, azPass: st
       let pol: any;
       try { pol = await az(token, "GET", `/v1/api/customers/${c.id}/policies`); } catch (e) { complete = false; if (String(e).includes("__TIME__")) break; err(`policies ${c.id}: ${e}`); continue; }
       const list = Array.isArray(pol) ? pol : (pol.policies || pol.data || []);
-      await keepPolicies(supabase, A, String(c.id), list, carriers, err);
+      await keepPolicies(supabase, A, String(c.id), list, carriers, err, personName(c));
       stats.customers++; stats.policies += list.length;
     }
     const done = cs.length < 100 && complete;
@@ -364,7 +364,7 @@ Deno.serve(async (req) => {
         try { pol = await az(token, "GET", `/v1/api/customers/${cid}/policies`); } catch (e) { if (String(e).includes("__TIME__")) break; err(`policies ${cid}: ${e}`); continue; }
         stats.customersChecked++; checkedIds.add(cid);
         const list = Array.isArray(pol) ? pol : (pol.policies || pol.data || []);
-        await keepPolicies(supabase, A, cid, list, carriers, err);
+        await keepPolicies(supabase, A, cid, list, carriers, err, cname);
         for (const x of list) {
           let sold = isoDate(x.soldDate);
           // soldDate is a UTC calendar day. When we have the matching UTC
@@ -457,6 +457,7 @@ Deno.serve(async (req) => {
       const openMonths = (periods || []).filter((p: any) => !p.closed).map((p: any) => p.month).sort();
       const earliestOpen = openMonths[0] || addDays(today.slice(0, 7) + "-01", -1).slice(0, 7);
       const known = new Set((periods || []).map((p: any) => p.month));
+      const readNow = new Set<string>(); // leads whose quotes were read this run
       const { data: cfg } = await supabase.from("sdr_config").select("qualified_transfer_bonus, bound_policy_bonus").eq("agency_id", A).order("id", { ascending: false }).limit(1).maybeSingle();
       for (const lead of tagged) {
         const leadId = String(lead.id);
@@ -495,9 +496,35 @@ Deno.serve(async (req) => {
           quote_count: shaped.length, quotes: shaped, az_qualifies: shaped.length > 0, bound, bound_via_ledger: false,
           bound_premium: shaped.filter((q) => q.sold).reduce((s, q) => s + q.premium, 0),
           tags: (sdrs.includes("Rhon") ? "R" : "") + (sdrs.includes("Jackeline") ? "J" : ""),
-          url: `https://app.agencyzoom.com/lead/index?id=${leadId}`,
+          url: `https://app.agencyzoom.com/lead/index?id=${leadId}`, quote_checked_at: new Date().toISOString(),
         }, { onConflict: "agency_id,az_ref" });
-        if (error) err(`sdr_transfers ${leadId}: ${error.message}`); else stats.sdrRows++;
+        if (error) err(`sdr_transfers ${leadId}: ${error.message}`); else { stats.sdrRows++; readNow.add(leadId); }
+      }
+
+      // Transfers in unpaid months with no quote yet, re-checked on a rotation (oldest check first): a quote added
+      // after the lead's first days, with no other activity on the lead, is otherwise never seen. {"recheck": true}
+      // re-checks all of them at once.
+      if (!outOfTime) {
+        const { data: noQuote, error: nqErr } = await supabase.from("sdr_transfers").select("az_ref, lead_id, month")
+          .eq("agency_id", A).eq("az_qualifies", false).gte("month", earliestOpen)
+          .order("quote_checked_at", { ascending: true, nullsFirst: true }).limit(params.recheck ? 1000 : 20);
+        if (nqErr) err(`recheck: ${nqErr.message}`);
+        stats.sdrRechecked = 0; stats.sdrRecheckQualified = [];
+        for (const t of noQuote || []) {
+          const leadId = String(t.lead_id || "");
+          if (!/^\d+$/.test(leadId) || readNow.has(leadId) || closed.has(t.month)) continue;
+          if (Date.now() - t0 > TIME_BUDGET_MS - PACE_MS) break; // the rest wait for the next run, which isn't cut short for them
+          let quotes: any[] = [];
+          try { quotes = await leadQuotes(token, leadId); } catch (e) { if (String(e).includes("__TIME__")) break; err(`recheck ${leadId}: ${e}`); continue; }
+          stats.sdrRechecked++;
+          const shaped = quotes.map((q) => quoteShape(q, null));
+          const { error } = await supabase.from("sdr_transfers").update({
+            quote_checked_at: new Date().toISOString(),
+            ...(shaped.length ? { quotes: shaped, quote_count: shaped.length, az_qualifies: true, az_quote_premium: shaped.reduce((s, q) => s + q.premium, 0),
+              bound_premium: shaped.filter((q) => q.sold).reduce((s, q) => s + q.premium, 0) } : {}),
+          }).eq("agency_id", A).eq("az_ref", t.az_ref);
+          if (error) err(`recheck ${leadId}: ${error.message}`); else if (shaped.length) stats.sdrRecheckQualified.push(leadId);
+        }
       }
     }
 

@@ -11,7 +11,7 @@ for (const k of Object.keys(DB)) DB[k] = DB[k] || []
 // AgencyZoom policies for the last-year comparison: the demo's sales this year, and a somewhat smaller year before
 if (!DB.az_policies?.length) DB.az_policies = (DB.daily_sales || []).filter((r) => r.sale_date).flatMap((r, i) => {
   const prior = String(+r.sale_date.slice(0, 4) - 1) + r.sale_date.slice(4)
-  const row = (id, day, premium) => ({ agency_id: r.agency_id, policy_id: id, customer_id: String(r.customer_id || i), sold_date: day, premium, producer: r.producer || 'Unassigned', status: i % 17 === 0 ? 0 : 1 })
+  const row = (id, day, premium) => ({ agency_id: r.agency_id, policy_id: id, customer_id: String(r.customer_id || i), sold_date: day, premium, producer: r.producer || 'Unassigned', status: i % 17 === 0 ? 0 : 1, customer_name: r.client_name || null, policy_number: 'PN-' + id, carrier: r.carrier || null, policy_type: r.policy_type || null })
   return [row('p' + i, r.sale_date, Number(r.premium) || 0), ...(i % 5 === 0 ? [] : [row('q' + i, prior.endsWith('02-29') ? prior.slice(0, 8) + '28' : prior, Math.round((Number(r.premium) || 0) * 0.86))])]
 })
 export const store = () => DB.app_store
