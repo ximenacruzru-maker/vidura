@@ -27,3 +27,46 @@
 @container xd (max-width: 640px) { .xd .yoy-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @container xd (max-width: 480px) { .xd .yoy-cards { grid-template-columns: minmax(0, 1fr); } .xd .yoy-chart { gap: 3px; height: 140px; } }
 .xd .yoy-note { margin: 12px 0 0; }
+
+/* Clicking a month or a card opens its breakdown (YoyDrill.tsx). */
+.xd button.yoy-col { background: none; border: 0; padding: 0 0 2px; font: inherit; cursor: pointer; border-radius: 6px; }
+.xd button.yoy-col:hover, .xd button.yoy-col.on { background: var(--line2); }
+.xd button.yoy-col:focus-visible, .xd .yoy-row:focus-visible { outline: 2px solid var(--bistre); outline-offset: 1px; }
+.xd .yoy-col.on .yoy-lbl { color: var(--ink); font-weight: 700; }
+.xd .yoy-row { cursor: pointer; }
+.xd .yoy-row:hover td, .xd .yoy-row.on td { background: var(--line2); }
+.xd .yoy-go { color: var(--muted); margin-left: 6px; }
+.xd .yoy-drill { margin-top: 14px; scroll-margin-top: 12px; }
+.xd .yoy-x, .xd .yoy-csv, .xd .yoy-chip { font: inherit; font-size: 12px; font-weight: 600; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; cursor: pointer; white-space: nowrap; }
+.xd .yoy-x:hover, .xd .yoy-csv:hover, .xd .yoy-chip:hover { border-color: var(--bistre); }
+.xd .yoy-csv:disabled { opacity: .5; cursor: default; }
+.xd .yoy-chip { background: var(--line2); }
+.xd .yoy-tiles { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; }
+.xd .yoy-tile { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; min-width: 0; }
+.xd .yoy-tl { font-size: 8.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--beaver); font-weight: 600; }
+.xd .yoy-tv { font-family: var(--serif); font-size: 20px; font-weight: 600; color: var(--ink); margin-top: 6px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.xd .yoy-tp { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.xd .yoy-groups { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 16px; }
+.xd .yoy-group { border: 1px solid var(--line); border-radius: 10px; padding: 12px 12px 4px; min-width: 0; max-height: 420px; overflow: auto; }
+.xd .yoy-gh { margin-bottom: 2px; }
+.xd .yoy-gt { font-weight: 700; font-size: 13px; color: var(--ink); }
+.xd .yoy-gtbl { margin-top: 6px; }
+.xd .yoy-gk { font-weight: 600; overflow-wrap: anywhere; }
+.xd .yoy-gbar { display: grid; gap: 2px; margin-top: 4px; }
+.xd .yoy-gbar i { display: block; height: 4px; border-radius: 2px; min-width: 1px; }
+.xd .yoy-row.on .yoy-gk { color: var(--bistre); }
+.xd .yoy-list-h { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+.xd input.f.yoy-q { width: 260px; padding: 7px 12px; }
+.xd .yoy-count { font-size: 12px; color: var(--muted); margin-left: auto; }
+.xd .yoy-list { max-height: 560px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; margin-top: 10px; }
+.xd .yoy-pol { margin-top: 0; }
+.xd .yoy-pol thead th { position: sticky; top: 0; background: var(--card); z-index: 1; }
+.xd .yoy-sort { font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+.xd .yoy-pol a { color: var(--ink); font-weight: 600; text-decoration: none; }
+.xd .yoy-pol a:hover { text-decoration: underline; }
+.xd .nowrap { white-space: nowrap; }
+.xd .yoy-badge { display: inline-block; font-size: 9.5px; font-weight: 700; letter-spacing: .04em; padding: 1px 7px; border-radius: 999px; margin-left: 6px; vertical-align: 1px; }
+.xd .yoy-new { background: rgba(31, 122, 87, .12); color: #1F7A57; }
+.xd .yoy-canc { background: rgba(168, 62, 75, .12); color: #A83E4B; }
+@container xd (max-width: 1100px) { .xd .yoy-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); } .xd .yoy-groups { grid-template-columns: minmax(0, 1fr); } }
+@container xd (max-width: 640px) { .xd .yoy-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .xd input.f.yoy-q { width: 100%; } .xd .yoy-count { margin-left: 0; } }

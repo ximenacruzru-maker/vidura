@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
 import { todayPacific } from '../../lib/format'
 import { money0 } from '../../lib/perf/executive'
-import { change, loadYoy, yoyFigures, type Sum } from '../../lib/perf/yoy'
+import { change, drill, lastYear, loadYoy, monthRange, yoyFigures, type Sum } from '../../lib/perf/yoy'
 import { useSyncStamp } from '../../lib/syncEvents'
 import { useAsync } from '../../lib/useAsync'
 import { ICO, ScoreCard } from './parts'
+import YoyDrill from './YoyDrill'
 import './yoy.css'
 
 /* Remembered while the session lasts, as the dashboard's other filters are. */
@@ -19,6 +20,16 @@ export default function VsLastYear() {
   const [o, setO] = useState(saved)
   const set = (patch: Partial<typeof o>) => setO((x) => (saved = { ...x, ...patch }))
   const F = useMemo(() => (data ? yoyFigures(data, today, o) : null), [data, today, o])
+  // the period opened for a closer look: a month (1-12) or one of the cards
+  const [open, setOpen] = useState<{ month: number } | { card: string } | null>(null)
+  const D = useMemo(() => {
+    if (!data || !F || !open) return null
+    if ('month' in open) return drill(data, monthRange(F.year, open.month, today), o)
+    const c = F.compares.find((x) => x.key === open.card)
+    return c ? drill(data, { label: c.label, a: c.a, b: c.b, pa: lastYear(c.a), pb: lastYear(c.b) }, o) : null
+  }, [data, F, open, today, o])
+  const toggle = (next: { month: number } | { card: string }) => setOpen((cur) => (JSON.stringify(cur) === JSON.stringify(next) ? null : next))
+  const isOpen = (m: number) => !!open && 'month' in open && open.month === m
   const v = (s: Sum) => (o.measure === 'premium' ? s.premium : s.policies)
   const show = (n: number) => (o.measure === 'premium' ? money0(n) : n.toLocaleString('en-US'))
 
@@ -66,7 +77,7 @@ export default function VsLastYear() {
                 <div key={c.key} className="yoy-card"><ScoreCard icon={ICO.target} iconClass={beat ? 'i-green' : 'i-blue'} label={`${F.year} so far vs all of ${F.year - 1}`}
                   value={n} display={show(n)} goalLine={`All of ${F.year - 1}: ${show(f)}`} pct={f ? Math.min(100, share) : n ? 100 : 0} tone={beat ? 'good' : 'warn'}
                   delta={{ tone: beat ? 'up' : 'flat', arrow: beat ? '▲' : '', value: !f ? 'new' : beat ? '+' + (share - 100).toFixed(1) + '% over' : share.toFixed(0) + '%' }}
-                  goalNote={!f ? '' : beat ? `${F.year - 1} beaten` : `of ${F.year - 1} reached · ${show(f - n)} to go`} />
+                  goalNote={!f ? '' : beat ? `${F.year - 1} beaten` : `of ${F.year - 1} reached · ${show(f - n)} to go`} drill={c.key} onDrill={(k) => toggle({ card: k })} />
                   <div className="yoy-range">Jan 1 – {new Date(today + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })} vs Jan 1 – Dec 31, {F.year - 1} · same dates last year {show(p)} ({partial ? 'partial' : change(n, p)})</div></div>
               )
             }
@@ -74,7 +85,7 @@ export default function VsLastYear() {
               <div key={c.key} className="yoy-card"><ScoreCard icon={c.key === 'lm' ? ICO.cal : c.key === 't12' ? ICO.trend : ICO.bars} iconClass={up ? 'i-green' : 'i-red'} label={c.label}
                 value={n} display={show(n)} goalLine={'Last year ' + show(p)} pct={p ? Math.min(100, (n / p) * 100) : n ? 100 : 0} tone={up ? 'good' : 'bad'}
                 delta={partial ? { tone: 'flat', arrow: '', value: 'partial' } : { tone: up ? 'up' : 'down', arrow: p ? (up ? '▲' : '▼') : '', value: change(n, p) }}
-                goalNote={partial ? 'last year incomplete' : 'vs last year'} />
+                goalNote={partial ? 'last year incomplete' : 'vs last year'} drill={c.key} onDrill={(k) => toggle({ card: k })} />
                 <div className="yoy-range">{c.range}</div></div>
             )
           })}
@@ -84,19 +95,20 @@ export default function VsLastYear() {
         {data.outliers.length > 0 && <div className="rb-band-note yoy-note">Left out as a likely entry error (a premium of $1M or more on one policy): {data.outliers.map((r) => `${r.type || 'policy'} sold ${new Date(r.day + 'T12:00:00Z').toLocaleDateString('en-US', { timeZone: 'UTC' })}${r.producer && r.producer !== 'Unassigned' ? ' by ' + r.producer : ''}, ${money0(r.premium)}`).join('; ')}. Correct it in AgencyZoom and it's counted at the right amount.</div>}
         <div className="panel yoy-months">
           <div className="panel-h"><div><div className="panel-t">Month by month</div>
-            <div className="panel-s">{F.year} against {F.year - 1}{cur ? ` · ${cur.label} is to date` : ''}{o.producer !== 'all' ? ' · ' + o.producer : ''}</div></div>
+            <div className="panel-s">{F.year} against {F.year - 1}{cur ? ` · ${cur.label} is to date` : ''} · click a month for every policy sold{o.producer !== 'all' ? ' · ' + o.producer : ''}</div></div>
             <div className="lgnd"><span className="lgnd-i"><i className="yoy-k-now" />{F.year}</span><span className="lgnd-i"><i className="yoy-k-prior" />{F.year - 1}</span></div>
           </div>
           <div className="panel-b">
-            <div className="yoy-chart" role="img" aria-label={`${o.measure === 'premium' ? 'Premium' : 'Policies'} by month, ${F.year} against ${F.year - 1}`}>
+            <div className="yoy-chart" role="group" aria-label={`${o.measure === 'premium' ? 'Premium' : 'Policies'} by month, ${F.year} against ${F.year - 1}`}>
               {F.months.map((m) => (
-                <div key={m.month} className="yoy-col" title={`${m.label}: ${F.year} ${m.now ? show(v(m.now)) : '—'} · ${F.year - 1} ${show(v(m.prior))}`}>
+                <button key={m.month} className={'yoy-col' + (isOpen(m.month) ? ' on' : '')} onClick={() => toggle({ month: m.month })} aria-pressed={isOpen(m.month)}
+                  title={`${m.label}: ${F.year} ${m.now ? show(v(m.now)) : '—'} · ${F.year - 1} ${show(v(m.prior))} · click for every policy`}>
                   <div className="yoy-bars">
                     <i className="yoy-b yoy-b-prior" style={{ height: (v(m.prior) / top) * 100 + '%' }} />
                     <i className={'yoy-b yoy-b-now' + (m.partial ? ' yoy-part' : '')} style={{ height: m.now ? (v(m.now) / top) * 100 + '%' : 0 }} />
                   </div>
                   <div className="yoy-lbl">{m.label}</div>
-                </div>
+                </button>
               ))}
             </div>
             <table className="yoy-tbl">
@@ -106,8 +118,9 @@ export default function VsLastYear() {
                   const n = m.now ? v(m.now) : null, p = v(m.prior), p2 = m.priorToDate ? v(m.priorToDate) : null
                   const missing = gap(`${F.year - 1}-${String(m.month).padStart(2, '0')}-01`)
                   return (
-                    <tr key={m.month} className={m.now ? '' : 'yoy-future'}>
-                      <td>{m.label}{m.partial ? ' (to date)' : ''}</td>
+                    <tr key={m.month} className={'yoy-row' + (m.now ? '' : ' yoy-future') + (isOpen(m.month) ? ' on' : '')} tabIndex={0} onClick={() => toggle({ month: m.month })}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle({ month: m.month }) } }}>
+                      <td>{m.label}{m.partial ? ' (to date)' : ''}<span className="yoy-go" aria-hidden="true">›</span></td>
                       <td className="tr mono">{n == null ? '—' : show(n)}</td>
                       <td className="tr mono">{show(p)}{p2 != null && <div className="yoy-sub">{show(p2)} to the same day</div>}{missing && <div className="yoy-sub">before AgencyZoom's history</div>}</td>
                       <td className={'tr mono ' + (n == null || missing ? '' : (p2 ?? p) && n < (p2 ?? p) ? 'yoy-down' : 'yoy-up')}>{n == null ? '' : missing ? '—' : change(n, p2 ?? p)}</td>
@@ -127,6 +140,7 @@ export default function VsLastYear() {
             <div className="mix-note">Counted from every policy on every AgencyZoom customer, by its sold date and current premium{o.dropCancelled ? ', leaving out policies cancelled since' : ', including policies cancelled since (written business)'}. The current month is compared with last year to the same day.</div>
           </div>
         </div>
+        {D && <YoyDrill d={D} year={F.year} onClose={() => setOpen(null)} />}
       </div>
     </div>
   )
