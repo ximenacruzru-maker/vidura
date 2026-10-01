@@ -3,7 +3,8 @@ import { useAuth } from '../auth'
 import { Empty, ErrorBox, Loading, PageHead, Panel, Tabs, Tile, Tiles } from '../components/ui'
 import { daysUntil, getDocs, openDoc } from '../lib/books'
 import { can } from '../lib/access'
-import { addDays, downloadCsv, mdy, money2, todayPacific } from '../lib/format'
+import { addDays, mdy, money2, todayPacific } from '../lib/format'
+import { downloadSheet } from '../lib/excelExport'
 import { supabase } from '../lib/supabase'
 import { useAsync } from '../lib/useAsync'
 import { RenewPill } from './Books'
@@ -119,10 +120,10 @@ function Timesheets() {
         <input className="fld" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
         <input className="fld" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
         <button className="btn-ghost" onClick={() => setEdit({ work_date: today, breaks: [['', '']] })}>+ Add or fix a day</button>
-        <button className="btn-ghost" onClick={() => downloadCsv(`timesheets-${from}-to-${to}.csv`, [
+        <button className="btn-ghost" onClick={() => downloadSheet(`timesheets-${from}-to-${to}.xlsx`, [
           ['Name', 'Date', 'Start', 'End', 'Breaks', 'Worked (h)'],
           ...data.punches.map((p) => [p.name, p.work_date, p.start_time, p.end_time, (p.breaks || []).map((x) => x.join('-')).join('; '), (workedMinutes(p) / 60).toFixed(2)]),
-        ])}>Export CSV</button>
+        ], { sheet: 'Timesheets' })}>Export Excel</button>
       </div>}>
         {edit && (
           <div className="plan">

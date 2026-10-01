@@ -2,7 +2,7 @@
 // and carrier, each year against the other with gains in green and drops in red) and one sheet of sold policies per
 // year, each producer in their own colour, new customers in green and policies cancelled since in red.
 import { excelLib, save } from './commissionFiles'
-import type { Drill, Group, SoldPolicy, Sum } from './yoy'
+import type { Drill, Group, MonthRow, SoldPolicy, Sum } from './yoy'
 
 const DARK = 'FF1F3D2E', WHITE = 'FFFFFFFF', MUTED = 'FF666666'
 const GREEN = 'FF1F7A57', GREEN_BG = 'FFE3F4EC', RED = 'FFA83E4B', RED_BG = 'FFF9E3E6', TOTAL_BG = 'FFFBF1DD', BAND = 'FFF6F7F5'
@@ -12,12 +12,14 @@ const MONEY = '"$"#,##0', MONEY2 = '"$"#,##0.00'
 const fill = (argb: string) => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } })
 const azUrl = (cid: string) => `https://app.agencyzoom.com/customer/index?id=${encodeURIComponent(cid)}`
 
-export async function downloadYoyExcel(d: Drill, year: number, lists: { now: SoldPolicy[] | null; prior: SoldPolicy[] }, who: string | null) {
+/** months: when given (the whole-year download), a month-by-month sheet is added after the summary. */
+export async function downloadYoyExcel(d: Drill, year: number, lists: { now: SoldPolicy[] | null; prior: SoldPolicy[] }, who: string | null, months?: MonthRow[]) {
   const ExcelJS = await excelLib()
   const wb = new ExcelJS.Workbook()
   wb.creator = 'Declara'
   const colour = new Map(d.byProducer.map((g, i) => [g.key, PRODUCER_FILLS[i % PRODUCER_FILLS.length]]))
   summary(wb.addWorksheet('Summary', { views: [{ showGridLines: false }] }), d, year, who, colour)
+  if (months) byMonth(wb.addWorksheet('By month', { views: [{ showGridLines: false }] }), months, year, who)
   if (lists.now) policies(wb, `${year} policies`, lists.now, colour)
   policies(wb, `${year - 1} policies`, lists.prior, colour)
   const buf = await wb.xlsx.writeBuffer()
@@ -146,4 +148,31 @@ function policies(wb: any, name: string, list: SoldPolicy[], colour: Map<string,
   t.getCell(9).value = { formula: `COUNTIF(I2:I${Math.max(2, list.length + 1)},"Cancelled")&" cancelled"` }
   for (let c = 1; c <= 9; c++) { t.getCell(c).font = { bold: true }; t.getCell(c).fill = fill(TOTAL_BG); if (c >= 7) t.getCell(c).alignment = { horizontal: c === 7 ? 'right' : 'center' } }
   if (list.length) ws.autoFilter = { from: 'A1', to: `I${list.length + 1}` }
+}
+
+function byMonth(ws: any, months: MonthRow[], year: number, who: string | null) {
+  ws.columns = [{ width: 18 }, { width: 15 }, { width: 15 }, { width: 12 }, { width: 11 }, { width: 11 }, { width: 12 }]
+  title(ws, `Month by month: ${year} against ${year - 1}`, 'The current month is compared with last year to the same day' + (who ? ' · ' + who : ''), 7)
+  header(ws.getRow(4), ['Month', `${year} premium`, `${year - 1} premium`, 'Change', `${year} pol.`, `${year - 1} pol.`, 'Pol. change'], 1)
+  let r = 5
+  for (const m of months) {
+    const row = ws.getRow(r++), prior = m.priorToDate ?? m.prior
+    row.getCell(1).value = m.label + (m.partial ? ' (to date)' : '')
+    row.getCell(2).value = m.now ? m.now.premium : '—'; row.getCell(3).value = prior.premium
+    row.getCell(5).value = m.now ? m.now.policies : '—'; row.getCell(6).value = prior.policies
+    for (const c of [2, 3]) { row.getCell(c).numFmt = MONEY; row.getCell(c).alignment = { horizontal: 'right' } }
+    for (const c of [5, 6]) row.getCell(c).alignment = { horizontal: 'right' }
+    if (m.now) { changeCell(row.getCell(4), m.now.premium, prior.premium); changeCell(row.getCell(7), m.now.policies, prior.policies) }
+    else for (let c = 1; c <= 7; c++) row.getCell(c).font = { color: { argb: MUTED } }
+  }
+  const t = ws.getRow(r)
+  t.getCell(1).value = 'Year so far'
+  for (const [c, col] of [[2, 'B'], [3, 'C'], [5, 'E'], [6, 'F']] as [number, string][]) {
+    t.getCell(c).value = { formula: `SUM(${col}5:${col}${r - 1})` }; t.getCell(c).alignment = { horizontal: 'right' }
+    if (c < 4) t.getCell(c).numFmt = MONEY
+  }
+  for (let c = 1; c <= 7; c++) { t.getCell(c).font = { bold: true }; t.getCell(c).fill = fill(TOTAL_BG) }
+  const n = ws.getRow(r + 1).getCell(1)
+  n.value = `Last year's column counts its full months, and the current month only to the same day; months still ahead show last year in full.`
+  n.font = { italic: true, size: 9, color: { argb: MUTED } }
 }

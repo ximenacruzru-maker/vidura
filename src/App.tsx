@@ -16,6 +16,7 @@ const MySpace = lazy(() => import('./pages/MySpace'))
 const Chat = lazy(() => import('./pages/Chat'))
 const Proteges = lazy(() => import('./pages/Proteges'))
 const Licensing = lazy(() => import('./pages/Licensing'))
+const Payroll = lazy(() => import('./pages/Payroll'))
 const Training = lazy(() => import('./pages/Training'))
 const MyPay = lazy(() => import('./pages/MyPay'))
 const ExecutiveDashboard = lazy(() => import('./pages/executive/ExecutiveDashboard'))
@@ -72,6 +73,7 @@ function Gate() {
           {can(me, 'chat') && <Route path="/chat" element={<Chat />} />}
           {can(me, 'proteges') && <Route path="/proteges" element={<Proteges />} />}
           <Route path="/hr" element={<Licensing />} />
+          {can(me, 'payroll') && <Route path="/payroll" element={<Payroll />} />}
           {can(me, 'passwords') && <Route path="/passwords" element={<Navigate to="/resources?tab=passwords" replace />} />}
           {can(me, 'training') && <Route path="/training" element={<Training />} />}
           <Route path="*" element={<Navigate to={home} replace />} />

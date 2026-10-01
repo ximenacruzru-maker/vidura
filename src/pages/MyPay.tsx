@@ -3,7 +3,8 @@ import { useAuth } from '../auth'
 import { FolioPicker, folioName, useFolio } from '../components/FolioPicker'
 import { Empty, ErrorBox, Loading, PageHead, Panel, Tabs, Tile, Tiles } from '../components/ui'
 import { agencyShort, getSdrPeriods, getSdrTransfers, type SdrPeriod } from '../lib/data'
-import { downloadCsv, mdy, money0, money2, pct, shortDate } from '../lib/format'
+import { mdy, money0, money2, pct, shortDate } from '../lib/format'
+import { downloadSheet } from '../lib/excelExport'
 import { supabase } from '../lib/supabase'
 import { useAsync } from '../lib/useAsync'
 import { useSyncStamp } from '../lib/syncEvents'
@@ -13,7 +14,7 @@ import { useSyncStamp } from '../lib/syncEvents'
 export default function MyPay() {
   const { me } = useAuth()
   const producer = me?.role === 'producer' || me?.role === 'protege'
-  const sdr = me?.role === 'sdr'
+  const sdr = me?.role === 'sdr' || me?.role === 'va' // a VA may also take SDR transfers
   const [tab, setTab] = useState<'comm' | 'sdr'>(sdr ? 'sdr' : 'comm')
   const tabs = [...(producer ? [{ key: 'comm' as const, label: 'My commission' }] : []), ...(sdr || producer ? [{ key: 'sdr' as const, label: 'My SDR bonus' }] : [])]
   return (
@@ -70,7 +71,7 @@ export function MyCommission() {
   const totalComm = results.reduce((s, r) => s + r.total, 0)
   const bucketKeys = plan.buckets.map((b) => b.key)
 
-  const exportCsv = () => downloadCsv(`${agencyShort(me).replace(/[^A-Za-z0-9]+/g, '_')}_Commissions_${folio?.start_date}.csv`, [
+  const exportCsv = () => downloadSheet(`${agencyShort(me).replace(/[^A-Za-z0-9]+/g, '_')}_Commissions_${folio?.start_date}.xlsx`, [
     ['Producer', 'Total premium', 'Policies', 'Life (weighted)', 'Qualifies', 'Tier rate',
       ...plan.buckets.flatMap((b) => [`${b.label} premium`, `${b.label} commission`]), 'Bonuses', 'Total commission'],
     ...results.map((r) => [r.producer, r.totalPremium.toFixed(2), r.policies, r.life, r.qualifies ? 'Yes' : 'No', pct(r.tierRate),
@@ -80,7 +81,7 @@ export function MyCommission() {
     ['Policy detail'],
     ['Producer', 'Sold', 'Customer', 'Line', 'Carrier', 'Bucket', 'Premium'],
     ...results.flatMap((r) => r.rows.map((x) => [r.producer, mdy(x.sale_date), x.client, x.line, x.carrier, x.bucket, x.premium.toFixed(2)])),
-  ])
+  ], { sheet: 'Commissions' })
 
   return (
     <>
@@ -101,7 +102,7 @@ export function MyCommission() {
           <Tile label="Premium written" value={money0(results.reduce((s, r) => s + r.totalPremium, 0))} sub={`${results.reduce((s, r) => s + r.policies, 0)} policies`} />
         </Tiles>
       )}
-      <Panel title={plan.name} sub={plan.summary} right={<button className="btn-ghost" onClick={exportCsv} disabled={!results.length}>Download CSV</button>}>
+      <Panel title={plan.name} sub={plan.summary} right={<button className="btn-ghost" onClick={exportCsv} disabled={!results.length}>Download Excel</button>}>
         {results.length ? (
           <div className="tbl-wrap">
             <table className="tbl">
@@ -186,11 +187,11 @@ export function MySdrPay() {
       </Tiles>
       <Panel title={`${rows.length} transfers`}
         sub="A transfer qualifies once AgencyZoom shows a real quote on the tagged lead. Updated every hour."
-        right={<button className="btn-ghost" disabled={!rows.length} onClick={() => downloadCsv(`SDR_${month}.csv`, [
+        right={<button className="btn-ghost" disabled={!rows.length} onClick={() => downloadSheet(`SDR_${month}.xlsx`, [
           ['SDR', 'Transferred', 'Client', 'Producer', 'Source', 'Status', 'Quote premium', 'Qualifies', 'Bound', 'Bonus'],
           ...rows.map((t) => [t.sdr, mdy(String(t.date_time).slice(0, 10)), t.client, t.producer, t.lead_source, t.status,
             t.az_quote_premium.toFixed(2), t.az_qualifies ? 'Yes' : 'No', t.bound ? 'Yes' : 'No', ((t.az_qualifies ? qb : 0) + (t.bound ? bb : 0)).toFixed(2)]),
-        ])}>Download CSV</button>}>
+        ], { sheet: 'SDR transfers' })}>Download Excel</button>}>
         {rows.length ? (
           <div className="tbl-wrap">
             <table className="tbl">
