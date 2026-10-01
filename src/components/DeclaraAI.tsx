@@ -100,7 +100,7 @@ async function answer(qRaw: string, me: StaffAccount | null, ctx: { client?: Acc
   }
 
   if (/licen[cs]e/.test(q)) {
-    const { data, error } = await supabase.from('licenses').select('name,state,license_type,expires').order('expires')
+    const { data, error } = await supabase.from('licenses').select('name,state,license_type,expires').is('archived_on', null).order('expires')
     if (error) throw error
     const rows = (data || []) as { name: string; state: string | null; license_type: string | null; expires: string | null }[]
     const soon = rows.filter((l) => { const d = daysUntil(l.expires, today); return d != null && d <= 90 })
