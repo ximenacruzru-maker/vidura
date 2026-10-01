@@ -146,13 +146,18 @@ export function MyCommission() {
 }
 
 export function MySdrPay() {
-  const periods = useAsync(getSdrPeriods, [])
+  const { me } = useAuth()
+  // My Pay is only ever your own: someone who also runs payroll can read every SDR's transfers, so keep yours (SDR
+  // tags carry first names) and the months staff see (from September 2026, as the database allows staff)
+  const names = new Set([me?.display_name, me?.producer_name].filter(Boolean).flatMap((n) => [n!.toLowerCase(), n!.split(' ')[0].toLowerCase()]))
+  const all = useAsync(getSdrPeriods, [])
+  const periods = { ...all, data: all.data?.filter((p) => p.month >= '2026-09') }
   const [month, setMonth] = useState('')
   useEffect(() => {
     if (!month && periods.data?.length) setMonth((periods.data.find((p) => !p.closed) || periods.data[0]).month)
   }, [periods.data])
   const period: SdrPeriod | undefined = periods.data?.find((p) => p.month === month)
-  const transfers = useAsync(async () => (month ? getSdrTransfers(month) : []), [month])
+  const transfers = useAsync(async () => (month ? (await getSdrTransfers(month)).filter((t) => names.has(String(t.sdr).toLowerCase())) : []), [month])
 
   const picker = (
     <label className="picker">Month
