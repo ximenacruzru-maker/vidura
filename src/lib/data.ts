@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 
-export type Role = 'owner' | 'admin' | 'producer' | 'protege' | 'sdr' | 'csr'
+export type Role = 'owner' | 'admin' | 'producer' | 'protege' | 'sdr' | 'csr' | 'va'
 
 export interface StaffAccount {
   user_id: string

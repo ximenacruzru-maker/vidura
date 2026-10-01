@@ -11,8 +11,8 @@ const cors = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...cors, "Content-Type": "application/json" } });
-const ROLES = ["owner", "admin", "producer", "protege", "sdr", "csr"];
-const SECTIONS = ["performance", "books", "resources", "work", "chat", "training", "proteges", "passwords", "hr"];
+const ROLES = ["owner", "admin", "producer", "protege", "sdr", "csr", "va"];
+const SECTIONS = ["performance", "books", "resources", "work", "chat", "training", "proteges", "passwords", "hr", "work_manager", "payroll"];
 
 function cleanAccess(a: unknown) {
   const out: Record<string, boolean> = {};
@@ -29,7 +29,9 @@ Deno.serve(async (req) => {
   const { data: me } = await db.from("staff_accounts").select("role, active, agency_id").eq("user_id", u.user.id).maybeSingle();
   if (!me?.active || !["owner", "admin"].includes(me.role)) return json({ error: "Only an owner or admin can manage the team." }, 403);
   const A = me.agency_id as string;
-  const isOwner = me.role === "owner";
+  // a platform admin (who builds and runs the app) has an owner's say over everyone's account and permissions
+  const { data: pa } = await db.from("platform_admins").select("user_id").eq("user_id", u.user.id).maybeSingle();
+  const isOwner = me.role === "owner" || !!pa;
   const body = await req.json().catch(() => ({}));
 
   try {

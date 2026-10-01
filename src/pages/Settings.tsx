@@ -11,7 +11,7 @@ import { supabase } from '../lib/supabase'
 import { useAsync } from '../lib/useAsync'
 
 type Row = StaffAccount & { last_sign_in_at: string | null }
-const ROLES: Role[] = ['owner', 'admin', 'producer', 'protege', 'sdr', 'csr']
+const ROLES: Role[] = ['owner', 'admin', 'producer', 'protege', 'sdr', 'csr', 'va']
 
 async function call(body: Record<string, unknown>) {
   const { data, error } = await supabase.functions.invoke('staff-admin', { body })
@@ -43,7 +43,7 @@ function TeamAccess() {
       {note && <div className="note-box" style={{ marginBottom: 12 }}>{note}</div>}
       <Panel title="Staff logins" sub={data ? `${data.filter((s) => s.active).length} active` : undefined}
         right={<button className="btn-primary" onClick={() => setAdding(!adding)}>{adding ? 'Cancel' : '+ Add staff member'}</button>}>
-        {adding && <AddForm busy={busy} ownerCanAdd={me?.role === 'owner'} onSave={(b) => run({ action: 'create', ...b }, `${b.display_name} can now sign in with ${b.email} and the temporary password you set. They’ll be asked to choose their own password the first time.`).then(() => setAdding(false))} />}
+        {adding && <AddForm busy={busy} ownerCanAdd={me?.role === 'owner' || !!me?.platform_admin} onSave={(b) => run({ action: 'create', ...b }, `${b.display_name} can now sign in with ${b.email} and the temporary password you set. They’ll be asked to choose their own password the first time.`).then(() => setAdding(false))} />}
         {error ? <ErrorBox error={error} /> : !data ? <Loading /> : data.length ? (
           <div className="tbl-wrap">
             <table className="tbl">
@@ -61,7 +61,7 @@ function TeamAccess() {
                     </tr>
                     {open === s.user_id && (
                       <tr className="detail"><td colSpan={6}>
-                        <EditRow s={s} self={s.user_id === me?.user_id} ownerMe={me?.role === 'owner'} busy={busy}
+                        <EditRow s={s} self={s.user_id === me?.user_id} ownerMe={me?.role === 'owner' || !!me?.platform_admin} busy={busy}
                           onSave={(patch, msg) => run({ action: 'update', user_id: s.user_id, ...patch }, msg)}
                           onReset={(pw) => run({ action: 'reset_password', user_id: s.user_id, password: pw }, `Temporary password set for ${s.display_name}. Give it to them privately; they’ll choose a new one when they sign in.`)} />
                       </td></tr>

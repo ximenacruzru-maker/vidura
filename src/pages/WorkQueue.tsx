@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useAuth } from '../auth'
 import { Empty, ErrorBox, Loading, PageHead, Panel, Search, Tile, Tiles } from '../components/ui'
 import { daysUntil } from '../lib/books'
+import { can } from '../lib/access'
 import { isAdmin } from '../lib/data'
 import { mdy, todayPacific } from '../lib/format'
 import { downloadSheet } from '../lib/excelExport'
@@ -30,6 +31,7 @@ export default function WorkQueue() {
   const [q, setQ] = useState('')
   const [draft, setDraft] = useState<Partial<WorkItem> | null>(null)
   const admin = isAdmin(me?.role)
+  const manager = admin || can(me, 'work_manager') // whoever runs the queue sees and assigns everything
   const { data: work, error } = useAsync(getWork, [reload])
   const { data: people } = useAsync(async () => {
     const { data } = await supabase.from('staff_directory').select('display_name')
@@ -37,8 +39,8 @@ export default function WorkQueue() {
   }, [])
   const data = work
 
-  const head = <PageHead kicker="Operations" title={admin ? 'Work queue' : 'My work'} sub={admin
-    ? 'Service work, follow-ups and admin tasks for the whole team. You see everyone’s list; staff see only their own.'
+  const head = <PageHead kicker="Operations" title={manager ? 'Work queue' : 'My work'} sub={manager
+    ? `Service work, follow-ups and admin tasks for the whole team. You see everyone’s list and assign the work; staff see only what’s assigned to them${admin ? '' : ' (and admins see it all)'}.`
     : 'Your to-dos, plus anything you assigned to someone else. You can assign work to anyone on the team.'} />
   if (error) return <>{head}<ErrorBox error={error} /></>
   if (!data) return <>{head}<Loading /></>
@@ -117,7 +119,7 @@ export default function WorkQueue() {
                       <td><div className="strong">{w.name}</div><div className="sub">{w.area}{w.kind ? ' · ' + w.kind : ''}{w.note ? ' — ' + w.note : ''}</div></td>
                       <td><span className={'pill ' + (/critical|urgent/i.test(w.priority) ? 'pill-bad' : /high/i.test(w.priority) ? 'pill-warn' : 'pill-muted')}>{w.priority}</span></td>
                       <td style={{ whiteSpace: 'nowrap' }}>{w.due ? mdy(w.due) : '—'} {!isDone(w) && d != null && d < 0 && <span className="pill pill-bad">late</span>}</td>
-                      <td>{w.owner}{!admin && w.created_by === session?.user.id && !(w.owner || '').toLowerCase().startsWith(first) && <div className="sub">assigned by you</div>}</td>
+                      <td>{w.owner}{!manager && w.created_by === session?.user.id && !(w.owner || '').toLowerCase().startsWith(first) && <div className="sub">assigned by you</div>}</td>
                       <td><select value={STATUSES.includes(w.status) ? w.status : ''} onChange={(e) => patch(w.id, { status: e.target.value })}>{!STATUSES.includes(w.status) && <option value="">{w.status}</option>}{STATUSES.map((s) => <option key={s}>{s}</option>)}</select></td>
                       <td className="r" style={{ whiteSpace: 'nowrap' }}>
                         <button className="linkbtn" onClick={() => setDraft(w)}>Edit</button>

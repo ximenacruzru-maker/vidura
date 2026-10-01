@@ -14,7 +14,7 @@ import { useSyncStamp } from '../lib/syncEvents'
 export default function MyPay() {
   const { me } = useAuth()
   const producer = me?.role === 'producer' || me?.role === 'protege'
-  const sdr = me?.role === 'sdr'
+  const sdr = me?.role === 'sdr' || me?.role === 'va' // a VA may also take SDR transfers
   const [tab, setTab] = useState<'comm' | 'sdr'>(sdr ? 'sdr' : 'comm')
   const tabs = [...(producer ? [{ key: 'comm' as const, label: 'My commission' }] : []), ...(sdr || producer ? [{ key: 'sdr' as const, label: 'My SDR bonus' }] : [])]
   return (

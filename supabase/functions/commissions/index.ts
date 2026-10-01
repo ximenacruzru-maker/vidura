@@ -4,6 +4,8 @@
 // agency's comp plan stored in comp_plans (the plan in force on the folio's
 // start date), and returns only what the signed-in person is allowed to see:
 //   owner / admin      -> every producer
+//   Office payroll     -> every producer, when asked for the office ({"scope": "office"}): a VA, or anyone an
+//                         admin switched Office payroll on for (the same rule as the database's staff_can)
 //   producer / protege -> only their own line
 //   anyone else        -> nothing
 // Doing this server-side is what keeps producers from seeing each other's pay.
@@ -105,14 +107,16 @@ Deno.serve(async (req) => {
   const jwt = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
   const { data: u, error: ue } = await admin.auth.getUser(jwt);
   if (ue || !u?.user) return json({ error: "Please sign in again." }, 401);
-  const { data: me } = await admin.from("staff_accounts").select("role, producer_name, active, agency_id").eq("user_id", u.user.id).maybeSingle();
+  const { data: me } = await admin.from("staff_accounts").select("role, producer_name, active, agency_id, access").eq("user_id", u.user.id).maybeSingle();
   if (!me || !me.active) return json({ error: "Your login isn't set up as a staff account yet." }, 403);
-  const seesAll = me.role === "owner" || me.role === "admin";
+  const body = await req.json().catch(() => ({}));
+  const access = (me.access || {}) as Record<string, unknown>;
+  const payroll = "payroll" in access ? access.payroll === true : me.role === "va";
+  const seesAll = me.role === "owner" || me.role === "admin" || (body.scope === "office" && payroll);
   if (!seesAll && !["producer", "protege"].includes(me.role)) return json({ error: "Commissions aren't part of your role." }, 403);
 
   // The service role skips row-level security, so every read below is limited to the caller's agency.
   const A = me.agency_id as string;
-  const body = await req.json().catch(() => ({}));
   const { data: folio } = await admin.from("folios").select("*").eq("agency_id", A).eq("start_date", body.folio).maybeSingle();
   if (!folio) return json({ error: "Unknown folio." }, 400);
   const today = pacificToday();
