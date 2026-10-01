@@ -76,7 +76,7 @@ export default function MyPay() {
   return (
     <>
       <PageHead kicker="Workspace" title="My Pay" sub="Your pay on each payday. Only you and the agency admins can see these numbers." />
-      <Panel title={`Payday ${mdy(pay)}`} sub={check.commission ? 'The 21st pays hours for the 1st–15th, plus commission and SDR bonuses.' : 'The 5th pays hours for the 16th to the end of last month. Commission and SDR bonuses are paid on the 21st.'}
+      <Panel title={`Payday ${mdy(pay)}`} sub={check.commission ? 'The 21st pays hours for the 1st–15th, plus your commission for last month’s folio and SDR bonus for last month’s transfers. What you earn in the folio open now is paid next month.' : 'The 5th pays hours for the 16th to the end of last month. Commission and SDR bonuses are paid on the 21st.'}
         right={<div className="filters">
           <button className="btn-ghost" onClick={() => setPay(stepPay(pay, -1))} aria-label="Previous payday">‹ {shortDate(stepPay(pay, -1))}</button>
           <button className="btn-ghost" onClick={() => setPay(stepPay(pay, 1))} aria-label="Next payday">{shortDate(stepPay(pay, 1))} ›</button>
