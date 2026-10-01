@@ -1,4 +1,4 @@
-// The colour themes (Talavera, the default; Bubble Gum; Dark Mode; Declara Blue; and the seasonal Halloween) and typefaces. Each person's choice is
+// The colour themes (Talavera, the default; Bubble Gum; Dark Mode; Declara Blue; Astra; and the seasonal Halloween) and typefaces. Each person's choice is
 // saved to their login (user_prefs), cached on the device for a flicker-free start, and applied to
 // the whole app — including the original Performance screens.
 import { supabase } from './supabase'
@@ -10,6 +10,7 @@ export const THEMES: Record<string, { name: string; swatch: string[]; note?: str
   bubblegum: { name: 'Bubble Gum', swatch: ['#EFAAD6', '#F6CBE7', '#112E6D', '#C8102E', '#FDEFF7'] },
   dark: { name: 'Dark Mode', dark: true, swatch: ['#0B1020', '#151C2E', '#5B7BFF', '#8FA6D8', '#E9EEFB'] },
   declara: { name: 'Declara Blue', swatch: ['#164fec', '#4d60ff', '#4263d6', '#1a4be6', '#eefaff'] },
+  astra: { name: 'Astra', note: 'Blood red and black iron: rune swords, riveted metal frames, embers and a demon swordsman', dark: true, swatch: ['#0E0709', '#1A0D10', '#E5252E', '#FF7A45', '#F2E6E3'] },
   halloween: { name: 'Halloween', note: 'Limited time, until November 1 — jack-o’-lanterns, bats and cobwebs on midnight purple', dark: true, season: { from: '09-25', to: '11-01' }, swatch: ['#1C0B33', '#2A1245', '#F07A12', '#6BD13A', '#F3E6CF'] },
 }
 // Each typeface pairs a distinct display face (headlines, titles, big numbers) with its own body

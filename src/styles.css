@@ -622,7 +622,7 @@ html[data-theme="halloween"] .xd .donut svg text { display: none; }
 /* ---------- renewals alert on Books of Business ---------- */
 .renew-alert { border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); margin-bottom: 16px; box-shadow: var(--shadow); }
 .renew-warn { border-color: #F3D9AC; background: #FFF6E8; }
-html[data-theme="dark"] .renew-warn { border-color: #6b4a14; background: var(--warn-bg); }
+html[data-theme="dark"] .renew-warn, html[data-theme="halloween"] .renew-warn, html[data-theme="astra"] .renew-warn { border-color: #6b4a14; background: var(--warn-bg); }
 .renew-bar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; flex-wrap: wrap; }
 .renew-ico { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-weight: 900; font-size: 14px; color: #fff; background: var(--good); }
 .renew-warn .renew-ico { background: var(--warn); }
@@ -754,3 +754,96 @@ html[data-theme="dark"] .renew-warn { border-color: #6b4a14; background: var(--w
 .tbl.paystub td { padding-top: 12px; padding-bottom: 12px; vertical-align: middle; }
 .tbl.paystub td.r { font-size: 15px; white-space: nowrap; }
 .paystub-total td { border-top: 2px solid var(--line, currentColor); font-size: 16px; }
+
+/* ================= Astra =================
+   Blood red and black iron: a blood-moon glow and drifting embers behind everything, a cracked-lava sidebar with a
+   rune sword for each section, riveted iron frames on the figure cards, the gothic title on the Executive Dashboard,
+   and the demon swordsman standing behind the page on wide screens. */
+html[data-theme="astra"] {
+  --navy: #F2E6E3; --blue: #E5252E; --blue-2: #B5141C; --teal: #FF7A45; --gold: #FFB36B; --ink: #F2E6E3; --muted: #BFA5A5;
+  --line: #4A1D22; --line2: #33141A; --bg: #0E0709; --card: #1A0D10; --soft: #22100F; --track: #33141A; --tint: #2A1014;
+  --good-bg: #13301f; --warn-bg: #3a2410; --bad-bg: #3d1015; --topbar: #070304; --radius: 10px;
+  --sideA: #160A0C; --sideB: #120709; --sideC: #0B0405; --side-ink: #F2E6E3; --side-sub: #FF4A4A; --side-active: #E5252E;
+  --shadow: 0 1px 2px rgba(0,0,0,.5), 0 10px 28px rgba(0,0,0,.45);
+  --ch1: #E5252E; --ch2: #8A1C24; --ch3: #FF7A45; --ch4: #B8B0AE; --ch5: #FFB36B; --ch6: #5A1E28; --donut-ink: #F2E6E3; --donut-sub: #FF7A45;
+}
+html[data-theme="astra"] body {
+  background:
+    radial-gradient(1.5px 1.5px at 12% 22%, #ff5a3c 60%, transparent 61%), radial-gradient(1px 1px at 37% 64%, #ff7a45 60%, transparent 61%),
+    radial-gradient(2px 2px at 68% 18%, #e5252e 60%, transparent 61%), radial-gradient(1px 1px at 82% 72%, #ff5a3c 60%, transparent 61%),
+    radial-gradient(1.5px 1.5px at 54% 88%, #ffb36b 60%, transparent 61%), radial-gradient(1px 1px at 24% 82%, #e5252e 60%, transparent 61%),
+    radial-gradient(ellipse 38% 30% at 62% 0%, rgba(200,24,32,.38), transparent 70%),
+    radial-gradient(ellipse 70% 50% at 50% 110%, rgba(120,10,16,.35), transparent 70%), #0E0709;
+  background-attachment: fixed;
+}
+/* the swordsman behind the page, bottom right */
+html[data-theme="astra"] .shell::after { content: ''; position: fixed; right: 0; bottom: 0; width: min(34vw, 560px); height: min(78vh, 600px);
+  background: url('./assets/astra/hero.webp') right bottom / contain no-repeat; opacity: .55; pointer-events: none; z-index: 0;
+  filter: drop-shadow(0 0 24px rgba(229,37,46,.35)); }
+html[data-theme="astra"] .page, html[data-theme="astra"] .topbar { position: relative; z-index: 1; }
+html[data-theme="astra"] .side {
+  background:
+    radial-gradient(ellipse 120% 18% at 0% 30%, rgba(229,37,46,.20), transparent 70%), radial-gradient(ellipse 120% 18% at 100% 62%, rgba(229,37,46,.16), transparent 70%),
+    repeating-linear-gradient(118deg, transparent 0 46px, rgba(255,74,74,.08) 47px, transparent 49px),
+    repeating-linear-gradient(32deg, transparent 0 63px, rgba(255,74,74,.07) 64px, transparent 66px),
+    linear-gradient(180deg, #170A0C, #0B0405);
+  box-shadow: inset -2px 0 0 rgba(229,37,46,.55), 6px 0 24px rgba(229,37,46,.18); }
+html[data-theme="astra"] .side-brand, html[data-theme="astra"] .side-foot { border-color: rgba(229,37,46,.35); }
+html[data-theme="astra"] .brand-logo { box-shadow: 0 0 0 2px rgba(229,37,46,.6), 0 0 18px rgba(229,37,46,.45); }
+html[data-theme="astra"] .nav-h { display: flex; align-items: center; gap: 9px; color: #F2E6E3; text-shadow: 0 0 8px rgba(229,37,46,.6); }
+html[data-theme="astra"] .nav-h::before { content: ''; flex: none; width: 26px; height: 26px; border-radius: 5px; background: center / cover no-repeat;
+  box-shadow: 0 0 0 1px rgba(229,37,46,.7), 0 0 10px rgba(229,37,46,.5); }
+html[data-theme="astra"] .nav-h[data-sec="Workspace"]::before { background-image: url('./assets/astra/ic-1.webp'); }
+html[data-theme="astra"] .nav-h[data-sec="Performance"]::before { background-image: url('./assets/astra/ic-2.webp'); }
+html[data-theme="astra"] .nav-h[data-sec="Agency Management"]::before { background-image: url('./assets/astra/ic-3.webp'); }
+html[data-theme="astra"] .nav-h[data-sec="Team Development"]::before { background-image: url('./assets/astra/ic-4.webp'); }
+html[data-theme="astra"] .nav button svg { color: #FF4A4A; }
+html[data-theme="astra"] .nav button.active { background: linear-gradient(90deg, #8A1C24, #E5252E); color: #fff; box-shadow: 0 0 16px rgba(229,37,46,.6), inset 0 0 0 1px rgba(255,180,160,.35); }
+html[data-theme="astra"] .nav button.active svg { color: #fff; }
+html[data-theme="astra"] .nav button:hover:not(.active) { background: rgba(229,37,46,.16); }
+html[data-theme="astra"] .topbar { background: linear-gradient(180deg, #120608, #070304); backdrop-filter: none; box-shadow: 0 1px 0 rgba(229,37,46,.6), 0 6px 22px rgba(229,37,46,.18); }
+html[data-theme="astra"] .gq { background: #160A0C; border: 1px solid rgba(229,37,46,.7); color: #F2E6E3; }
+html[data-theme="astra"] .gq::placeholder { color: #BFA5A5; }
+html[data-theme="astra"] .gsearch-ico { color: #FF4A4A; }
+html[data-theme="astra"] .tsync-pill { background: #120608; border-color: rgba(229,37,46,.7); color: #F2E6E3; }
+html[data-theme="astra"] .hd-av { background: #2A1014; color: #FF4A4A; box-shadow: 0 0 0 2px #E5252E, 0 0 12px rgba(229,37,46,.6); }
+html[data-theme="astra"] .hd-un em, html[data-theme="astra"] .kicker { color: #FF4A4A; }
+html[data-theme="astra"][data-font="normal"] .page-head h1, html[data-theme="astra"][data-font="normal"] .panel-t,
+html[data-theme="astra"][data-font="normal"] .xd .panel-t { font-family: 'Pirata One', 'Inter', serif; font-weight: 400; letter-spacing: .02em; }
+html[data-theme="astra"] .page-head h1 { color: #F2E6E3; text-shadow: 0 0 14px rgba(229,37,46,.55); }
+html[data-theme="astra"] .panel { background: rgba(22,10,12,.86); border-color: rgba(229,37,46,.35); box-shadow: 0 0 0 1px rgba(0,0,0,.6), 0 0 22px rgba(229,37,46,.12); }
+html[data-theme="astra"] .btn-primary { background: linear-gradient(180deg, #E5252E, #9E141B); color: #fff; box-shadow: 0 0 14px rgba(229,37,46,.45); }
+html[data-theme="astra"] .btn-ghost { border-color: rgba(229,37,46,.55); color: #F2E6E3; }
+html[data-theme="astra"] .legacy-host iframe { background: var(--bg); }
+html[data-theme="astra"] .login { background: url('./assets/astra/hero.webp') left 4% bottom / auto 82% no-repeat, radial-gradient(ellipse 50% 40% at 70% 10%, rgba(200,24,32,.4), transparent 70%), #0E0709; }
+html[data-theme="astra"] .set-band { background: linear-gradient(135deg, #0E0709, #5A1E28 60%, #E5252E); }
+html[data-theme="astra"] .band-note { background: #2a0e10; border-color: #6b1a1e; color: #FFD0C8; }
+/* figure cards in riveted iron frames */
+html[data-theme="astra"] .tile, html[data-theme="astra"] .xd .sc {
+  background: linear-gradient(180deg, rgba(34,14,17,.96), rgba(16,7,9,.96)) padding-box; border: 1px solid transparent;
+  border-image: url('./assets/astra/frame.webp') 76 / 34px / 0 stretch;
+  border-radius: 0; box-shadow: none; filter: drop-shadow(0 0 9px rgba(229,37,46,.35)); padding: 22px 22px 20px; }
+html[data-theme="astra"] .tile-l, html[data-theme="astra"] .xd .sc-l { color: #F2E6E3; }
+html[data-theme="astra"] .tile-v, html[data-theme="astra"] .xd .sc-v { color: #fff; text-shadow: 0 0 12px rgba(229,37,46,.7); }
+html[data-theme="astra"] .tile-s, html[data-theme="astra"] .xd .sc-s, html[data-theme="astra"] .xd .sc-gt, html[data-theme="astra"] .xd .sc-goal { color: #E6D3D0; }
+html[data-theme="astra"] .xd .sc-i { background: #2A1014; color: #FF4A4A; box-shadow: 0 0 0 1px rgba(229,37,46,.6), 0 0 10px rgba(229,37,46,.45); }
+html[data-theme="astra"] .xd .sc-dv { color: #F2E6E3; } html[data-theme="astra"] .xd .sc-dv.up { color: #7EE05A; } html[data-theme="astra"] .xd .sc-dv.down { color: #FF6B5A; }
+html[data-theme="astra"] .xd .sc-more { border-top-color: rgba(229,37,46,.35); color: #FF4A4A; }
+html[data-theme="astra"] .xd .donut svg { filter: drop-shadow(0 0 7px rgba(229,37,46,.75)); }
+/* the gothic title on the Executive Dashboard (the words stay for screen readers) */
+html[data-theme="astra"] .xd .ptitle { color: transparent; text-shadow: none; background: url('./assets/astra/title.webp') left center / contain no-repeat;
+  width: 380px; height: 150px; max-width: 70vw; font-size: 1px; overflow: hidden; margin: -6px 0 -10px; }
+/* the remaining blue accents, in blood red */
+html[data-theme="astra"] .hd-kai { background: linear-gradient(135deg, #7A141B, #E5252E); border-color: #FF7A6B; color: #fff; box-shadow: 0 0 16px rgba(229,37,46,.45); }
+html[data-theme="astra"] .xd .eyebrow { color: #FF4A4A; }
+html[data-theme="astra"] .xd .psrc, html[data-theme="astra"] .xd .panel-s { color: #D9B6B0; }
+html[data-theme="astra"] .xd .fb-g { border-color: rgba(229,37,46,.5); box-shadow: none; }
+html[data-theme="astra"] .xd .mc-btn { border-color: #E5252E; background: #2A1014; color: #FF4A4A; }
+@media (min-width: 901px) { html[data-theme="astra"] .side { position: relative; z-index: 2; } }
+@media (max-width: 1100px) { html[data-theme="astra"] .shell::after { display: none; } }
+@media (max-width: 900px) {
+  html[data-theme="astra"] .side { box-shadow: none; }
+  html[data-theme="astra"] .tile, html[data-theme="astra"] .xd .sc { border-image-width: 32px; padding: 20px 18px; }
+  html[data-theme="astra"] .xd .ptitle { width: 240px; height: 96px; }
+  html[data-theme="astra"] .login { background: radial-gradient(ellipse 60% 40% at 70% 10%, rgba(200,24,32,.4), transparent 70%), #0E0709; }
+}
