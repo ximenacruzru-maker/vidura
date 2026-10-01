@@ -13,8 +13,8 @@ import { workedMinutes } from './Licensing'
 
 /** Office payroll: what everyone in the office is owed on one payday, downloaded as one workbook, with the payroll
  *  files (the provider's report, a signed copy) uploaded back to that payday. Payroll is paid twice a month:
- *    the 21st — hours for the 1st–15th, plus producers' commission (the folio that closed just before it, usually on
- *               the 20th) and SDR bonuses
+ *    the 21st — hours for the 1st–15th, plus producers' commission and SDR bonuses, a month behind (Oct 21 pays the
+ *               folio that closed Sep 20, and September's transfers)
  *    the 5th  — hours for the 16th–end of the previous month (no commission)
  *  For admins and whoever runs payroll (a VA, or anyone given Office payroll on Team & access). */
 
@@ -123,8 +123,8 @@ export default function Payroll() {
   const err = hours.error || comm.error || sdr.error || periods.error
   return (
     <>
-      <PageHead kicker="Agency" title="Office payroll" sub="Payroll is paid on the 5th and the 21st: the 5th for hours from the 16th to the end of the month, the 21st for hours from the 1st to the 15th plus commission and SDR bonuses. Download it for the payroll run, then upload the payroll files back here." />
-      <Panel title={`Payday ${mdy(pay)}`} sub={check.commission ? `Hours ${hoursLabel} · commission for the folio ${folioLabel || 'closing before ' + mdy(pay) + ' (not set up yet)'} · SDR bonus for ${period?.period_label || 'last month'} transfers` : `Hours ${hoursLabel} · no commission on the 5th (commission is paid on the 21st)`}
+      <PageHead kicker="Agency" title="Office payroll" sub="Payroll is paid on the 5th and the 21st: the 5th for hours from the 16th to the end of the month, the 21st for hours from the 1st to the 15th, plus commission for last month’s folio and SDR bonuses for last month’s transfers. Download it for the payroll run, then upload the payroll files back here." />
+      <Panel title={`Payday ${mdy(pay)}`} sub={check.commission ? `Hours ${hoursLabel} · commission for the folio ${folioLabel || 'closed last month (not set up yet)'} · SDR bonus for ${period?.period_label || 'last month'} transfers` : `Hours ${hoursLabel} · no commission on the 5th (commission is paid on the 21st)`}
         right={<div className="filters">
           <button className="btn-ghost" onClick={() => setPay(stepPay(pay, -1))} aria-label="Previous payday">‹ {shortDate(stepPay(pay, -1))}</button>
           <button className="btn-ghost" onClick={() => setPay(stepPay(pay, 1))} aria-label="Next payday">{shortDate(stepPay(pay, 1))} ›</button>
