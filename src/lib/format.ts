@@ -41,19 +41,3 @@ export function timeAgo(ts: string | null) {
   if (h < 24) return `${h} hr ago`
   return `${Math.round(h / 24)} days ago`
 }
-
-export function downloadCsv(filename: string, rows: (string | number | null | undefined)[][]) {
-  const esc = (v: unknown) => {
-    const s = v == null ? '' : String(v)
-    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s
-  }
-  const csv = rows.map((r) => r.map(esc).join(',')).join('\r\n')
-  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }))
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  URL.revokeObjectURL(url)
-}

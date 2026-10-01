@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { todayPacific } from '../../lib/format'
 import { money0 } from '../../lib/perf/executive'
 import { change, drill, lastYear, loadYoy, monthRange, yoyFigures, type Sum } from '../../lib/perf/yoy'
+import { downloadYoyExcel } from '../../lib/perf/yoyExcel'
 import { useSyncStamp } from '../../lib/syncEvents'
 import { useAsync } from '../../lib/useAsync'
 import { ICO, ScoreCard } from './parts'
@@ -30,6 +31,18 @@ export default function VsLastYear() {
   }, [data, F, open, today, o])
   const toggle = (next: { month: number } | { card: string }) => setOpen((cur) => (JSON.stringify(cur) === JSON.stringify(next) ? null : next))
   const isOpen = (m: number) => !!open && 'month' in open && open.month === m
+  // the whole year so far in one workbook: summary, month by month, and every policy sold in each year to date
+  const [saving, setSaving] = useState<string | null>(null)
+  const yearExcel = async () => {
+    if (!data || !F) return
+    setSaving('Preparing…')
+    try {
+      const yd = drill(data, { label: `${F.year} so far`, a: `${F.year}-01-01`, b: today, pa: `${F.year - 1}-01-01`, pb: lastYear(today) }, o)
+      const newest = (xs: typeof yd.prior.rows) => [...xs].sort((a, b) => (a.day < b.day ? 1 : a.day > b.day ? -1 : 0))
+      await downloadYoyExcel(yd, F.year, { now: yd.now ? newest(yd.now.rows) : null, prior: newest(yd.prior.rows) }, o.producer === 'all' ? null : o.producer, F.months)
+      setSaving(null)
+    } catch (e) { setSaving('Download failed: ' + String((e as Error)?.message || e)) }
+  }
   const v = (s: Sum) => (o.measure === 'premium' ? s.premium : s.policies)
   const show = (n: number) => (o.measure === 'premium' ? money0(n) : n.toLocaleString('en-US'))
 
@@ -47,6 +60,8 @@ export default function VsLastYear() {
           <button className={'segt-b' + (o.measure === 'policies' ? ' on' : '')} onClick={() => set({ measure: 'policies' })}>Policies</button>
         </div>
         <label className="yoy-chk"><input type="checkbox" checked={o.dropCancelled} onChange={(e) => set({ dropCancelled: e.target.checked })} />Leave out policies since cancelled</label>
+        <button className="yoy-csv" onClick={yearExcel} disabled={!F || saving === 'Preparing…'} title="Excel workbook of the year so far against last year: summary, month by month and every policy, colour-coded">{saving === 'Preparing…' ? saving : 'Download Excel'}</button>
+        {saving && saving !== 'Preparing…' && <span className="yoy-count" role="alert">{saving}</span>}
       </div>}
     </div>
   )

@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Drawer, Empty, ErrorBox, KV, Loading, PageHead, Panel, Search, Tabs, Tile, Tiles } from '../components/ui'
 import { BOOKS, bookTab, daysUntil, fmtBytes, getAccounts, getBookPolicies, getDocs, openDoc, type Account, type BookPolicy, type Doc } from '../lib/books'
-import { downloadCsv, mdy, money0, money2, todayPacific } from '../lib/format'
+import { mdy, money0, money2, todayPacific } from '../lib/format'
+import { downloadSheet } from '../lib/excelExport'
 import { useAsync } from '../lib/useAsync'
 import { useAuth } from '../auth'
 import { isAdmin } from '../lib/data'
@@ -69,10 +70,10 @@ export default function Books() {
   const due60 = pols.filter((p) => { const d = daysUntil(p.expiration, today); return d != null && d >= 0 && d <= 60 })
   const expired = pols.filter((p) => { const d = daysUntil(p.expiration, today); return d != null && d < 0 })
 
-  const exportCsv = () => downloadCsv(`${key}-book-${today}.csv`, [
+  const exportCsv = () => downloadSheet(`${key}-book-${today}.xlsx`, [
     ['Account', 'DBA', 'Policy #', 'Insured', 'Carrier', 'Line', 'Effective', 'Expiration', 'Premium', 'Status', 'Location'],
     ...shown.flatMap((r) => r.pols.map((p) => [r.a.name, r.a.dba, p.policy_number, p.insured, p.carrier, p.product, p.effective, p.expiration, p.premium, p.status, p.location])),
-  ])
+  ], { sheet: 'Book' })
 
   return (
     <>
@@ -86,7 +87,7 @@ export default function Books() {
         <Tile label="Past expiration" value={expired.length} sub={expired.length ? 'confirm renewed or lapsed' : 'none'} />
       </Tiles>
       <Panel title="Accounts" sub={`${shown.length} of ${rows.length} · click an account for policies, notes and documents`}
-        right={<div className="filters"><Search value={q} onChange={setQ} placeholder="Name, policy #, carrier, address" /><button className="btn-ghost" onClick={exportCsv}>Export CSV</button>{isAdmin(me?.role) && <DocUpload onDone={() => setReload((n) => n + 1)} />}</div>}>
+        right={<div className="filters"><Search value={q} onChange={setQ} placeholder="Name, policy #, carrier, address" /><button className="btn-ghost" onClick={exportCsv}>Export Excel</button>{isAdmin(me?.role) && <DocUpload onDone={() => setReload((n) => n + 1)} />}</div>}>
         {shown.length ? (
           <div className="tbl-wrap">
             <table className="tbl">

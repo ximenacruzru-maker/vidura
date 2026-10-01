@@ -3,7 +3,8 @@ import { useAuth } from '../auth'
 import { Empty, ErrorBox, Loading, PageHead, Panel, Search, Tile, Tiles } from '../components/ui'
 import { daysUntil } from '../lib/books'
 import { isAdmin } from '../lib/data'
-import { downloadCsv, mdy, todayPacific } from '../lib/format'
+import { mdy, todayPacific } from '../lib/format'
+import { downloadSheet } from '../lib/excelExport'
 import { supabase } from '../lib/supabase'
 import { useAsync } from '../lib/useAsync'
 
@@ -85,7 +86,7 @@ export default function WorkQueue() {
           <select value={owner} onChange={(e) => setOwner(e.target.value)}><option value="all">Everyone</option>{owners.map((a) => <option key={a}>{a}</option>)}</select>
           <Search value={q} onChange={setQ} />
           <button className="btn-primary" onClick={() => setDraft(draft ? null : { priority: 'Normal', status: 'Not started', owner: me?.display_name?.split(' ')[0] })}>{draft ? 'Cancel' : '+ New item'}</button>
-          <button className="btn-ghost" onClick={() => downloadCsv(`work-queue-${today}.csv`, [['Area', 'Item', 'Type', 'Priority', 'Entered', 'Due', 'Owner', 'Status', 'Note'], ...rows.map((w) => [w.area, w.name, w.kind, w.priority, w.entered, w.due, w.owner, w.status, w.note])])}>CSV</button>
+          <button className="btn-ghost" onClick={() => downloadSheet(`work-queue-${today}.xlsx`, [['Area', 'Item', 'Type', 'Priority', 'Entered', 'Due', 'Owner', 'Status', 'Note'], ...rows.map((w) => [w.area, w.name, w.kind, w.priority, w.entered, w.due, w.owner, w.status, w.note])], { sheet: 'Work queue' })}>Excel</button>
         </div>}>
         {draft && (
           <div className="plan">

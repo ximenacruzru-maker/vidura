@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Empty, Search, Tabs } from '../components/ui'
 import { daysUntil, type Account, type BookPolicy } from '../lib/books'
-import { downloadCsv, mdy, money0 } from '../lib/format'
+import { mdy, money0 } from '../lib/format'
+import { downloadSheet } from '../lib/excelExport'
 import { RenewPill } from './Books'
 import { DateRange, resolveRange } from '../components/DateRange'
 import { addDays } from '../lib/format'
@@ -51,10 +52,10 @@ export default function RenewalAlert({ bookKey, accounts, policies, today, start
           <div className="filters" style={{ marginBottom: 10 }}>
             {win === 'custom' && <DateRange value={range} onChange={setRange} />}
             <Search value={q} onChange={setQ} />
-            <button className="btn-ghost" onClick={() => downloadCsv(`renewals-${bookKey}-${win === 'custom' ? r.from + '_' + r.to : win}-${today}.csv`, [
+            <button className="btn-ghost" onClick={() => downloadSheet(`renewals-${bookKey}-${win === 'custom' ? r.from + '_' + r.to : win}-${today}.xlsx`, [
               ['Account', 'Insured', 'Policy #', 'Carrier', 'Line', 'Expiration', 'Days', 'Premium'],
               ...rows.map((r) => [r.a.name, r.p.insured, r.p.policy_number, r.p.carrier, r.p.product, r.p.expiration, r.d, r.p.premium]),
-            ])}>Export CSV</button>
+            ], { sheet: 'Renewals' })}>Export Excel</button>
             <span className="sub" style={{ alignSelf: 'center' }}>{rows.length} policies · {money0(prem(rows))} premium</span>
           </div>
           {rows.length ? (
