@@ -198,25 +198,25 @@ button, select, input { font: inherit; }
 .shell { display: flex; height: 100vh; overflow: hidden; }
 .side { flex: 0 0 248px; width: 248px; display: flex; flex-direction: column; overflow-y: auto; color: var(--side-ink);
   background: linear-gradient(145deg, var(--sideA) 0%, var(--sideB) 47%, var(--sideC) 100%); box-shadow: 12px 0 30px rgba(12,43,120,.08); }
-.side-brand { padding: 20px 22px 12px; margin: 0 14px; text-align: center; border-bottom: 1px solid color-mix(in srgb, var(--side-ink) 28%, transparent); }
+.side-brand { padding: 14px 22px 10px; margin: 0 14px; text-align: center; border-bottom: 1px solid color-mix(in srgb, var(--side-ink) 28%, transparent); }
 .brand-tile { display: inline-block; border-radius: 14px; }
-.brand-logo { width: 168px; max-width: 100%; height: auto; display: block; margin: 0 auto; border-radius: 10px; box-shadow: 0 4px 14px rgba(0, 0, 0, .28); }
+.brand-logo { width: 128px; max-width: 100%; height: auto; display: block; margin: 0 auto; border-radius: 10px; box-shadow: 0 4px 14px rgba(0, 0, 0, .28); }
 .side-for { margin: 8px 0 0; font-size: 12px; font-weight: 500; color: var(--side-ink); }
 .side-sub { margin: 2px 0 0; font-size: 12px; font-weight: 800; line-height: 1.3; color: var(--side-sub); }
-.nav { display: flex; flex-direction: column; gap: 2px; padding: 4px 14px; }
-.nav-h { color: var(--side-ink); font-size: 12px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; padding: 14px 9px 6px; }
-.nav-div { height: 1px; background: color-mix(in srgb, var(--side-ink) 26%, transparent); margin: 9px 8px; }
-.nav button { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; border: 0; background: none; cursor: pointer;
-  color: color-mix(in srgb, var(--side-ink) 92%, transparent); font-family: var(--sans); font-size: 14.5px; font-weight: 500; padding: 10px 12px; border-radius: 10px; transition: background .15s; }
-.nav button svg { width: 19px; height: 19px; flex: none; }
+.nav { display: flex; flex-direction: column; gap: 1px; padding: 4px 14px; }
+.nav-h { color: var(--side-ink); font-size: 10.5px; font-weight: 800; letter-spacing: 1.4px; text-transform: uppercase; padding: 10px 9px 3px; }
+.nav-div { height: 1px; background: color-mix(in srgb, var(--side-ink) 26%, transparent); margin: 6px 8px; }
+.nav button { display: flex; align-items: center; gap: 11px; width: 100%; text-align: left; border: 0; background: none; cursor: pointer;
+  color: color-mix(in srgb, var(--side-ink) 92%, transparent); font-family: var(--sans); font-size: 13px; font-weight: 500; padding: 6px 11px; border-radius: 9px; transition: background .15s; }
+.nav button svg { width: 17px; height: 17px; flex: none; }
 .nav button span { flex: 1 1 auto; white-space: nowrap; line-height: 1.3; }
 .nav button:hover:not(.active) { background: color-mix(in srgb, var(--side-ink) 13%, transparent); }
 .nav button.active { background: var(--card); color: var(--side-active); font-weight: 800; box-shadow: 0 10px 30px rgba(7,43,122,.12); }
 .nav button:focus-visible, .logout:focus-visible { outline: 2px solid #ffeb2e; outline-offset: 2px; }
-.side-foot { margin: auto 14px 0; padding: 14px 0 18px; border-top: 1px solid color-mix(in srgb, var(--side-ink) 25%, transparent); display: flex; flex-direction: column; gap: 10px; font-size: 12px; color: color-mix(in srgb, var(--side-ink) 80%, transparent); }
-.logout { display: flex; align-items: center; gap: 14px; width: 100%; border: 0; background: none; cursor: pointer; color: color-mix(in srgb, var(--side-ink) 92%, transparent);
-  font-family: var(--sans); font-size: 15px; padding: 9px 12px; border-radius: 10px; }
-.logout svg { width: 18px; height: 18px; }
+.side-foot { margin: auto 14px 0; padding: 10px 0 12px; border-top: 1px solid color-mix(in srgb, var(--side-ink) 25%, transparent); display: flex; flex-direction: column; gap: 10px; font-size: 12px; color: color-mix(in srgb, var(--side-ink) 80%, transparent); }
+.logout { display: flex; align-items: center; gap: 11px; width: 100%; border: 0; background: none; cursor: pointer; color: color-mix(in srgb, var(--side-ink) 92%, transparent);
+  font-family: var(--sans); font-size: 13px; padding: 6px 11px; border-radius: 10px; }
+.logout svg { width: 17px; height: 17px; }
 .logout:hover { background: color-mix(in srgb, var(--side-ink) 13%, transparent); }
 .sync-btn { background: color-mix(in srgb, var(--side-ink) 14%, transparent); color: var(--side-ink); border-color: color-mix(in srgb, var(--side-ink) 35%, transparent); }
 .sync-note { color: color-mix(in srgb, var(--side-ink) 72%, transparent); }
@@ -737,3 +737,20 @@ html[data-theme="dark"] .renew-warn { border-color: #6b4a14; background: var(--w
 .coi-lt { font-weight: 800; color: var(--navy); margin-bottom: 8px; }
 .coi-preview { width: 100%; height: 1080px; border: 1px solid var(--line); border-radius: 10px; background: #f1f3f5; display: block; margin-top: 8px; }
 @media (max-width: 600px) { .coi-ins { flex-wrap: wrap; } .coi-ins .coi-name { flex: 1 1 calc(100% - 40px); } .coi-ins .coi-naic { flex: 1 1 90px; margin-left: 36px; } .coi-preview { height: 760px; } }
+
+/* Short screens (e.g. a 1366×768 laptop at 100% zoom): the whole menu still fits without scrolling. */
+@media (min-width: 901px) and (max-height: 860px) {
+  .side-brand { padding: 8px 18px 6px; }
+  .brand-logo { width: 92px; }
+  .side-for, .side-sub { font-size: 11px; margin-top: 2px; }
+  .nav-h { padding: 6px 9px 2px; font-size: 10px; }
+  .nav-div { margin: 3px 8px; }
+  .nav button { padding: 4px 11px; font-size: 12.5px; }
+  .nav button svg { width: 16px; height: 16px; }
+  .side-foot { padding: 6px 0 8px; gap: 6px; }
+}
+
+/* My Pay: a pay stub — one line per kind of pay, the total ruled off underneath */
+.tbl.paystub td { padding-top: 12px; padding-bottom: 12px; vertical-align: middle; }
+.tbl.paystub td.r { font-size: 15px; white-space: nowrap; }
+.paystub-total td { border-top: 2px solid var(--line, currentColor); font-size: 16px; }

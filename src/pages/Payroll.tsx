@@ -8,6 +8,7 @@ import { downloadSheet } from '../lib/excelExport'
 import { mdy, money2, shortDate, todayPacific } from '../lib/format'
 import { supabase } from '../lib/supabase'
 import { useAsync } from '../lib/useAsync'
+import { checkFor, folioFor, nextPay, stepPay } from '../lib/payday'
 import { workedMinutes } from './Licensing'
 
 /** Office payroll: what everyone in the office is owed on one payday, downloaded as one workbook, with the payroll
@@ -22,27 +23,6 @@ interface Punch { id: number; name: string; work_date: string; start_time: strin
 interface Comm { producer: string; totalPremium: number; policies: number; qualifies: boolean; tierRate: number; total: number }
 interface PayDoc extends Doc { created_at?: string }
 
-const pad = (n: number) => String(n).padStart(2, '0')
-const lastDay = (y: number, m: number) => new Date(Date.UTC(y, m, 0)).getUTCDate()
-/** What a payday covers: its hours period, and whether commission and SDR bonuses ride on it. */
-function checkFor(pay: string) {
-  const [y, m] = pay.split('-').map(Number)
-  if (pay.endsWith('-21')) return { pay, from: `${y}-${pad(m)}-01`, to: `${y}-${pad(m)}-15`, commission: true }
-  const py = m === 1 ? y - 1 : y, pm = m === 1 ? 12 : m - 1
-  return { pay, from: `${py}-${pad(pm)}-16`, to: `${py}-${pad(pm)}-${pad(lastDay(py, pm))}`, commission: false }
-}
-/** The next payday on or after a day. */
-function nextPay(day: string) {
-  const [y, m, d] = day.split('-').map(Number)
-  if (d <= 5) return `${y}-${pad(m)}-05`
-  if (d <= 21) return `${y}-${pad(m)}-21`
-  return m === 12 ? `${y + 1}-01-05` : `${y}-${pad(m + 1)}-05`
-}
-function stepPay(pay: string, dir: -1 | 1) {
-  const [y, m] = pay.split('-').map(Number)
-  if (pay.endsWith('-05')) return dir > 0 ? `${y}-${pad(m)}-21` : m === 1 ? `${y - 1}-12-21` : `${y}-${pad(m - 1)}-21`
-  return dir < 0 ? `${y}-${pad(m)}-05` : m === 12 ? `${y + 1}-01-05` : `${y}-${pad(m + 1)}-05`
-}
 const first = (n: string) => n.trim().split(/\s+/)[0].toLowerCase()
 const hm = (m: number) => `${Math.floor(m / 60)}h ${String(Math.round(m % 60)).padStart(2, '0')}m`
 
@@ -52,10 +32,7 @@ export default function Payroll() {
   const [pay, setPay] = useState(() => nextPay(todayPacific()))
   const check = checkFor(pay)
   const { folios } = useFolio()
-  // the 21st pays the folio that closed just before it (usually on the 20th; a folio closed more than a month
-  // earlier was paid on an earlier 21st)
-  const monthBack = (() => { const [y, m] = pay.split('-').map(Number); return m === 1 ? `${y - 1}-12-21` : `${y}-${pad(m - 1)}-21` })()
-  const folio = check.commission ? folios.filter((f) => f.end_date < pay && f.end_date >= monthBack).sort((a, b) => (a.end_date < b.end_date ? 1 : -1))[0] || null : null
+  const folio = folioFor(pay, folios)
   const periods = useAsync(getSdrPeriods, [])
   // SDR bonuses are paid on the 21st for the previous month's transfers
   const period = check.commission ? periods.data?.find((p) => p.pay_date === pay) : undefined
