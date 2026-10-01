@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../../auth'
+import ironwoodLogo from '../../assets/ironwood-logo.png'
 import { ErrorBox, Loading } from '../../components/ui'
 import { loadPerfData, saveGoals, type PerfData } from '../../lib/perf/data'
 import { useSyncStamp } from '../../lib/syncEvents'
@@ -25,6 +27,7 @@ export default function ExecutiveDashboard() {
 
 export function Dashboard({ D }: { D: PerfData }) {
   const go = useNavigate()
+  const { me } = useAuth()
   const root = useRef<HTMLDivElement>(null)
   const S = D.S || {}
   const [f, setF] = useState(saved || {
@@ -61,11 +64,14 @@ export function Dashboard({ D }: { D: PerfData }) {
   const drill = f.drill ? x.drills[f.drill] : null
   const onDrill = (id: string) => set('drill', f.drill === id ? null : id)
   const gPrem = goals.premium, gPol = goals.policies
+  // the agency's own logo at the top of its dashboard
+  const brand = /ironwood/i.test(me?.agency?.name || '') ? ironwoodLogo : null
   const nowLabel = today().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 
   return (
     <div ref={root} className={'xd' + (components ? ' dr-open' : '')} style={look.style} data-mode={look.dark ? 'dark' : 'light'}>
       <div className="pagehead">
+        {brand && <div className="xd-brand"><img src={brand} alt={me?.agency?.name || 'Agency logo'} /></div>}
         <div className="hd-titles">
           <p className="eyebrow">Performance</p>
           <p className="ptitle">Executive Dashboard</p>
