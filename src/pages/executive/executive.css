@@ -702,3 +702,9 @@
 @container xd (max-width:560px) {
   .xd .scgrid {grid-template-columns:minmax(0,1fr)!important}
 }
+
+/* The agency's logo at the top of its dashboard, on a white card so it reads in every look */
+.xd .xd-brand {flex:none;align-self:center;display:flex;align-items:center;background:#fff;border-radius:16px;padding:10px 20px;box-shadow:0 6px 18px rgba(16,24,40,.10)}
+.xd .xd-brand img {display:block;height:54px;width:auto}
+.xd .pagehead:has(.xd-brand) .hd-titles {margin-right:auto}
+@media (max-width: 760px) { .xd .xd-brand {padding:8px 14px;border-radius:12px} .xd .xd-brand img {height:34px} }
