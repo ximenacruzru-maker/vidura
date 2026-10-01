@@ -1,223 +1,148 @@
-import { Fragment, useEffect, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useAuth } from '../auth'
-import { FolioPicker, folioName, useFolio } from '../components/FolioPicker'
-import { Empty, ErrorBox, Loading, PageHead, Panel, Tabs, Tile, Tiles } from '../components/ui'
-import { agencyShort, getSdrPeriods, getSdrTransfers, type SdrPeriod } from '../lib/data'
-import { mdy, money0, money2, pct, shortDate } from '../lib/format'
-import { downloadSheet } from '../lib/excelExport'
+import { useFolio } from '../components/FolioPicker'
+import { Empty, ErrorBox, Loading, PageHead, Panel } from '../components/ui'
+import { getSdrPeriods, getSdrTransfers } from '../lib/data'
+import { mdy, money2, pct, shortDate, todayPacific } from '../lib/format'
+import { checkFor, folioFor, nextPay, stepPay } from '../lib/payday'
 import { supabase } from '../lib/supabase'
 import { useAsync } from '../lib/useAsync'
 import { useSyncStamp } from '../lib/syncEvents'
+import { workedMinutes } from './Licensing'
 
-/** My Pay: each person sees only their own commission and/or SDR bonus. The database only returns
- *  their own sales and transfers, and the commission calculator only returns their own row. */
-export default function MyPay() {
-  const { me } = useAuth()
-  const producer = me?.role === 'producer' || me?.role === 'protege'
-  const sdr = me?.role === 'sdr' || me?.role === 'va' // a VA may also take SDR transfers
-  const [tab, setTab] = useState<'comm' | 'sdr'>(sdr ? 'sdr' : 'comm')
-  const tabs = [...(producer ? [{ key: 'comm' as const, label: 'My commission' }] : []), ...(sdr || producer ? [{ key: 'sdr' as const, label: 'My SDR bonus' }] : [])]
-  return (
-    <>
-      <PageHead kicker="Workspace" title="My Pay" sub="Only you (and the agency admins) can see these numbers." />
-      {tabs.length > 1 && <Tabs tabs={tabs} value={tab} onChange={setTab} />}
-      {!producer && !sdr ? <Empty>Your role doesn’t earn commission or SDR bonuses. Ask an admin if that’s wrong.</Empty>
-        : tab === 'comm' && producer ? <MyCommission /> : <MySdrPay />}
-    </>
-  )
-}
+/** My Pay: your own pay on a payday, laid out like a pay stub — hours × your rate, plus on the 21st your commission
+ *  (producers) and SDR bonus — with the hours, policies and transfers behind each line. Only you (and the agency
+ *  admins) see it: the database returns only your own hours, sales and transfers, and the commission calculator
+ *  only your own line; where someone can see more (an admin, or whoever runs payroll), this page keeps to theirs. */
 
-interface Result {
-  producer: string
-  totalPremium: number
-  policies: number
-  life: number
-  qualifies: boolean
-  tierRate: number
+interface Staff { name: string; hourly: boolean; rate: number | null; active: boolean; left_on: string | null }
+interface Punch { id: number; name: string; work_date: string; start_time: string | null; end_time: string | null; breaks: [string, string][]; edited: boolean }
+interface Comm {
+  producer: string; totalPremium: number; policies: number; qualifies: boolean; tierRate: number; total: number
   buckets: Record<string, { key: string; label: string; premium: number; commission: number; rate: number }>
   bonuses: Record<string, number>
-  total: number
   rows: { client: string; carrier: string; line: string; premium: number; sale_date: string; bucket: string }[]
 }
-interface Resp {
-  folio: { start_date: string; end: string; in_progress: boolean }
-  plan: { name: string; summary: string; buckets: { key: string; label: string }[] }
-  scope: 'all' | 'self'
-  results: Result[]
-}
+const hm = (m: number) => `${Math.floor(m / 60)}h ${String(Math.round(m % 60)).padStart(2, '0')}m`
 
-export function MyCommission() {
+export default function MyPay() {
   const { me } = useAuth()
-  const { folio } = useFolio()
-  const [open, setOpen] = useState<string | null>('__all')
-  const synced = useSyncStamp() // reload when an AgencyZoom sync finishes
-  const { data, error, loading } = useAsync(async () => {
-    if (!folio) return null
+  const names = useMemo(() => new Set([me?.display_name, me?.producer_name].filter(Boolean).flatMap((n) => [n!.trim().toLowerCase(), n!.trim().split(/\s+/)[0].toLowerCase()])), [me])
+  const mine = (n: string | null | undefined) => !!n && names.has(n.trim().toLowerCase())
+  const [pay, setPay] = useState(() => nextPay(todayPacific()))
+  const check = checkFor(pay)
+  const { folios } = useFolio()
+  const folio = folioFor(pay, folios)
+  const synced = useSyncStamp()
+  const earnsCommission = ['producer', 'protege', 'admin'].includes(me?.role || '')
+
+  const hours = useAsync(async () => {
+    const staff = await supabase.from('hr_staff').select('name, hourly, rate, active, left_on').then((r) => { if (r.error) throw r.error; return r.data as Staff[] })
+    const row = staff.find((s) => names.has(s.name.trim().toLowerCase())) || null
+    if (!row) return { row, punches: [] as Punch[] }
+    const { data, error } = await supabase.from('hr_punches').select('*').eq('name', row.name).gte('work_date', check.from).lte('work_date', check.to).order('work_date')
+    if (error) throw error
+    return { row, punches: data as Punch[] }
+  }, [check.from, check.to, names])
+  const comm = useAsync(async () => {
+    if (!folio || !earnsCommission) return null
     const { data, error } = await supabase.functions.invoke('commissions', { body: { folio: folio.start_date } })
     if (error) {
       const msg = await (error as any).context?.json?.().then((j: any) => j.error).catch(() => null)
       throw new Error(msg || error.message)
     }
-    return data as Resp
-  }, [folio?.start_date, synced])
+    return { mine: ((data.results || []) as Comm[]).find((r) => mine(r.producer)) || null, plan: data.plan as { name: string; buckets: { key: string; label: string }[] } }
+  }, [folio?.start_date, earnsCommission, synced])
+  const periods = useAsync(getSdrPeriods, [])
+  const period = check.commission ? periods.data?.find((p) => p.pay_date === pay) : undefined
+  const sdr = useAsync(async () => (period ? (await getSdrTransfers(period.month)).filter((t) => mine(t.sdr)) : []), [period?.month, names])
 
-  const admin = false
-  void me
-  const title = 'My commission'
-  if (error) return <><Panel title={title} right={<FolioPicker />}><span /></Panel><ErrorBox error={error} /></>
-  if (!data || (loading && !data)) return <><Panel title={title} right={<FolioPicker />}><span /></Panel><Loading what="Calculating" /></>
+  const row = hours.data?.row
+  const mins = (hours.data?.punches || []).reduce((a, p) => a + workedMinutes(p), 0)
+  const hourlyPay = row?.hourly && row.rate ? Math.round((mins / 60) * row.rate * 100) / 100 : 0
+  const c = comm.data?.mine
+  const qb = Number(period?.qualified_transfer_bonus) || 0, bb = Number(period?.bound_policy_bonus) || 0
+  const qualified = (sdr.data || []).filter((t) => t.az_qualifies).length, bound = (sdr.data || []).filter((t) => t.bound).length
+  const bonus = qualified * qb + bound * bb
+  const total = hourlyPay + (c?.total || 0) + bonus
 
-  const { plan, results } = data
-  const totalComm = results.reduce((s, r) => s + r.total, 0)
-  const bucketKeys = plan.buckets.map((b) => b.key)
-
-  const exportCsv = () => downloadSheet(`${agencyShort(me).replace(/[^A-Za-z0-9]+/g, '_')}_Commissions_${folio?.start_date}.xlsx`, [
-    ['Producer', 'Total premium', 'Policies', 'Life (weighted)', 'Qualifies', 'Tier rate',
-      ...plan.buckets.flatMap((b) => [`${b.label} premium`, `${b.label} commission`]), 'Bonuses', 'Total commission'],
-    ...results.map((r) => [r.producer, r.totalPremium.toFixed(2), r.policies, r.life, r.qualifies ? 'Yes' : 'No', pct(r.tierRate),
-      ...bucketKeys.flatMap((k) => [r.buckets[k]?.premium.toFixed(2) || '0.00', r.buckets[k]?.commission.toFixed(2) || '0.00']),
-      Object.values(r.bonuses || {}).reduce((a, b) => a + b, 0).toFixed(2), r.total.toFixed(2)]),
-    [],
-    ['Policy detail'],
-    ['Producer', 'Sold', 'Customer', 'Line', 'Carrier', 'Bucket', 'Premium'],
-    ...results.flatMap((r) => r.rows.map((x) => [r.producer, mdy(x.sale_date), x.client, x.line, x.carrier, x.bucket, x.premium.toFixed(2)])),
-  ], { sheet: 'Commissions' })
+  const err = hours.error || comm.error || periods.error || sdr.error
+  const loading = !hours.data || (check.commission && earnsCommission && folio && comm.loading && !comm.data)
+  const lines: { label: string; detail: string; amount: number }[] = []
+  if (row?.hourly) lines.push({ label: 'Hourly pay', detail: `${hm(mins)} × ${row.rate != null ? money2(row.rate) + '/hr' : 'no rate set'} · ${shortDate(check.from)} – ${shortDate(check.to, true)}`, amount: hourlyPay })
+  if (check.commission && earnsCommission && (c || folio)) lines.push({ label: 'Commission', detail: folio ? `Folio ${shortDate(folio.start_date)} – ${shortDate(folio.end_date, true)}${c ? ` · ${c.policies} policies · ${c.qualifies ? 'qualified' : 'not qualified'} · tier ${pct(c.tierRate)}` : ' · no sales credited to you'}` : 'Folio not set up yet', amount: c?.total || 0 })
+  if (check.commission && (sdr.data?.length || me?.role === 'sdr' || me?.role === 'va')) lines.push({ label: 'SDR bonus', detail: period ? `${period.period_label} transfers · ${qualified} qualified × $${qb} + ${bound} bound × $${bb}` : 'No SDR month for this payday', amount: bonus })
 
   return (
     <>
-      <div className="filters" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <div className="sub">{folio ? folioName(folio) + (folio.in_progress ? ' · running total, not final until the folio closes' : '') : ''}</div>
-        <FolioPicker />
-      </div>
-      {results[0] && (
-        <Tiles>
-          <Tile label="My commission" value={money2(results[0].total)} sub={folio?.in_progress ? 'running total this folio' : 'for this folio'} tone={results[0].qualifies ? 'good' : undefined} />
-          <Tile label="Premium credited to me" value={money0(results[0].totalPremium)} sub={`${results[0].policies} policies · ${results[0].life} life`} />
-          <Tile label="Qualified" value={results[0].qualifies ? 'Yes' : 'Not yet'} sub={`tier rate ${pct(results[0].tierRate)}`} />
-        </Tiles>
+      <PageHead kicker="Workspace" title="My Pay" sub="Your pay on each payday. Only you and the agency admins can see these numbers." />
+      <Panel title={`Payday ${mdy(pay)}`} sub={check.commission ? 'The 21st pays hours for the 1st–15th, plus commission and SDR bonuses.' : 'The 5th pays hours for the 16th to the end of last month. Commission and SDR bonuses are paid on the 21st.'}
+        right={<div className="filters">
+          <button className="btn-ghost" onClick={() => setPay(stepPay(pay, -1))} aria-label="Previous payday">‹ {shortDate(stepPay(pay, -1))}</button>
+          <button className="btn-ghost" onClick={() => setPay(stepPay(pay, 1))} aria-label="Next payday">{shortDate(stepPay(pay, 1))} ›</button>
+        </div>}>
+        {err ? <ErrorBox error={err} /> : loading ? <Loading what="Adding up your pay" /> : lines.length ? (
+          <table className="tbl paystub">
+            <tbody>
+              {lines.map((l) => (
+                <tr key={l.label}><td><div className="strong">{l.label}</div><div className="sub">{l.detail}</div></td><td className="r mono">{money2(l.amount)}</td></tr>
+              ))}
+              <tr className="paystub-total"><td className="strong">Total {pay > todayPacific() ? 'so far' : ''}</td><td className="r mono strong">{money2(total)}</td></tr>
+            </tbody>
+          </table>
+        ) : <Empty>Nothing to show for this payday. If you think that’s wrong, ask an admin to check your pay setup under HR.</Empty>}
+        {!err && !loading && pay > todayPacific() && lines.length > 0 && <div className="sub" style={{ marginTop: 8 }}>This payday hasn’t happened yet: the figures grow as hours, sales and transfers come in.</div>}
+      </Panel>
+
+      {row?.hourly && (hours.data?.punches.length || 0) > 0 && (
+        <Panel title="My hours" sub={`${shortDate(check.from)} – ${shortDate(check.to, true)} · ${hm(mins)} worked`}>
+          <table className="tbl">
+            <thead><tr><th>Date</th><th>In</th><th>Out</th><th>Breaks</th><th className="r">Worked</th></tr></thead>
+            <tbody>{hours.data!.punches.map((p) => (
+              <tr key={p.id}><td>{mdy(p.work_date)}</td><td>{p.start_time}</td><td>{p.end_time}</td><td className="sub">{(p.breaks || []).map((b) => b.join('–')).join(', ')}</td><td className="r">{hm(workedMinutes(p))}</td></tr>
+            ))}</tbody>
+          </table>
+        </Panel>
       )}
-      {admin && (
-        <Tiles>
-          <Tile label="Total commission" value={money0(totalComm)} sub={`${results.filter((r) => r.qualifies).length} of ${results.length} producers qualify`} />
-          <Tile label="Premium written" value={money0(results.reduce((s, r) => s + r.totalPremium, 0))} sub={`${results.reduce((s, r) => s + r.policies, 0)} policies`} />
-        </Tiles>
+
+      {check.commission && c && comm.data && (
+        <Panel title="My commission" sub={`${comm.data.plan.name} · ${c.policies} policies · ${money2(c.totalPremium)} premium credited to you`}>
+          <table className="tbl">
+            <thead><tr><th>Bucket</th><th className="r">Premium</th><th className="r">Rate</th><th className="r">Commission</th></tr></thead>
+            <tbody>
+              {comm.data.plan.buckets.map((b) => { const x = c.buckets[b.key]; return x && x.premium ? (
+                <tr key={b.key}><td>{b.label}</td><td className="r mono">{money2(x.premium)}</td><td className="r">{pct(x.rate)}</td><td className="r mono">{money2(x.commission)}</td></tr>) : null })}
+              {Object.entries(c.bonuses || {}).filter(([, v]) => v).map(([k, v]) => <tr key={k}><td>{k}</td><td /><td /><td className="r mono">{money2(v)}</td></tr>)}
+              <tr className="paystub-total"><td className="strong">Commission</td><td /><td /><td className="r mono strong">{money2(c.total)}</td></tr>
+            </tbody>
+          </table>
+          <details className="plan" style={{ marginTop: 10 }}>
+            <summary className="strong" style={{ cursor: 'pointer' }}>The {c.rows.length} policies behind it</summary>
+            <table className="tbl inner">
+              <thead><tr><th>Sold</th><th>Customer</th><th>Line</th><th>Carrier</th><th>Bucket</th><th className="r">Premium</th></tr></thead>
+              <tbody>{c.rows.map((x, i) => (
+                <tr key={i}><td className="mono">{shortDate(x.sale_date)}</td><td>{x.client}</td><td>{x.line}</td><td>{x.carrier}</td><td>{x.bucket}</td><td className="r mono">{money2(x.premium)}</td></tr>
+              ))}</tbody>
+            </table>
+          </details>
+        </Panel>
       )}
-      <Panel title={plan.name} sub={plan.summary} right={<button className="btn-ghost" onClick={exportCsv} disabled={!results.length}>Download Excel</button>}>
-        {results.length ? (
+
+      {check.commission && (sdr.data?.length || 0) > 0 && (
+        <Panel title="My SDR transfers" sub={`${period?.period_label} · ${qualified} qualified · ${bound} bound · a transfer qualifies once AgencyZoom shows a real quote`}>
           <div className="tbl-wrap">
             <table className="tbl">
-              <thead>
-                <tr><th>Producer</th><th className="r">Premium</th><th className="r">Policies</th><th className="r">Life</th><th>Qualifies</th><th className="r">Tier</th>
-                  {plan.buckets.map((b) => <th key={b.key} className="r">{b.label}</th>)}<th className="r">Bonus</th><th className="r">Commission</th></tr>
-              </thead>
-              <tbody>
-                {results.map((r) => (
-                  <Fragment key={r.producer}>
-                    <tr className="clickable" onClick={() => setOpen((open === r.producer || open === '__all') ? null : r.producer)}>
-                      <td className="strong">{(open === r.producer || open === '__all') ? '▾ ' : '▸ '}{r.producer}</td>
-                      <td className="r mono">{money0(r.totalPremium)}</td>
-                      <td className="r">{r.policies}</td>
-                      <td className="r">{r.life}</td>
-                      <td><span className={'pill ' + (r.qualifies ? 'pill-good' : 'pill-muted')}>{r.qualifies ? 'Yes' : 'Not yet'}</span></td>
-                      <td className="r">{pct(r.tierRate)}</td>
-                      {bucketKeys.map((k) => <td key={k} className="r mono">{money0(r.buckets[k]?.commission || 0)}</td>)}
-                      <td className="r mono">{money0(Object.values(r.bonuses || {}).reduce((a, b) => a + b, 0))}</td>
-                      <td className="r mono strong">{money2(r.total)}</td>
-                    </tr>
-                    {(open === r.producer || open === '__all') && (
-                      <tr className="detail"><td colSpan={8 + bucketKeys.length}>
-                        <table className="tbl inner">
-                          <thead><tr><th>Sold</th><th>Customer</th><th>Line</th><th>Carrier</th><th>Bucket</th><th className="r">Premium</th></tr></thead>
-                          <tbody>{r.rows.map((x, i) => (
-                            <tr key={i}><td className="mono">{shortDate(x.sale_date)}</td><td>{x.client}</td><td>{x.line}</td><td>{x.carrier}</td><td>{x.bucket}</td><td className="r mono">{money2(x.premium)}</td></tr>
-                          ))}</tbody>
-                        </table>
-                      </td></tr>
-                    )}
-                  </Fragment>
-                ))}
-              </tbody>
+              <thead><tr><th>Transferred</th><th>Client</th><th>Producer</th><th>Status</th><th className="r">Quoted</th><th>Qualifies</th><th>Bound</th></tr></thead>
+              <tbody>{sdr.data!.map((t) => (
+                <tr key={t.lead_id}><td>{mdy(String(t.date_time).slice(0, 10))}</td><td>{t.client}</td><td>{t.producer}</td><td>{t.status}</td>
+                  <td className="r mono">{t.az_quote_premium ? money2(t.az_quote_premium) : '—'}</td>
+                  <td><span className={'pill ' + (t.az_qualifies ? 'pill-good' : 'pill-muted')}>{t.az_qualifies ? 'Yes' : 'Not yet'}</span></td>
+                  <td>{t.bound ? <span className="pill pill-good">Bound</span> : ''}</td></tr>
+              ))}</tbody>
             </table>
           </div>
-        ) : <Empty>{data.scope === 'self' ? 'No sales credited to you in this folio yet.' : 'No sales in this folio yet.'}</Empty>}
-      </Panel>
-    </>
-  )
-}
-
-export function MySdrPay() {
-  const { me } = useAuth()
-  // My Pay is only ever your own: someone who also runs payroll can read every SDR's transfers, so keep yours (SDR
-  // tags carry first names) and the months staff see (from September 2026, as the database allows staff)
-  const names = new Set([me?.display_name, me?.producer_name].filter(Boolean).flatMap((n) => [n!.toLowerCase(), n!.split(' ')[0].toLowerCase()]))
-  const all = useAsync(getSdrPeriods, [])
-  const periods = { ...all, data: all.data?.filter((p) => p.month >= '2026-09') }
-  const [month, setMonth] = useState('')
-  useEffect(() => {
-    if (!month && periods.data?.length) setMonth((periods.data.find((p) => !p.closed) || periods.data[0]).month)
-  }, [periods.data])
-  const period: SdrPeriod | undefined = periods.data?.find((p) => p.month === month)
-  const transfers = useAsync(async () => (month ? (await getSdrTransfers(month)).filter((t) => names.has(String(t.sdr).toLowerCase())) : []), [month])
-
-  const picker = (
-    <label className="picker">Month
-      <select value={month} onChange={(e) => setMonth(e.target.value)}>
-        {(periods.data || []).map((p) => <option key={p.month} value={p.month}>{p.period_label}{p.closed ? ' (paid)' : ''}</option>)}
-      </select>
-    </label>
-  )
-  if (periods.error || transfers.error) return <><div className="filters" style={{ marginBottom: 12 }}>{picker}</div><ErrorBox error={periods.error || transfers.error} /></>
-  if (!period || !transfers.data) return <><div className="filters" style={{ marginBottom: 12 }}>{picker}</div><Loading /></>
-
-  const qb = Number(period.qualified_transfer_bonus) || 0, bb = Number(period.bound_policy_bonus) || 0
-  const rows = transfers.data
-  const bySdr = new Map<string, { logged: number; qualified: number; bound: number }>()
-  rows.forEach((t) => {
-    const o = bySdr.get(t.sdr) || { logged: 0, qualified: 0, bound: 0 }
-    o.logged++; if (t.az_qualifies) o.qualified++; if (t.bound) o.bound++
-    bySdr.set(t.sdr, o)
-  })
-
-  return (
-    <>
-      <div className="filters" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <div className="sub">{`${period.period_label} transfers · paid ${shortDate(period.pay_date, true)} · $${qb} per qualified transfer, $${bb} per bound policy`}</div>
-        {picker}
-      </div>
-      <Tiles>
-        {[...bySdr.entries()].map(([sdr, o]) => (
-          <Tile key={sdr} label={sdr} value={money0(o.qualified * qb + o.bound * bb)}
-            sub={`${o.qualified} qualified · ${o.bound} bound · ${o.logged} logged`} tone={period.closed ? undefined : 'good'} />
-        ))}
-      </Tiles>
-      <Panel title={`${rows.length} transfers`}
-        sub="A transfer qualifies once AgencyZoom shows a real quote on the tagged lead. Updated every hour."
-        right={<button className="btn-ghost" disabled={!rows.length} onClick={() => downloadSheet(`SDR_${month}.xlsx`, [
-          ['SDR', 'Transferred', 'Client', 'Producer', 'Source', 'Status', 'Quote premium', 'Qualifies', 'Bound', 'Bonus'],
-          ...rows.map((t) => [t.sdr, mdy(String(t.date_time).slice(0, 10)), t.client, t.producer, t.lead_source, t.status,
-            t.az_quote_premium.toFixed(2), t.az_qualifies ? 'Yes' : 'No', t.bound ? 'Yes' : 'No', ((t.az_qualifies ? qb : 0) + (t.bound ? bb : 0)).toFixed(2)]),
-        ], { sheet: 'SDR transfers' })}>Download Excel</button>}>
-        {rows.length ? (
-          <div className="tbl-wrap">
-            <table className="tbl">
-              <thead><tr><th>SDR</th><th>Transferred</th><th>Client</th><th>Producer</th><th>Status</th><th className="r">Quoted</th><th>Qualifies</th><th>Bound</th></tr></thead>
-              <tbody>
-                {rows.map((t) => (
-                  <tr key={t.lead_id}>
-                    <td className="strong">{t.sdr}</td>
-                    <td className="mono">{shortDate(String(t.date_time).slice(0, 10))}</td>
-                    <td>{t.url ? <a href={t.url} target="_blank" rel="noreferrer">{t.client}</a> : t.client}</td>
-                    <td>{t.producer}</td><td>{t.status}</td>
-                    <td className="r mono">{t.az_quote_premium ? money0(t.az_quote_premium) : '—'}</td>
-                    <td><span className={'pill ' + (t.az_qualifies ? 'pill-good' : 'pill-muted')}>{t.az_qualifies ? 'Yes' : 'No'}</span></td>
-                    <td>{t.bound ? <span className="pill pill-good">Bound</span> : ''}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : <Empty>No transfers credited to you for this month yet.</Empty>}
-      </Panel>
+        </Panel>
+      )}
     </>
   )
 }
