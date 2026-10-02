@@ -19,6 +19,7 @@ const Licensing = lazy(() => import('./pages/Licensing'))
 const Payroll = lazy(() => import('./pages/Payroll'))
 const Training = lazy(() => import('./pages/Training'))
 const MyPay = lazy(() => import('./pages/MyPay'))
+const MyCommissions = lazy(() => import('./pages/MyCommissions'))
 const ExecutiveDashboard = lazy(() => import('./pages/executive/ExecutiveDashboard'))
 const Foresight = lazy(() => import('./pages/foresight/Foresight'))
 const Agencies = lazy(() => import('./pages/Agencies'))
@@ -63,6 +64,7 @@ function Gate() {
           <Route path="/team" element={<Navigate to="/settings" replace />} />
           <Route path="/password" element={<ChangePassword />} />
           <Route path="/pay" element={<MyPay />} />
+          <Route path="/my-commissions" element={<MyCommissions />} />
           <Route path="/today" element={<MySpace />} />
           {can(me, 'books') && <Route path="/books/:book" element={<Books />} />}
           {can(me, 'books') && <Route path="/books" element={<Navigate to="/books/farmers" replace />} />}

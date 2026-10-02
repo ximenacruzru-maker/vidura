@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../auth'
 import { useFolio } from '../components/FolioPicker'
 import { Empty, ErrorBox, Loading, PageHead, Panel } from '../components/ui'
@@ -129,7 +130,7 @@ export default function MyPay() {
       )}
 
       {check.commission && (sdr.data?.length || 0) > 0 && (
-        <Panel title="My SDR transfers" sub={`${period?.period_label} · ${qualified} qualified · ${bound} bound · a transfer qualifies once AgencyZoom shows a real quote`}>
+        <Panel title="My SDR transfers" sub={<>{period?.period_label} · {qualified} qualified · {bound} bound · how this month is going is on <Link to="/my-commissions">My Commissions</Link></>}>
           <div className="tbl-wrap">
             <table className="tbl">
               <thead><tr><th>Transferred</th><th>Client</th><th>Producer</th><th>Status</th><th className="r">Quoted</th><th>Qualifies</th><th>Bound</th></tr></thead>
