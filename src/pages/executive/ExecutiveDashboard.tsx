@@ -5,7 +5,7 @@ import ironwoodLogo from '../../assets/ironwood-logo.png'
 import { ErrorBox, Loading } from '../../components/ui'
 import { loadPerfData, saveGoals, type PerfData } from '../../lib/perf/data'
 import { useSyncStamp } from '../../lib/syncEvents'
-import { computeExecutive, execProduction, execRows, isFarmersCarrier, money0, today, type Book, type Client, type Drill, type Filters, type Row } from '../../lib/perf/executive'
+import { computeExecutive, execProduction, folioOptions, execRows, isFarmersCarrier, money0, today, type Book, type Client, type Drill, type Filters, type Row } from '../../lib/perf/executive'
 import { useAsync } from '../../lib/useAsync'
 import { Bars, DayChart, Donut, ICO, Meter, RenewalChart, ScoreCard } from './parts'
 import { useDarkFix, useFitFigures, useLegacyLook } from './look'
@@ -31,7 +31,7 @@ export function Dashboard({ D }: { D: PerfData }) {
   const root = useRef<HTMLDivElement>(null)
   const S = D.S || {}
   const [f, setF] = useState(saved || {
-    period: S.exPeriod || '365', book: S.exBook || 'all', line: S.exLine || 'all',
+    period: 'folio', book: S.exBook || 'all', line: S.exLine || 'all',
     customStart: S.exCustomStart || '', customEnd: S.exCustomEnd || '', prod: S.exProd || 'folio', prodFrom: '', prodTo: '',
     chart: S.exChart || 'count', goals: !!S.exGoals, drill: S.exDrill || null,
   })
@@ -50,6 +50,7 @@ export function Dashboard({ D }: { D: PerfData }) {
   }
 
   const rows = useMemo(() => execRows(D), [D])
+  const folios = useMemo(() => folioOptions(D), [D])
   const x = useMemo(() => computeExecutive(D, rows, f), [D, rows, f, goals])
   const look = useLegacyLook(D)
   const [components, setComponents] = useState(false)
@@ -84,7 +85,9 @@ export function Dashboard({ D }: { D: PerfData }) {
         <div className="fbar">
           <div className="fb-g"><label className="fl">Period</label>
             <select className="f" value={f.period} onChange={(e) => set('period', e.target.value)}>
-              {Object.entries(D.PERIODS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+              <option value="folio">Current folio</option>
+              {folios.length > 0 && <optgroup label="Other folios">{folios.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}</optgroup>}
+              <optgroup label="Renewals ahead">{Object.entries(D.PERIODS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</optgroup>
               <option value="custom">Custom range</option>
             </select></div>
           {f.period === 'custom' && <>
@@ -287,6 +290,8 @@ function Production({ D, win, setWin, range, setRange, goals }: {
   D: PerfData; win: string; setWin: (v: string) => void; range: { from: string; to: string }; setRange: (r: { from: string; to: string }) => void; goals: PerfData['GOALS']
 }) {
   const P = execProduction(D, win, range)
+  // past folios only: the next folio has no sales yet
+  const folios = useMemo(() => folioOptions(D).filter((o) => D.WB_DATA.folio[o.key.slice(2)]), [D])
   const conv = P.quotes && P.quotes >= P.sales.length ? (P.sales.length / P.quotes) * 100 : null
   const farmers = P.sales.filter((s) => isFarmersCarrier(s.carrier) || isFarmersCarrier(s.source)).reduce((a, s) => a + (s.premium || 0), 0)
   const other = P.prem - farmers, fShare = P.prem ? (farmers / P.prem) * 100 : 0
@@ -304,7 +309,9 @@ function Production({ D, win, setWin, range, setRange, goals }: {
           <div className="panel-s">What was written in the window &middot; {P.days} day{P.days === 1 ? '' : 's'} with sales on the ledger{P.official ? <> &middot; AgencyZoom official {money0(P.official)} (last pull {rep.generatedAt || ''})</> : ''}</div></div>
         <div className="fbar" style={{ margin: 0 }}>
           <div className="fb-g"><label className="fl">Window</label>
-            <select className="f" value={win} onChange={(e) => setWin(e.target.value)}>{D.EXEC_PROD_WINDOWS.map((w) => <option key={w[0]} value={w[0]}>{w[1]}</option>)}<option value="custom">Custom range</option></select></div>
+            <select className="f" value={win} onChange={(e) => setWin(e.target.value)}>{D.EXEC_PROD_WINDOWS.map((w) => <option key={w[0]} value={w[0]}>{w[1]}</option>)}
+              {folios.length > 0 && <optgroup label="Other folios">{folios.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}</optgroup>}
+              <option value="custom">Custom range</option></select></div>
           {win === 'custom' && <>
             <div className="fb-g"><label className="fl">From</label><input type="date" className="f" value={range.from} onChange={(e) => setRange({ ...range, from: e.target.value })} /></div>
             <div className="fb-g"><label className="fl">To</label><input type="date" className="f" value={range.to} onChange={(e) => setRange({ ...range, to: e.target.value })} /></div>

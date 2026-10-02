@@ -708,3 +708,8 @@
 .xd .xd-brand img {display:block;height:54px;width:auto}
 .xd .pagehead:has(.xd-brand) .hd-titles {margin-right:auto}
 @media (max-width: 760px) { .xd .xd-brand {padding:8px 14px;border-radius:12px} .xd .xd-brand img {height:34px} }
+/* long folio names in the period pickers must not push the filters past a phone's edge */
+.xd .fb-g {max-width:100%;min-width:0}
+.xd .fbar select.f {min-width:0;max-width:100%;text-overflow:ellipsis}
+.xd .panel-h > .fbar {min-width:0;max-width:100%}
+.xd .panel-h > div {min-width:0}
