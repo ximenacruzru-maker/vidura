@@ -1,4 +1,4 @@
-// Staff-triggered "force refresh" of AgencyZoom data. Limited to 3 per rolling 24 hours per agency
+// Staff-triggered "force refresh" of AgencyZoom data. Limited to 3 per rolling 12 hours per agency
 // (enforced in the database by claim_force_refresh). Starts the same sync the hourly schedule runs and
 // returns right away; the app watches sync_log for the finish.
 // Only the agency the sync is set up for (agencies.agencyzoom_sync) can start it.
