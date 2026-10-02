@@ -120,7 +120,7 @@ export function Dashboard({ D }: { D: PerfData }) {
         <div className="fcrumb">{f.book === 'all' ? 'All Books' : D.BOOK_NAME[f.book]} &middot; {f.line === 'all' ? 'All Lines' : f.line} &middot; {x.periodLabel}</div>
         <Production D={D} win={f.prod} setWin={(v) => set('prod', v)} range={{ from: f.prodFrom || '', to: f.prodTo || '' }}
           setRange={(r) => setF((x) => ({ ...x, prodFrom: r.from, prodTo: r.to }))} goals={goals} />
-        {me?.role === 'owner' && <FarmersRevenue D={D} rows={rows} win={f.prod} range={{ from: f.prodFrom || '', to: f.prodTo || '' }} />}
+        {me?.role === 'owner' && <FarmersRevenue D={D} />}
         <VsLastYear />
 
         <div className="scg" style={{ gridTemplateColumns: 'repeat(6, minmax(0, 1fr))' }}>
@@ -353,43 +353,17 @@ function Production({ D, win, setWin, range, setRange, goals }: {
 }
 
 /* ---------- Farmers revenue (owner only) ---------- */
-function FarmersRevenue({ D, rows, win, range }: { D: PerfData; rows: Row[]; win: string; range: { from: string; to: string } }) {
-  const R = useMemo(() => farmersRevenue(D, rows, win, range), [D, rows, win, range.from, range.to])
-  const pctTxt = (r: number | null) => (r == null ? '—' : Math.round(r * 100) + '%')
-  const table = (t: typeof R.written, empty: string) => t.lines.some((l) => l.n) ? (
-    <table className="drill fr-tbl"><thead><tr><th>Line</th><th className="tc">Rate</th><th className="tc">Policies</th><th className="tr">Premium</th><th className="tr">Revenue</th></tr></thead>
-      <tbody>{t.lines.filter((l) => l.n).map((l) => (
-        <tr key={l.key}><td>{l.label}</td><td className="tc">{pctTxt(l.rate)}</td><td className="tc">{l.n}</td><td className="tr">{money0(l.premium)}</td><td className="tr"><b>{l.rate ? money0(l.revenue) : '—'}</b></td></tr>))}
-        <tr className="fr-total"><td><b>Total</b></td><td /><td className="tc">{t.lines.reduce((a, l) => a + l.n, 0)}</td><td className="tr">{money0(t.premium)}</td><td className="tr"><b>{money0(t.revenue)}</b></td></tr>
-      </tbody></table>) : <div className="empty">{empty}</div>
+function FarmersRevenue({ D }: { D: PerfData }) {
+  const R = useMemo(() => farmersRevenue(D), [D])
+  const us = (iso: string) => iso.slice(5, 7) + '/' + iso.slice(8, 10) + '/' + iso.slice(0, 4)
+  const lines = R.lines.filter((l) => l.rate && l.revenue).map((l) => l.label + ' ' + money0(l.revenue)).join(' · ')
   return (
-    <div className="panel" style={{ marginBottom: 16 }}>
-      <div className="panel-h"><div><div className="panel-t">Farmers revenue</div>
-        <div className="panel-s">What Farmers pays the agency: auto 9% · home 12% · business 15% · umbrella 7% · life 50% · only you see this</div></div></div>
-      <div className="panel-b">
-        <div className="scg" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
-          <ScoreCard icon={ICO.coin} iconClass="i-green" label="Revenue on new business" value={R.written.revenue} display={money0(R.written.revenue)}
-            goalLine={money0(R.written.premium) + ' Farmers premium written'} pct={R.written.premium ? Math.min(100, (R.written.revenue / R.written.premium) * 100) : null} tone="good"
-            delta={{ tone: 'flat', arrow: '', value: R.written.premium ? ((R.written.revenue / R.written.premium) * 100).toFixed(1) + '%' : '' }} goalNote={R.label} />
-          <ScoreCard icon={ICO.shield} iconClass="i-blue" label="Revenue on the book, a year" value={R.book.revenue} display={money0(R.book.revenue)}
-            goalLine={money0(R.book.premium) + ' Farmers premium in force'} pct={R.book.premium ? Math.min(100, (R.book.revenue / R.book.premium) * 100) : null} tone="good"
-            delta={{ tone: 'flat', arrow: '', value: R.book.premium ? ((R.book.revenue / R.book.premium) * 100).toFixed(1) + '%' : '' }} goalNote="of premium" />
-          <ScoreCard icon={ICO.cal} iconClass="i-amber" label="Book revenue, a month" value={R.book.revenue / 12} display={money0(R.book.revenue / 12)}
-            goalLine={R.book.lines.reduce((a, l) => a + l.n, 0) + ' Farmers policies in force'} pct={null} tone="good"
-            delta={{ tone: 'flat', arrow: '', value: 'avg' }} goalNote="a year’s revenue ÷ 12" />
-          {(() => { const top = [...R.written.lines].filter((l) => l.rate).sort((a, b) => b.revenue - a.revenue)[0]; return (
-            <ScoreCard icon={ICO.trend} iconClass="i-blue" label="Top line, new business" value={top?.revenue || 0} display={top && top.revenue ? top.label : '—'}
-              goalLine={top && top.revenue ? money0(top.revenue) + ' at ' + Math.round((top.rate || 0) * 100) + '%' : 'no Farmers sales yet'}
-              pct={top && R.written.revenue ? Math.min(100, (top.revenue / R.written.revenue) * 100) : null} tone="good"
-              delta={{ tone: 'flat', arrow: '', value: top && R.written.revenue ? Math.round((top.revenue / R.written.revenue) * 100) + '%' : '' }} goalNote="of new revenue" />) })()}
-        </div>
-        <div className="p2" style={{ marginTop: 14 }}>
-          <div className="panel"><div className="panel-h"><div><div className="panel-t">New business</div><div className="panel-s">{R.label} · follows the Production window</div></div></div>
-            <div className="panel-b">{table(R.written, 'No Farmers business written in this window.')}</div></div>
-          <div className="panel"><div className="panel-h"><div><div className="panel-t">Book in force</div><div className="panel-s">Farmers policies not expired or cancelled · a year’s premium</div></div></div>
-            <div className="panel-b">{table(R.book, 'No Farmers policies in force.')}</div></div>
-        </div>
-      </div>
+    <div className="scg fr-one">
+      <ScoreCard icon={ICO.coin} iconClass="i-green" label={'Farmers revenue ' + us(R.start) + ' – ' + us(R.end)} value={R.revenue} display={money0(R.revenue)}
+        goalLine={money0(R.premium) + ' new Farmers premium · ' + R.lines.reduce((a, l) => a + l.n, 0) + ' policies (AgencyZoom)'}
+        pct={R.premium ? Math.min(100, (R.revenue / R.premium) * 100) : null} tone="good"
+        delta={{ tone: 'flat', arrow: '', value: R.premium ? ((R.revenue / R.premium) * 100).toFixed(1) + '%' : '' }}
+        goalNote={lines || 'auto 9% · home 12% · business 15% · umbrella 7% · life 50%'} />
     </div>
   )
 }
