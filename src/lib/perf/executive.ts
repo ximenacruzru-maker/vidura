@@ -108,6 +108,11 @@ export function execProdRange(D: PerfData, k: string, custom?: { from: string; t
     if (a > b) [a, b] = [b, a]
     return { start: a, end: b, label: 'Custom range · ' + a + ' to ' + b }
   }
+  if (k.startsWith('f:') && D.WB_DATA.folio[k.slice(2)]) {
+    const key = k.slice(2), f = D.WB_DATA.folio[key]
+    return { key, start: f.start, end: f.end, label: f.label.replace(' (in progress)', ''), folio: key }
+  }
+  if (k.startsWith('f:')) k = 'folio'
   // A new agency has no folios yet: those windows fall back to month to date until its first folio exists.
   if ((k === 'folio' || k === 'last' || k === 'all') && !D.WB_DATA.folio[ks[k === 'last' ? 1 : 0]]) k = 'mtd'
   if (k === 'folio' || k === 'last') {
@@ -189,7 +194,36 @@ export interface Drill { title: string; sub: string; how: string; kind?: 'client
 const isoLocal = (s: string) => { if (!s) return null; const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d) }
 const fmtDate = (s: string) => { const d = isoLocal(s); return d ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : s }
 
-export function computeExecutive(D: PerfData, rows: Row[], f: Filters) {
+/* ---------- folio periods ---------- */
+const isoDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+export interface FolioOpt { key: string; start: string; end: string; label: string }
+/** Every folio on the books, newest first, plus the one after the newest (renewals look ahead): "f:<start>" keys. */
+export function folioOptions(D: PerfData): FolioOpt[] {
+  const ks = wbFolioKeys(D)
+  const out: FolioOpt[] = ks.map((k) => { const x = D.WB_DATA.folio[k]; return { key: 'f:' + k, start: x.start, end: x.end, label: span(x.start, x.end) } })
+  if (out.length) {
+    const s = isoLocal(out[0].end)!; s.setDate(s.getDate() + 1)
+    const e = new Date(s.getFullYear(), s.getMonth() + 1, 20)
+    out.unshift({ key: 'f:' + isoDay(s), start: isoDay(s), end: isoDay(e), label: span(isoDay(s), isoDay(e)) })
+  }
+  return out
+}
+/** The folio a period picks: "folio" is the one today falls in, "f:<start>" a specific one. */
+export function folioPeriod(D: PerfData, period: string): FolioOpt | null {
+  const opts = folioOptions(D)
+  if (period === 'folio') { const t = isoDay(today0()); return opts.find((o) => o.start <= t && t <= o.end) || opts[1] || opts[0] || null }
+  return period.startsWith('f:') ? opts.find((o) => o.key === period) || null : null
+}
+function span(a: string, b: string) {
+  const fmt = (s: string, y: boolean) => isoLocal(s)!.toLocaleDateString('en-US', { month: 'short', day: 'numeric', ...(y ? { year: 'numeric' } : {}) })
+  return fmt(a, a.slice(0, 4) !== b.slice(0, 4)) + ' – ' + fmt(b, true)
+}
+
+export function computeExecutive(D: PerfData, rows: Row[], filters: Filters) {
+  // a folio period reads as a custom range over the folio's dates
+  const fp = folioPeriod(D, filters.period)
+  const f = fp ? { ...filters, period: 'custom', customStart: fp.start, customEnd: fp.end }
+    : filters.period !== 'custom' && !D.PERIODS[filters.period] ? { ...filters, period: '365' } : filters
   const isCustom = f.period === 'custom'
   const win = isCustom ? null : D.PERIODS[f.period].days
   const scoped = rows.filter((r) => (f.book === 'all' || r.book === f.book) && (f.line === 'all' || r.kind === f.line))
@@ -287,7 +321,9 @@ export function computeExecutive(D: PerfData, rows: Row[], f: Filters) {
       how: 'Policies whose start date falls within the last 12 months.', items: [...newBiz].sort((a, b) => b.prem - a.prem) },
   }
 
-  const periodLabel = isCustom
+  const periodLabel = fp
+    ? (filters.period === 'folio' ? 'Current folio · ' : 'Folio · ') + fp.label
+    : isCustom
     ? (f.customStart || f.customEnd ? 'Custom range' + (f.customStart ? ' from ' + fmtDate(f.customStart) : '') + (f.customEnd ? ' through ' + fmtDate(f.customEnd) : '') : 'Custom range')
     : D.PERIODS[f.period].label
 
