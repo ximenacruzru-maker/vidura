@@ -713,5 +713,4 @@
 .xd .fbar select.f {min-width:0;max-width:100%;text-overflow:ellipsis}
 .xd .panel-h > .fbar {min-width:0;max-width:100%}
 .xd .panel-h > div {min-width:0}
-.xd .fr-tbl {width:100%}
-.xd .fr-tbl .fr-total td {border-top:2px solid var(--line)}
+.xd .scg.fr-one {grid-template-columns:minmax(0,300px);margin-bottom:16px}

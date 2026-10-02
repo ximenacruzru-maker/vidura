@@ -1,7 +1,6 @@
 // What Farmers pays the agency on its premium, by line: auto 9%, home 12%, business 15%, umbrella 7%, life 50%.
-// Shown to the agency owner on the Executive Dashboard, for what was written in the production window and for the
-// Farmers book in force (a year's premium).
-import { daysUntil, execProduction, isFarmersCarrier, type Row } from './executive'
+// The rates apply to new business only: shown to the agency owner on the Executive Dashboard for this year so far.
+import { execProduction, isFarmersCarrier } from './executive'
 import type { PerfData } from './data'
 
 export const FARMERS_RATES = [
@@ -35,10 +34,10 @@ function tally(items: { type: string | null | undefined; premium: number }[]) {
   return { lines: out, premium: out.reduce((a, x) => a + x.premium, 0), revenue: out.reduce((a, x) => a + x.revenue, 0) }
 }
 
-export function farmersRevenue(D: PerfData, rows: Row[], win: string, range: { from: string; to: string }) {
-  const P = execProduction(D, win, range)
+/** Farmers revenue on new business written this year (Jan 1 – today), from the AgencyZoom policies synced into
+ *  the sales ledger. The rates apply to new business only, so the book in force is not counted. */
+export function farmersRevenue(D: PerfData) {
+  const P = execProduction(D, 'ytd')
   const written = tally(P.sales.filter((s) => isFarmersCarrier(s.carrier) || isFarmersCarrier(s.source)).map((s) => ({ type: s.policyType, premium: s.premium || 0 })))
-  const inForce = rows.filter((r) => r.book === 'Farmers' && !(r.status && /cancel|lapse|non-?renew|expired/i.test(r.status)) && !(r.exp && daysUntil(r.exp) < 0))
-  const book = tally(inForce.map((r) => ({ type: r.kind, premium: r.prem || 0 })))
-  return { label: P.r.label, written, book }
+  return { start: P.r.start, end: P.r.end, ...written }
 }
