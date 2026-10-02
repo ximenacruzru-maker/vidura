@@ -1,6 +1,6 @@
 // What Farmers pays the agency on its premium, by line: auto 9%, home 12%, business 15%, umbrella 7%, life 50%.
 // The rates apply to new business only: shown to the agency owner on the Executive Dashboard for this year so far.
-import { execProduction, isFarmersCarrier } from './executive'
+import { execProduction } from './executive'
 import type { PerfData } from './data'
 
 export const FARMERS_RATES = [
@@ -36,8 +36,11 @@ function tally(items: { type: string | null | undefined; premium: number }[]) {
 
 /** Farmers revenue on new business written this year (Jan 1 – today), from the AgencyZoom policies synced into
  *  the sales ledger. The rates apply to new business only, so the book in force is not counted. */
+/** Farmers and Foremost (a Farmers company) policies; brokered carriers such as Bristol West or Kraft Lake are not paid at these rates. */
+export const isFarmersRevenue = (carrier: string | null | undefined) => /farmers|foremost/i.test(carrier || '')
+
 export function farmersRevenue(D: PerfData) {
   const P = execProduction(D, 'ytd')
-  const written = tally(P.sales.filter((s) => isFarmersCarrier(s.carrier) || isFarmersCarrier(s.source)).map((s) => ({ type: s.policyType, premium: s.premium || 0 })))
+  const written = tally(P.sales.filter((s) => isFarmersRevenue(s.carrier)).map((s) => ({ type: s.policyType, premium: s.premium || 0 })))
   return { start: P.r.start, end: P.r.end, ...written }
 }

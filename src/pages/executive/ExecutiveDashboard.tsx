@@ -360,7 +360,7 @@ function FarmersRevenue({ D }: { D: PerfData }) {
   return (
     <div className="scg fr-one">
       <ScoreCard icon={ICO.coin} iconClass="i-green" label={'Farmers revenue ' + us(R.start) + ' – ' + us(R.end)} value={R.revenue} display={money0(R.revenue)}
-        goalLine={money0(R.premium) + ' new Farmers premium · ' + R.lines.reduce((a, l) => a + l.n, 0) + ' policies (AgencyZoom)'}
+        goalLine={money0(R.premium) + ' new Farmers & Foremost premium · ' + R.lines.reduce((a, l) => a + l.n, 0) + ' policies (AgencyZoom)'}
         pct={R.premium ? Math.min(100, (R.revenue / R.premium) * 100) : null} tone="good"
         delta={{ tone: 'flat', arrow: '', value: R.premium ? ((R.revenue / R.premium) * 100).toFixed(1) + '%' : '' }}
         goalNote={lines || 'auto 9% · home 12% · business 15% · umbrella 7% · life 50%'} />
