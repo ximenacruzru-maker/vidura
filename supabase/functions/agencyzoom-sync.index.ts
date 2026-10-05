@@ -303,11 +303,10 @@ Deno.serve(async (req) => {
       } catch (e) { err(`carriers: ${e}`); }
 
       const custIds = new Map<string, string>(); // id -> display name
-      const custTs = new Map<string, string>();  // id -> a UTC timestamp for the sale (to fix the day)
       for (let page = 0; page < 10; page++) {
         const r = await az(token, "POST", "/v1/api/customers", { startDate: addDays(start, -1), endDate: addDays(end, 1), page, pageSize: 100, sort: "id", order: "desc" });
         const cs = r.customers || r.data || [];
-        for (const c of cs) { custIds.set(String(c.id), personName(c)); if (c.createDate) custTs.set(String(c.id), String(c.createDate)); }
+        for (const c of cs) custIds.set(String(c.id), personName(c));
         if (cs.length < 100) break;
       }
       stats.newCustomers = custIds.size;
@@ -331,13 +330,12 @@ Deno.serve(async (req) => {
           wonInWindow++;
           const cid = String(l.convertedHouseholdId);
           if (!custIds.has(cid)) custIds.set(cid, personName(l));
-          if (!custTs.has(cid) && pacificDay(l.soldDate)) custTs.set(cid, String(l.soldDate));
         }
       }
       // Customers whose policy list changed since the last run: a policy added to an existing customer, with no new
       // customer and no won lead to find it by. The customer list carries each customer's policy summary (one entry
       // per policy); the last one seen is kept in az_customers. Their existing rows are left as they are (only new
-      // policies are added), since those rows' days may already have been corrected to Pacific time.
+      // policies are added).
       const knownFp = await loadFingerprints(supabase, A, err);
       const baseline = knownFp.size === 0; // first run: remember the summaries, nothing to compare yet
       const seenFp: { id: string; fp: string }[] = [], changed = new Set<string>(), insertOnly = new Set<string>();
@@ -366,14 +364,14 @@ Deno.serve(async (req) => {
         const list = Array.isArray(pol) ? pol : (pol.policies || pol.data || []);
         await keepPolicies(supabase, A, cid, list, carriers, err, cname);
         for (const x of list) {
+          // the sold date exactly as AgencyZoom shows it (its folio and sales screens use this day), never after today
           let sold = isoDate(x.soldDate);
-          // soldDate is a UTC calendar day. When we have the matching UTC
-          // timestamp (customer created / lead won the same UTC day), use its
-          // Pacific day instead; otherwise never let a sale land after today.
-          const ts = custTs.get(cid);
-          if (sold && ts && isoDate(ts) === sold && pacificDay(ts)) sold = pacificDay(ts);
           if (sold && sold > today) sold = today;
-          if (!sold || sold < start || sold > end || sold <= cutoff) continue;
+          if (!sold || sold > end || sold <= cutoff) continue;
+          // a policy entered after its sold day (sold date before the window) is added if it is missing,
+          // as far back as the previous folio; rows already recorded are left alone
+          const late = sold < start;
+          if (late && sold < addDays(today, -62)) continue;
           if (Number(x.status) === 0) continue; // cancelled
           const carrier = carriers[String(x.carrierId)] || x.carrierName || x.standardCarrierCode || null;
           const premium = Math.round(Number(x.premium || 0)) / 100; // AgencyZoom returns cents
@@ -384,8 +382,8 @@ Deno.serve(async (req) => {
             carrier, policy_type: x.policyTypeName || null, customer_id: String(cid), confirmed: true,
             // only when known, so a later run without the won lead in view never blanks a captured source
             ...(custSource.has(cid) ? { lead_source: custSource.get(cid)!.source } : {}),
-          }, { onConflict: "agency_id,az_ref", ignoreDuplicates: insertOnly.has(cid) });
-          if (error) err(`daily_sales pol-${x.id}: ${error.message}`); else { stats.soldRows++; synced[producer] = (synced[producer] || 0) + premium; }
+          }, { onConflict: "agency_id,az_ref", ignoreDuplicates: late || insertOnly.has(cid) });
+          if (error) err(`daily_sales pol-${x.id}: ${error.message}`); else if (late) stats.lateRows = (stats.lateRows || 0) + 1; else { stats.soldRows++; synced[producer] = (synced[producer] || 0) + premium; }
         }
       }
       stats.syncedPremiumByProducer = synced;
