@@ -18,7 +18,7 @@ import { workedMinutes } from './Licensing'
  *    the 5th  — hours for the 16th–end of the previous month (no commission)
  *  Salaried staff get 1/24 of their salary every payday, no commission, and on the 21st a cash bonus on the agency's
  *  premium for the folio.
- *  For admins and whoever runs payroll (a VA, or anyone given Office payroll on Team & access). */
+ *  For the owner and admins only: it shows everyone's pay. */
 
 interface Staff { name: string; role: string | null; hourly: boolean; rate: number | null; active: boolean; left_on: string | null; salary_annual: number | null; bonus_tiers: BonusTier[] | null }
 interface Punch { id: number; name: string; work_date: string; start_time: string | null; end_time: string | null; breaks: [string, string][]; edited: boolean }
@@ -206,7 +206,7 @@ function PayrollFiles({ files, error, prefix, label, range, onDone }: { files: P
     } catch (e) { setBusy('Upload failed: ' + String((e as Error)?.message || e)) }
   }
   return (
-    <Panel title="Payroll files" sub={`Files for ${label}, seen only by admins and whoever runs payroll.`} right={<>
+    <Panel title="Payroll files" sub={`Files for ${label}, seen only by the owner and admins.`} right={<>
       <input ref={input} type="file" multiple hidden onChange={(e) => { upload(e.target.files); e.target.value = '' }} />
       <button className="btn-ghost" onClick={() => input.current?.click()} disabled={!!busy && busy.startsWith('Uploading')}>Upload files</button>
     </>}>
