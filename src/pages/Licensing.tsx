@@ -10,7 +10,7 @@ import { useAsync } from '../lib/useAsync'
 import { RenewPill } from './Books'
 
 interface License { id: number; name: string; role: string | null; state: string | null; authority: string | null; license_type: string | null; number: string | null; effective: string | null; expires: string | null; quals: { q: string; eff: string }[]; verify_url: string | null; document_id: string | null; archived_on: string | null; archived_reason: string | null }
-interface Staff { name: string; role: string | null; hourly: boolean; rate: number | null; active: boolean; hired_on: string | null; left_on: string | null; leave_reason: string | null }
+interface Staff { name: string; role: string | null; hourly: boolean; rate: number | null; active: boolean; hired_on: string | null; left_on: string | null; leave_reason: string | null; salary_annual?: number | null }
 interface Punch { id: number; name: string; work_date: string; start_time: string | null; end_time: string | null; breaks: [string, string][]; edited: boolean }
 
 /** "9:15AM" -> minutes after midnight */
@@ -208,9 +208,9 @@ function StaffRates() {
   const current = data.filter((s) => s.active), former = data.filter((s) => !s.active).sort((a, b) => ((b.left_on || '') < (a.left_on || '') ? -1 : 1))
   return (
     <>
-      <Panel title="Staff & pay rates" sub="Admins only. Changes save immediately.">
+      <Panel title="Staff & pay rates" sub="Admins only. Changes save immediately. A yearly salary replaces hours × rate and commission: it is paid in 24 equal checks.">
         <table className="tbl">
-          <thead><tr><th>Name</th><th>Role</th><th>Started</th><th>Hourly</th><th className="r">Rate</th><th></th></tr></thead>
+          <thead><tr><th>Name</th><th>Role</th><th>Started</th><th>Hourly</th><th className="r">Rate</th><th className="r">Salary / yr</th><th></th></tr></thead>
           <tbody>
             {current.map((s) => (
               <tr key={s.name}>
@@ -219,6 +219,8 @@ function StaffRates() {
                 <td><input className="fld" type="date" defaultValue={s.hired_on || ''} onBlur={(e) => { const v = e.target.value || null; if (v !== s.hired_on) update(s.name, { hired_on: v }) }} aria-label={`${s.name} start date`} /></td>
                 <td><input type="checkbox" checked={s.hourly} onChange={(e) => update(s.name, { hourly: e.target.checked })} /></td>
                 <td className="r"><input className="fld" style={{ width: 100, textAlign: 'right' }} type="number" step="0.25" defaultValue={s.rate ?? ''} onBlur={(e) => { const v = e.target.value === '' ? null : Number(e.target.value); if (v !== s.rate) update(s.name, { rate: v }) }} /></td>
+                <td className="r"><input className="fld" style={{ width: 110, textAlign: 'right' }} type="number" step="1000" defaultValue={s.salary_annual ?? ''} aria-label={`${s.name} annual salary`}
+                  onBlur={(e) => { const v = e.target.value === '' ? null : Number(e.target.value); if (v !== (s.salary_annual ?? null)) update(s.name, v ? { salary_annual: v, hourly: false } : { salary_annual: null }) }} /></td>
                 <td className="r"><button className="linkbtn" onClick={() => leave(s)}>Left the agency…</button></td>
               </tr>
             ))}

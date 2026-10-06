@@ -4,19 +4,19 @@ import { useAuth } from '../auth'
 import { useFolio } from '../components/FolioPicker'
 import { Empty, ErrorBox, Loading, PageHead, Panel } from '../components/ui'
 import { getSdrPeriods, getSdrTransfers } from '../lib/data'
-import { mdy, money2, pct, shortDate, todayPacific } from '../lib/format'
-import { checkFor, folioFor, nextPay, stepPay } from '../lib/payday'
+import { mdy, money0, money2, pct, shortDate, todayPacific } from '../lib/format'
+import { agencyBonus, checkFor, folioFor, nextPay, salaryCheck, stepPay, type BonusTier } from '../lib/payday'
 import { supabase } from '../lib/supabase'
 import { useAsync } from '../lib/useAsync'
 import { useSyncStamp } from '../lib/syncEvents'
 import { workedMinutes } from './Licensing'
 
-/** My Pay: your own pay on a payday, laid out like a pay stub — hours × your rate, plus on the 21st your commission
- *  (producers) and SDR bonus — with the hours, policies and transfers behind each line. Only you (and the agency
+/** My Pay: your own pay on a payday, laid out like a pay stub — hours × your rate (or your salary), plus on the 21st your
+ *  commission (producers), SDR bonus, or a salaried person's cash bonus on the agency's premium for the folio — with the hours, policies and transfers behind each line. Only you (and the agency
  *  admins) see it: the database returns only your own hours, sales and transfers, and the commission calculator
  *  only your own line; where someone can see more (an admin, or whoever runs payroll), this page keeps to theirs. */
 
-interface Staff { name: string; hourly: boolean; rate: number | null; active: boolean; left_on: string | null }
+interface Staff { name: string; hourly: boolean; rate: number | null; active: boolean; left_on: string | null; salary_annual: number | null; bonus_tiers: BonusTier[] | null }
 interface Punch { id: number; name: string; work_date: string; start_time: string | null; end_time: string | null; breaks: [string, string][]; edited: boolean }
 interface Comm {
   producer: string; totalPremium: number; policies: number; qualifies: boolean; tierRate: number; total: number
@@ -35,16 +35,25 @@ export default function MyPay() {
   const { folios } = useFolio()
   const folio = folioFor(pay, folios)
   const synced = useSyncStamp()
-  const earnsCommission = ['producer', 'protege', 'admin'].includes(me?.role || '')
 
   const hours = useAsync(async () => {
-    const staff = await supabase.from('hr_staff').select('name, hourly, rate, active, left_on').then((r) => { if (r.error) throw r.error; return r.data as Staff[] })
+    const staff = await supabase.from('hr_staff').select('name, hourly, rate, active, left_on, salary_annual, bonus_tiers').then((r) => { if (r.error) throw r.error; return r.data as Staff[] })
     const row = staff.find((s) => names.has(s.name.trim().toLowerCase())) || null
     if (!row) return { row, punches: [] as Punch[] }
     const { data, error } = await supabase.from('hr_punches').select('*').eq('name', row.name).gte('work_date', check.from).lte('work_date', check.to).order('work_date')
     if (error) throw error
     return { row, punches: data as Punch[] }
   }, [check.from, check.to, names])
+  // salaried staff are paid a salary and cash bonuses instead of commission
+  const salaried = !!hours.data?.row?.salary_annual
+  const earnsCommission = !!hours.data && !salaried && ['producer', 'protege', 'admin'].includes(me?.role || '')
+  const tiers = hours.data?.row?.bonus_tiers
+  const agencyPrem = useAsync(async () => {
+    if (!folio || !tiers?.length) return null
+    const { data, error } = await supabase.rpc('agency_premium', { p_from: folio.start_date, p_to: folio.end_date })
+    if (error) throw error
+    return Number(data) || 0
+  }, [folio?.start_date, folio?.end_date, tiers?.length, synced])
   const comm = useAsync(async () => {
     if (!folio || !earnsCommission) return null
     const { data, error } = await supabase.functions.invoke('commissions', { body: { folio: folio.start_date } })
@@ -65,19 +74,23 @@ export default function MyPay() {
   const qb = Number(period?.qualified_transfer_bonus) || 0, bb = Number(period?.bound_policy_bonus) || 0
   const qualified = (sdr.data || []).filter((t) => t.az_qualifies).length, bound = (sdr.data || []).filter((t) => t.bound).length
   const bonus = qualified * qb + bound * bb
-  const total = hourlyPay + (c?.total || 0) + bonus
+  const salary = salaried ? salaryCheck(row?.salary_annual) : 0
+  const cash = check.commission && agencyPrem.data != null ? agencyBonus(tiers, agencyPrem.data) : { amount: 0, min: 0 }
+  const total = hourlyPay + salary + (c?.total || 0) + bonus + cash.amount
 
-  const err = hours.error || comm.error || periods.error || sdr.error
-  const loading = !hours.data || (check.commission && earnsCommission && folio && comm.loading && !comm.data)
+  const err = hours.error || comm.error || periods.error || sdr.error || agencyPrem.error
+  const loading = !hours.data || (check.commission && earnsCommission && folio && comm.loading && !comm.data) || (check.commission && tiers?.length && folio && agencyPrem.loading && agencyPrem.data == null)
   const lines: { label: string; detail: string; amount: number }[] = []
   if (row?.hourly) lines.push({ label: 'Hourly pay', detail: `${hm(mins)} × ${row.rate != null ? money2(row.rate) + '/hr' : 'no rate set'} · ${shortDate(check.from)} – ${shortDate(check.to, true)}`, amount: hourlyPay })
+  if (salaried) lines.push({ label: 'Salary', detail: `${money2(Number(row!.salary_annual))} a year ÷ 24 paydays`, amount: salary })
+  if (check.commission && tiers?.length) lines.push({ label: 'Agency bonus', detail: folio ? `Folio ${shortDate(folio.start_date)} – ${shortDate(folio.end_date, true)} · agency wrote ${money2(agencyPrem.data || 0)} · ${cash.amount ? `reached ${money0(cash.min)}` : `next bonus at ${money0(Math.min(...tiers.map((t) => Number(t.min))))}`} · ${tiers.map((t) => `${money0(Number(t.min))} → ${money0(Number(t.amount))}`).join(', ')}` : 'Folio not set up yet', amount: cash.amount })
   if (check.commission && earnsCommission && (c || folio)) lines.push({ label: 'Commission', detail: folio ? `Folio ${shortDate(folio.start_date)} – ${shortDate(folio.end_date, true)}${c ? ` · ${c.policies} policies · ${c.qualifies ? 'qualified' : 'not qualified'} · tier ${pct(c.tierRate)}` : ' · no sales credited to you'}` : 'Folio not set up yet', amount: c?.total || 0 })
   if (check.commission && (sdr.data?.length || me?.role === 'sdr' || me?.role === 'va')) lines.push({ label: 'SDR bonus', detail: period ? `${period.period_label} transfers · ${qualified} qualified × $${qb} + ${bound} bound × $${bb}` : 'No SDR month for this payday', amount: bonus })
 
   return (
     <>
       <PageHead kicker="Workspace" title="My Pay" sub="Your pay on each payday. Only you and the agency admins can see these numbers." />
-      <Panel title={`Payday ${mdy(pay)}`} sub={check.commission ? 'The 21st pays hours for the 1st–15th, plus your commission for last month’s folio and SDR bonus for last month’s transfers. What you earn in the folio open now is paid next month.' : 'The 5th pays hours for the 16th to the end of last month. Commission and SDR bonuses are paid on the 21st.'}
+      <Panel title={`Payday ${mdy(pay)}`} sub={salaried ? (check.commission ? 'The 21st pays your salary (1/24 of the year) plus your cash bonus on what the agency wrote in last month’s folio.' : 'The 5th pays your salary (1/24 of the year). Cash bonuses are paid on the 21st.') : check.commission ? 'The 21st pays hours for the 1st–15th, plus your commission for last month’s folio and SDR bonus for last month’s transfers. What you earn in the folio open now is paid next month.' : 'The 5th pays hours for the 16th to the end of last month. Commission and SDR bonuses are paid on the 21st.'}
         right={<div className="filters">
           <button className="btn-ghost" onClick={() => setPay(stepPay(pay, -1))} aria-label="Previous payday">‹ {shortDate(stepPay(pay, -1))}</button>
           <button className="btn-ghost" onClick={() => setPay(stepPay(pay, 1))} aria-label="Next payday">{shortDate(stepPay(pay, 1))} ›</button>

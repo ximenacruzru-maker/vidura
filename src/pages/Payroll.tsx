@@ -8,7 +8,7 @@ import { downloadSheet } from '../lib/excelExport'
 import { mdy, money2, shortDate, todayPacific } from '../lib/format'
 import { supabase } from '../lib/supabase'
 import { useAsync } from '../lib/useAsync'
-import { checkFor, folioFor, nextPay, stepPay } from '../lib/payday'
+import { agencyBonus, checkFor, folioFor, nextPay, salaryCheck, stepPay, type BonusTier } from '../lib/payday'
 import { workedMinutes } from './Licensing'
 
 /** Office payroll: what everyone in the office is owed on one payday, downloaded as one workbook, with the payroll
@@ -16,9 +16,11 @@ import { workedMinutes } from './Licensing'
  *    the 21st — hours for the 1st–15th, plus producers' commission and SDR bonuses, a month behind (Oct 21 pays the
  *               folio that closed Sep 20, and September's transfers)
  *    the 5th  — hours for the 16th–end of the previous month (no commission)
+ *  Salaried staff get 1/24 of their salary every payday, no commission, and on the 21st a cash bonus on the agency's
+ *  premium for the folio.
  *  For admins and whoever runs payroll (a VA, or anyone given Office payroll on Team & access). */
 
-interface Staff { name: string; role: string | null; hourly: boolean; rate: number | null; active: boolean; left_on: string | null }
+interface Staff { name: string; role: string | null; hourly: boolean; rate: number | null; active: boolean; left_on: string | null; salary_annual: number | null; bonus_tiers: BonusTier[] | null }
 interface Punch { id: number; name: string; work_date: string; start_time: string | null; end_time: string | null; breaks: [string, string][]; edited: boolean }
 interface Comm { producer: string; totalPremium: number; policies: number; qualifies: boolean; tierRate: number; total: number }
 interface PayDoc extends Doc { created_at?: string }
@@ -55,6 +57,13 @@ export default function Payroll() {
     return (data.results || []) as Comm[]
   }, [folio?.start_date])
   const sdr = useAsync(async () => (period ? getSdrTransfers(period.month) : []), [period?.month])
+  // the agency's premium for the folio paid on the 21st: salaried staff's cash bonuses ride on it
+  const agencyPrem = useAsync(async () => {
+    if (!folio) return null
+    const { data, error } = await supabase.rpc('agency_premium', { p_from: folio.start_date, p_to: folio.end_date })
+    if (error) throw error
+    return Number(data) || 0
+  }, [folio?.start_date, folio?.end_date])
   const prefix = `${me?.agency_id}/payroll/${pay}/`
   const files = useAsync(async () => {
     const { data, error } = await supabase.from('documents').select('*').eq('category', 'payroll').like('storage_path', prefix + '%').order('storage_path', { ascending: false })
@@ -79,20 +88,28 @@ export default function Payroll() {
       sdrs.set(t.sdr, o)
     }
     // one line per person: SDR tags carry first names, so they join a full name with the same first name
-    const people = new Map<string, { name: string; role: string; hours: number; pay: number; comm: number; bonus: number }>()
+    const people = new Map<string, { name: string; role: string; hours: number; pay: number; salary: number; comm: number; bonus: number; cash: number }>()
     const person = (name: string, role = '') => {
       const k = first(name)
-      const p = people.get(k) || { name, role, hours: 0, pay: 0, comm: 0, bonus: 0 }
+      const p = people.get(k) || { name, role, hours: 0, pay: 0, salary: 0, comm: 0, bonus: 0, cash: 0 }
       if (name.length > p.name.length) p.name = name
       if (!p.role) p.role = role
       people.set(k, p); return p
     }
     for (const h of hourly) { const p = person(h.name, h.role); p.hours += h.mins / 60; p.pay += h.pay }
-    for (const c of comm.data || []) if (c.total) person(c.producer, 'Producer').comm += c.total
+    // salaried staff on the books: a salary check every payday, and on the 21st their cash bonus instead of commission
+    const salaried = hours.data.staff.filter((s) => s.salary_annual && (s.active || (s.left_on && s.left_on >= check.from)))
+    const noComm = new Set(salaried.map((s) => first(s.name)))
+    for (const s of salaried) {
+      const p = person(s.name, s.role || '')
+      p.salary += salaryCheck(s.salary_annual)
+      if (check.commission && agencyPrem.data != null) p.cash += agencyBonus(s.bonus_tiers, agencyPrem.data).amount
+    }
+    for (const c of comm.data || []) if (c.total && !noComm.has(first(c.producer))) person(c.producer, 'Producer').comm += c.total
     for (const [n, o] of sdrs) person(n, 'SDR').bonus += o.qualified * qb + o.bound * bb
-    const who = [...people.values()].map((p) => ({ ...p, total: p.pay + p.comm + p.bonus })).filter((p) => p.total || p.hours).sort((a, b) => b.total - a.total)
-    return { hourly, sdrs, who }
-  }, [hours.data, comm.data, sdr.data, qb, bb, check.from])
+    const who = [...people.values()].map((p) => ({ ...p, total: p.pay + p.salary + p.comm + p.bonus + p.cash })).filter((p) => p.total || p.hours).sort((a, b) => b.total - a.total)
+    return { hourly, sdrs, who, salaried }
+  }, [hours.data, comm.data, sdr.data, qb, bb, check.from, check.commission, agencyPrem.data])
 
   const hoursLabel = `${shortDate(check.from)} – ${shortDate(check.to, true)}`
   const folioLabel = folio ? `${shortDate(folio.start_date)} – ${shortDate(folio.end_date, true)}` : ''
@@ -101,8 +118,8 @@ export default function Payroll() {
     if (!lines) return
     const r2 = (n: number) => (Math.round(n * 100) / 100).toFixed(2)
     downloadSheet(`Office_Payroll_${pay}.xlsx`, [
-      ['Name', 'Role', 'Hours', 'Hourly pay', 'Commission', 'SDR bonus', 'Total pay'],
-      ...lines.who.map((p) => [p.name, p.role, r2(p.hours), r2(p.pay), r2(p.comm), r2(p.bonus), r2(p.total)]),
+      ['Name', 'Role', 'Hours', 'Hourly pay', 'Salary', 'Commission', 'SDR bonus', 'Agency bonus', 'Total pay'],
+      ...lines.who.map((p) => [p.name, p.role, r2(p.hours), r2(p.pay), r2(p.salary), r2(p.comm), r2(p.bonus), r2(p.cash), r2(p.total)]),
       [], [`Hours · ${hoursLabel}`],
       ['Name', 'Role', 'Days', 'Hours', 'Rate', 'Hourly pay'],
       ...lines.hourly.map((h) => [h.name, h.role, h.days, r2(h.mins / 60), h.rate != null ? r2(h.rate) : '', r2(h.pay)]),
@@ -113,6 +130,11 @@ export default function Payroll() {
         [], [`SDR bonus · ${period?.period_label || '—'} transfers · $${qb} per qualified, $${bb} per bound`],
         ['SDR', 'Transfers', 'Qualified', 'Bound', 'SDR bonus'],
         ...[...lines.sdrs].map(([n, o]) => [n, o.logged, o.qualified, o.bound, r2(o.qualified * qb + o.bound * bb)]),
+        ...(lines.salaried.length ? [
+          [], [`Agency bonus · folio ${folioLabel || 'not found'} · agency premium ${r2(agencyPrem.data || 0)}`],
+          ['Name', 'Annual salary', 'Bonus tiers', 'Agency bonus'],
+          ...lines.salaried.map((s) => [s.name, r2(Number(s.salary_annual)), (s.bonus_tiers || []).map((t) => `${t.min}: ${t.amount}`).join('; '), r2(agencyBonus(s.bonus_tiers, agencyPrem.data || 0).amount)]),
+        ] : []),
       ] : []),
       [], ['Daily punches'],
       ['Name', 'Date', 'Start', 'End', 'Breaks', 'Worked hours'],
@@ -120,7 +142,7 @@ export default function Payroll() {
     ], { sheet: `Payroll ${pay}` })
   }
 
-  const err = hours.error || comm.error || sdr.error || periods.error
+  const err = hours.error || comm.error || sdr.error || periods.error || agencyPrem.error
   return (
     <>
       <PageHead kicker="Agency" title="Office payroll" sub="Payroll is paid on the 5th and the 21st: the 5th for hours from the 16th to the end of the month, the 21st for hours from the 1st to the 15th, plus commission for last month’s folio and SDR bonuses for last month’s transfers. Download it for the payroll run, then upload the payroll files back here." />
@@ -136,15 +158,17 @@ export default function Payroll() {
               <Tile label="Total payroll" value={money2(lines.who.reduce((s, p) => s + p.total, 0))} sub={`${lines.who.length} people`} />
               <Tile label="Hourly pay" value={money2(lines.who.reduce((s, p) => s + p.pay, 0))} sub={`${hm(lines.hourly.reduce((s, h) => s + h.mins, 0))} worked · ${hoursLabel}`} />
               {check.commission && <Tile label="Commission" value={comm.loading && !comm.data ? '…' : money2(lines.who.reduce((s, p) => s + p.comm, 0))} sub={folioLabel || 'folio not set up yet'} />}
+              {lines.salaried.length > 0 && <Tile label="Salary" value={money2(lines.who.reduce((s, p) => s + p.salary, 0))} sub={`${lines.salaried.length} salaried · 1/24 of the year`} />}
+              {check.commission && lines.salaried.length > 0 && <Tile label="Agency bonus" value={agencyPrem.data == null ? '…' : money2(lines.who.reduce((s, p) => s + p.cash, 0))} sub={agencyPrem.data == null ? folioLabel : `agency wrote ${money2(agencyPrem.data)}`} />}
               {check.commission && <Tile label="SDR bonus" value={money2(lines.who.reduce((s, p) => s + p.bonus, 0))} sub={period ? `${period.period_label} transfers` : 'no SDR month for this payday'} />}
             </Tiles>
             <div className="tbl-wrap">
               <table className="tbl">
-                <thead><tr><th>Name</th><th>Role</th><th className="r">Hours</th><th className="r">Hourly pay</th>{check.commission && <><th className="r">Commission</th><th className="r">SDR bonus</th></>}<th className="r">Total pay</th></tr></thead>
+                <thead><tr><th>Name</th><th>Role</th><th className="r">Hours</th><th className="r">Hourly pay</th><th className="r">Salary</th>{check.commission && <><th className="r">Commission</th><th className="r">SDR bonus</th><th className="r">Agency bonus</th></>}<th className="r">Total pay</th></tr></thead>
                 <tbody>{lines.who.map((p) => (
                   <tr key={p.name}><td className="strong">{p.name}</td><td>{p.role}</td><td className="r">{p.hours ? hm(p.hours * 60) : '—'}</td>
-                    <td className="r mono">{p.pay ? money2(p.pay) : '—'}</td>
-                    {check.commission && <><td className="r mono">{p.comm ? money2(p.comm) : '—'}</td><td className="r mono">{p.bonus ? money2(p.bonus) : '—'}</td></>}
+                    <td className="r mono">{p.pay ? money2(p.pay) : '—'}</td><td className="r mono">{p.salary ? money2(p.salary) : '—'}</td>
+                    {check.commission && <><td className="r mono">{p.comm ? money2(p.comm) : '—'}</td><td className="r mono">{p.bonus ? money2(p.bonus) : '—'}</td><td className="r mono">{p.cash ? money2(p.cash) : '—'}</td></>}
                     <td className="r mono strong">{money2(p.total)}</td></tr>
                 ))}</tbody>
               </table>

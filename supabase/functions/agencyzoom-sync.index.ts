@@ -263,7 +263,7 @@ async function employeeNames(token: string) {
 
 /** The quoted pipeline right now, replacing az_pipeline (see its migration): every open lead in a pipeline's "Quoted"
  *  stage or any stage after it (Closing Current Folio, FSD This Folio, Pending Home Inspection, ...). A lead tagged
- *  "No Confidence" (or "Low Confidence") counts as low confidence, every other one as high. The lead list carries no
+ *  "High Confidence" counts as high confidence, every other one as low. The lead list carries no
  *  premium, so a lead's quoted premium comes from quote_leads when the hourly sync already read its quotes, otherwise
  *  from its quotes here (a batch per run; the rest on the next run). */
 async function pipeline(supabase: any, A: string, azUser: string, azPass: string) {
@@ -314,7 +314,7 @@ async function pipeline(supabase: any, A: string, azUser: string, azPass: string
         agency_id: A, lead_id: id, name: personName(l), producer: producerName(l),
         quoted_premium: known.get(id) ?? Number(l.quoted || l.premium || 0), premium_checked: checked.has(id),
         quote_day: isoDate(l.quoteDate) || isoDate(l.enterStageDate), entered_stage: isoDate(l.enterStageDate), created_date: isoDate(l.createDate),
-        stage: l._stage, pipeline_name: l._pipeline, tags: tags.join(", "), confidence: tags.some((t) => /\b(no|low) confidence\b/i.test(t)) ? "low" : "high",
+        stage: l._stage, pipeline_name: l._pipeline, tags: tags.join(", "), confidence: tags.some((t) => /\bhigh confidence\b/i.test(t)) ? "high" : "low",
         lead_source: l.leadSourceName || "", url: `https://app.agencyzoom.com/lead/index?id=${id}`, seen_at: startedAt,
       };
     });

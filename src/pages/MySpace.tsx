@@ -10,7 +10,7 @@ import { useAsync } from '../lib/useAsync'
 import { getWork, isDone } from './WorkQueue'
 
 interface Item { id: number; area: string | null; name: string; priority: string | null; due_time: string | null; sort: number; active: boolean }
-interface Lead { lead_id: string; name: string; producer: string; quoted_premium: number; quote_day: string | null; entered_stage: string | null; stage: string | null; confidence: string; url: string | null }
+interface Lead { lead_id: string; name: string; producer: string; quoted_premium: number; quote_day: string | null; entered_stage: string | null; stage: string | null; tags: string | null; url: string | null }
 /** Quote history (quote_leads) only goes back to this day, so the closing rate is measured from here. */
 const QUOTES_FROM = '2026-07-20'
 const pctTxt = (n: number) => (Math.round(n * 1000) / 10).toFixed(1) + '%'
@@ -24,17 +24,21 @@ export default function MySpace() {
   const [newItem, setNewItem] = useState('')
   const owner = me?.role === 'owner'
   const [day, setDay] = useState(today)
+  const rateFrom = today.slice(0, 4) + '-01-01'
   const yearFrom = today.slice(0, 4) + '-01-01' > QUOTES_FROM ? today.slice(0, 4) + '-01-01' : QUOTES_FROM
   const { data, error } = useAsync(async () => {
-    const [items, ticks, work, book, folios, pipe, soldYr, quotesYr] = await Promise.all([
+    const [items, ticks, work, book, folios, pipe, soldYr, quotesYr, history] = await Promise.all([
       supabase.from('checklist_items').select('*').eq('active', true).order('sort').then((r) => { if (r.error) throw r.error; return r.data as Item[] }),
       supabase.from('checklist_ticks').select('item_id,done').eq('day', today).then((r) => { if (r.error) throw r.error; return r.data as { item_id: number; done: boolean }[] }),
       getWork(), getBookPolicies(), getFolios(),
-      supabase.from('az_pipeline').select('lead_id,name,producer,quoted_premium,quote_day,entered_stage,stage,confidence,url').then((r) => (r.error ? [] : (r.data as Lead[]))),
+      supabase.from('az_pipeline').select('lead_id,name,producer,quoted_premium,quote_day,entered_stage,stage,tags,url').then((r) => (r.error ? [] : (r.data as Lead[]))),
       getPolicies(yearFrom, today), getQuotes(yearFrom, today),
+      // AgencyZoom leads created since Jan 1 that were quoted or won: the closing rate's base
+      supabase.from('az_lead_history').select('producer,quote_date,status').or(`quote_date.gte.${rateFrom},status.eq.2`).limit(10000)
+        .then((r) => (r.error ? [] : (r.data as { producer: string; quote_date: string | null; status: number }[]))),
     ])
-    return { items, ticks, work, book, folios, pipe, soldYr, quotesYr }
-  }, [reload, today, yearFrom])
+    return { items, ticks, work, book, folios, pipe, soldYr, quotesYr, history }
+  }, [reload, today, yearFrom, rateFrom])
 
   const date = new Date(today + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' })
   const head = <PageHead kicker={`${first ? first + '’s' : 'My'} space`} title={date} />
@@ -49,11 +53,15 @@ export default function MySpace() {
   const pipe = data.pipe.filter((l) => mineP(l.producer)).map((l) => ({ ...l, quoted_premium: Number(l.quoted_premium) || 0 }))
   const prem = (ls: Lead[]) => ls.reduce((a, l) => a + l.quoted_premium, 0)
   const pipeFolio = folio ? pipe.filter((l) => l.quote_day && l.quote_day >= folio.start_date && l.quote_day <= folio.end_date) : []
-  const low = pipe.filter((l) => l.confidence === 'low'), high = pipe.filter((l) => l.confidence !== 'low')
+  // high confidence = tagged "High Confidence" in AgencyZoom; every other quoted lead counts as low
+  const isHigh = (l: Lead) => /\bhigh confidence\b/i.test(l.tags || '')
+  const high = pipe.filter(isHigh), low = pipe.filter((l) => !isHigh(l))
   const sold: Policy[] = data.soldYr.filter((p) => mineP(p.producer))
   const quotes: QuoteLead[] = data.quotesYr.filter((q) => mineP(q.producer))
-  const soldHouseholds = new Set(sold.map((p) => p.customer_id || p.client)).size
-  const closeRate = quotes.length ? Math.min(1, soldHouseholds / quotes.length) : 0
+  // closing rate since Jan 1: AgencyZoom leads won ÷ leads quoted (a won lead counts as quoted even without a quote date)
+  const rated = data.history.filter((h) => mineP(h.producer))
+  const won = rated.filter((h) => Number(h.status) === 2).length
+  const closeRate = rated.length ? won / rated.length : 0
   const soldFolio = folio ? sold.filter((p) => p.sale_date >= folio.start_date && p.sale_date <= folio.end_date) : []
   const writtenFolio = sum(soldFolio.map((p) => ({ v: p.premium })))
   const estimate = writtenFolio + prem(pipe) * closeRate
@@ -85,10 +93,10 @@ export default function MySpace() {
       <Tiles>
         <Tile label={`${who} quoted pipeline · this folio`} value={money0(prem(pipeFolio))}
           sub={`${pipeFolio.length} open quote${pipeFolio.length === 1 ? '' : 's'}${folio ? ' since ' + mdy(folio.start_date) : ''} · ${money0(prem(pipe))} in pipeline overall`} />
-        <Tile label="High confidence" value={money0(prem(high))} sub={`${high.length} lead${high.length === 1 ? '' : 's'} in the quoted pipeline`} tone="good" />
-        <Tile label="Low confidence" value={money0(prem(low))} sub={`${low.length} lead${low.length === 1 ? '' : 's'} tagged No Confidence`} tone={low.length ? 'warn' : undefined} />
+        <Tile label="High confidence" value={money0(prem(high))} sub={`${high.length} lead${high.length === 1 ? '' : 's'} tagged High Confidence`} tone="good" />
+        <Tile label="Low confidence" value={money0(prem(low))} sub={`${low.length} lead${low.length === 1 ? '' : 's'} not tagged High Confidence`} tone={low.length ? 'warn' : undefined} />
         <Tile label={owner ? 'Agency closing rate' : 'My closing rate'} value={pctTxt(closeRate)}
-          sub={`${soldHouseholds} sold of ${quotes.length} quoted since ${mdy(yearFrom)}`} />
+          sub={`${won} won of ${rated.length} quoted since ${mdy(rateFrom)}`} />
         <Tile label="Estimated folio close-out" value={money0(estimate)}
           sub={`${money0(writtenFolio)} written + ${money0(prem(pipe))} pipeline × ${pctTxt(closeRate)}`} tone="good" />
       </Tiles>
