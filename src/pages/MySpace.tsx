@@ -3,13 +3,17 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../auth'
 import { ErrorBox, Loading, PageHead, Panel, Tile, Tiles } from '../components/ui'
 import { daysUntil, getBookPolicies } from '../lib/books'
-import { getPolicies, getQuotes, isAdmin } from '../lib/data'
+import { getFolios, getPolicies, getQuotes, isAdmin, type Policy, type QuoteLead } from '../lib/data'
 import { addDays, mdy, money0, todayPacific } from '../lib/format'
 import { supabase } from '../lib/supabase'
 import { useAsync } from '../lib/useAsync'
 import { getWork, isDone } from './WorkQueue'
 
 interface Item { id: number; area: string | null; name: string; priority: string | null; due_time: string | null; sort: number; active: boolean }
+interface Lead { lead_id: string; name: string; producer: string; quoted_premium: number; quote_day: string | null; entered_stage: string | null; stage: string | null; confidence: string; url: string | null }
+/** Quote history (quote_leads) only goes back to this day, so the closing rate is measured from here. */
+const QUOTES_FROM = '2026-07-20'
+const pctTxt = (n: number) => (Math.round(n * 1000) / 10).toFixed(1) + '%'
 
 export default function MySpace() {
   const { me, session } = useAuth()
@@ -18,24 +22,47 @@ export default function MySpace() {
   const first = (me?.display_name || '').split(' ')[0]
   const [reload, setReload] = useState(0)
   const [newItem, setNewItem] = useState('')
+  const owner = me?.role === 'owner'
+  const [day, setDay] = useState(today)
+  const yearFrom = today.slice(0, 4) + '-01-01' > QUOTES_FROM ? today.slice(0, 4) + '-01-01' : QUOTES_FROM
   const { data, error } = useAsync(async () => {
-    const [items, ticks, work, sold, quotes, book] = await Promise.all([
+    const [items, ticks, work, book, folios, pipe, soldYr, quotesYr] = await Promise.all([
       supabase.from('checklist_items').select('*').eq('active', true).order('sort').then((r) => { if (r.error) throw r.error; return r.data as Item[] }),
       supabase.from('checklist_ticks').select('item_id,done').eq('day', today).then((r) => { if (r.error) throw r.error; return r.data as { item_id: number; done: boolean }[] }),
-      getWork(), getPolicies(today, today), getQuotes(today, today), getBookPolicies(),
+      getWork(), getBookPolicies(), getFolios(),
+      supabase.from('az_pipeline').select('lead_id,name,producer,quoted_premium,quote_day,entered_stage,stage,confidence,url').then((r) => (r.error ? [] : (r.data as Lead[]))),
+      getPolicies(yearFrom, today), getQuotes(yearFrom, today),
     ])
-    return { items, ticks, work, sold, quotes, book }
-  }, [reload, today])
+    return { items, ticks, work, book, folios, pipe, soldYr, quotesYr }
+  }, [reload, today, yearFrom])
 
   const date = new Date(today + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' })
   const head = <PageHead kicker={`${first ? first + '’s' : 'My'} space`} title={date} />
   if (error) return <>{head}<ErrorBox error={error} /></>
   if (!data) return <>{head}<Loading /></>
 
+  // whose numbers: the owner sees the agency's, everyone else only their own (admins included)
+  const names = new Set([me?.display_name, me?.producer_name].filter(Boolean).flatMap((n) => [n!.trim().toLowerCase(), n!.trim().split(/\s+/)[0].toLowerCase()]))
+  const mineP = (p: string | null | undefined) => owner || (!!p && (names.has(p.trim().toLowerCase()) || names.has(p.trim().split(/\s+/)[0].toLowerCase())))
+  const sum = (xs: { v: number }[]) => xs.reduce((a, x) => a + x.v, 0)
+  const folio = data.folios.find((f) => f.in_progress) || data.folios[0]
+  const pipe = data.pipe.filter((l) => mineP(l.producer)).map((l) => ({ ...l, quoted_premium: Number(l.quoted_premium) || 0 }))
+  const prem = (ls: Lead[]) => ls.reduce((a, l) => a + l.quoted_premium, 0)
+  const pipeFolio = folio ? pipe.filter((l) => l.quote_day && l.quote_day >= folio.start_date && l.quote_day <= folio.end_date) : []
+  const low = pipe.filter((l) => l.confidence === 'low'), high = pipe.filter((l) => l.confidence !== 'low')
+  const sold: Policy[] = data.soldYr.filter((p) => mineP(p.producer))
+  const quotes: QuoteLead[] = data.quotesYr.filter((q) => mineP(q.producer))
+  const soldHouseholds = new Set(sold.map((p) => p.customer_id || p.client)).size
+  const closeRate = quotes.length ? Math.min(1, soldHouseholds / quotes.length) : 0
+  const soldFolio = folio ? sold.filter((p) => p.sale_date >= folio.start_date && p.sale_date <= folio.end_date) : []
+  const writtenFolio = sum(soldFolio.map((p) => ({ v: p.premium })))
+  const estimate = writtenFolio + prem(pipe) * closeRate
+  const dayQuotes = quotes.filter((q) => q.quote_day === day), dayAdded = pipe.filter((l) => (l.quote_day || l.entered_stage) === day)
+  const daySold = sold.filter((p) => p.sale_date === day)
+  const who = owner ? 'Agency' : 'My'
   const done = new Set(data.ticks.filter((t) => t.done).map((t) => t.item_id))
   const pct = data.items.length ? Math.round((done.size / data.items.length) * 100) : 0
   const mine = data.work.filter((w) => !isDone(w) && first && (w.owner || '').toLowerCase().startsWith(first.toLowerCase()))
-  const overdue = data.work.filter((w) => !isDone(w) && (daysUntil(w.due, today) ?? 0) < 0)
   const renew14 = data.book.filter((p) => { const d = daysUntil(p.expiration, today); return d != null && d >= 0 && d <= 14 })
 
   const tick = async (id: number, on: boolean) => {
@@ -56,12 +83,23 @@ export default function MySpace() {
     <>
       {head}
       <Tiles>
-        <Tile label="Checklist" value={`${done.size}/${data.items.length}`} sub={`${pct}% done today`} tone={pct === 100 ? 'good' : undefined} />
-        <Tile label="My open work" value={mine.length} sub={<Link to="/work">open the queue</Link>} />
-        <Tile label={admin ? "Overdue (team)" : "My overdue"} value={overdue.length} tone={overdue.length ? 'warn' : 'good'} />
-        <Tile label={admin ? "Sold today" : "I sold today"} value={data.sold.length} sub={money0(data.sold.reduce((s, p) => s + p.premium, 0)) + ' written'} />
-        <Tile label={admin ? "Quoted today" : "I quoted today"} value={data.quotes.length} sub={money0(data.quotes.reduce((s, q) => s + q.quoted_premium, 0))} />
+        <Tile label={`${who} quoted pipeline · this folio`} value={money0(prem(pipeFolio))}
+          sub={`${pipeFolio.length} open quote${pipeFolio.length === 1 ? '' : 's'}${folio ? ' since ' + mdy(folio.start_date) : ''} · ${money0(prem(pipe))} in pipeline overall`} />
+        <Tile label="High confidence" value={money0(prem(high))} sub={`${high.length} lead${high.length === 1 ? '' : 's'} in the quoted pipeline`} tone="good" />
+        <Tile label="Low confidence" value={money0(prem(low))} sub={`${low.length} lead${low.length === 1 ? '' : 's'} tagged No Confidence`} tone={low.length ? 'warn' : undefined} />
+        <Tile label={owner ? 'Agency closing rate' : 'My closing rate'} value={pctTxt(closeRate)}
+          sub={`${soldHouseholds} sold of ${quotes.length} quoted since ${mdy(yearFrom)}`} />
+        <Tile label="Estimated folio close-out" value={money0(estimate)}
+          sub={`${money0(writtenFolio)} written + ${money0(prem(pipe))} pipeline × ${pctTxt(closeRate)}`} tone="good" />
       </Tiles>
+      <Panel title="Any day" sub={owner ? 'What the agency quoted, added to the pipeline and sold on the day you pick.' : 'What you quoted, added to your pipeline and sold on the day you pick.'}
+        right={<input type="date" className="fld" value={day} max={today} onChange={(e) => setDay(e.target.value || today)} aria-label="Day" />}>
+        <Tiles>
+          <Tile label="Quoted" value={money0(dayQuotes.reduce((a, q) => a + q.quoted_premium, 0))} sub={`${dayQuotes.length} quote${dayQuotes.length === 1 ? '' : 's'} on ${mdy(day)}`} />
+          <Tile label="Added to pipeline" value={money0(prem(dayAdded))} sub={`${dayAdded.length} lead${dayAdded.length === 1 ? '' : 's'} still in the quoted pipeline`} />
+          <Tile label="Sold" value={money0(daySold.reduce((a, p) => a + p.premium, 0))} sub={`${daySold.length} polic${daySold.length === 1 ? 'y' : 'ies'}`} />
+        </Tiles>
+      </Panel>
       <div className="grid2">
         <Panel title="Daily checklist" sub="Ticks are yours and reset each morning.">
           <div className="prog-row"><span>{done.size} of {data.items.length}</span><div className="progress"><i style={{ width: pct + '%' }} /></div><span>{pct}%</span></div>
