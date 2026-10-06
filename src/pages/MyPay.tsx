@@ -9,6 +9,7 @@ import { agencyBonus, checkFor, folioFor, nextPay, salaryCheck, stepPay, type Bo
 import { supabase } from '../lib/supabase'
 import { useAsync } from '../lib/useAsync'
 import { useSyncStamp } from '../lib/syncEvents'
+import { takeHome, type FilingStatus } from '../lib/takeHome'
 import { workedMinutes } from './Licensing'
 
 /** My Pay: your own pay on a payday, laid out like a pay stub — hours × your rate (or your salary), plus on the 21st your
@@ -35,6 +36,9 @@ export default function MyPay() {
   const { folios } = useFolio()
   const folio = folioFor(pay, folios)
   const synced = useSyncStamp()
+  // filing status for the take-home estimate, remembered on this device
+  const [filing, setFiling] = useState<FilingStatus>(() => { try { return localStorage.getItem('declara_filing_status') === 'married' ? 'married' : 'single' } catch { return 'single' } })
+  const pickFiling = (f: FilingStatus) => { setFiling(f); try { localStorage.setItem('declara_filing_status', f) } catch { /* private window */ } }
 
   const hours = useAsync(async () => {
     const staff = await supabase.from('hr_staff').select('name, hourly, rate, active, left_on, salary_annual, bonus_tiers').then((r) => { if (r.error) throw r.error; return r.data as Staff[] })
@@ -78,6 +82,8 @@ export default function MyPay() {
   const cash = check.commission && agencyPrem.data != null ? agencyBonus(tiers, agencyPrem.data) : { amount: 0, min: 0 }
   const total = hourlyPay + salary + (c?.total || 0) + bonus + cash.amount
 
+  // estimated take-home for salaried staff: salary as regular pay, the cash bonus as a supplemental payment
+  const net = salaried ? takeHome(hourlyPay + salary, (c?.total || 0) + bonus + cash.amount, filing) : null
   const err = hours.error || comm.error || periods.error || sdr.error || agencyPrem.error
   const loading = !hours.data || (check.commission && earnsCommission && folio && comm.loading && !comm.data) || (check.commission && tiers?.length && folio && agencyPrem.loading && agencyPrem.data == null)
   const lines: { label: string; detail: string; amount: number }[] = []
@@ -107,6 +113,22 @@ export default function MyPay() {
         ) : <Empty>Nothing to show for this payday. If you think that’s wrong, ask an admin to check your pay setup under HR.</Empty>}
         {!err && !loading && pay > todayPacific() && lines.length > 0 && <div className="sub" style={{ marginTop: 8 }}>This payday hasn’t happened yet: the figures grow as hours, sales and transfers come in.</div>}
       </Panel>
+
+      {net && !err && !loading && (
+        <Panel title="Estimated take-home" sub="What lands in your bank account after taxes, for a paycheck in San Jose, CA. An estimate: your actual check depends on your W-4 and any deductions such as 401(k) or health insurance."
+          right={<div className="filters"><select value={filing} onChange={(e) => pickFiling(e.target.value as FilingStatus)} aria-label="Filing status">
+            <option value="single">Single</option><option value="married">Married filing jointly</option>
+          </select></div>}>
+          <table className="tbl paystub">
+            <tbody>
+              <tr><td className="strong">Gross pay</td><td className="r mono">{money2(net.gross)}</td></tr>
+              {net.lines.map((l) => <tr key={l.label}><td>{l.label}</td><td className="r mono">−{money2(l.amount)}</td></tr>)}
+              <tr className="paystub-total"><td className="strong">Estimated take-home</td><td className="r mono strong">{money2(net.net)}</td></tr>
+            </tbody>
+          </table>
+          <div className="sub" style={{ marginTop: 8 }}>Salary is taxed as if every check were the same; a cash bonus is withheld at the flat bonus rates (22% federal, 10.23% California). San Jose has no city income tax.</div>
+        </Panel>
+      )}
 
       {row?.hourly && (hours.data?.punches.length || 0) > 0 && (
         <Panel title="My hours" sub={`${shortDate(check.from)} – ${shortDate(check.to, true)} · ${hm(mins)} worked`}>
