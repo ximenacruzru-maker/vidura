@@ -13,6 +13,8 @@
 // Every policy read is also kept in az_policies (for the last-year comparison); {"policies": true} fills it for all
 // customers, a page of 100 per call (az_sync_state.policies_page keeps its place).
 //
+// {"pipeline": true} replaces az_pipeline with every open lead in a "Quoted" stage or later (scheduled hourly at :30).
+//
 // Window: by default re-syncs the last 3 days (Pacific time) every run, so
 // nothing is missed if a run fails. A backfill can pass {"start":"YYYY-MM-DD",
 // "end":"YYYY-MM-DD"} in the POST body, and {"parts":["sold"]} to run one part.
@@ -259,6 +261,82 @@ async function employeeNames(token: string) {
   return names;
 }
 
+/** The quoted pipeline right now, replacing az_pipeline (see its migration): every open lead in a pipeline's "Quoted"
+ *  stage or any stage after it (Closing Current Folio, FSD This Folio, Pending Home Inspection, ...). A lead tagged
+ *  "No Confidence" (or "Low Confidence") counts as low confidence, every other one as high. The lead list carries no
+ *  premium, so a lead's quoted premium comes from quote_leads when the hourly sync already read its quotes, otherwise
+ *  from its quotes here (a batch per run; the rest on the next run). */
+async function pipeline(supabase: any, A: string, azUser: string, azPass: string) {
+  const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { "Content-Type": "application/json" } });
+  const stats: Record<string, any> = { stages: 0, leads: 0, byProducer: {} as Record<string, number>, premiumsRead: 0, premiumsLeft: 0, errors: [] as string[] };
+  const { data: logRow } = await supabase.from("sync_log").insert({ agency_id: A, source: "agencyzoom-pipeline", status: "running" }).select().single();
+  const startedAt = new Date().toISOString();
+  try {
+    const { token } = await azLogin(azUser, azPass);
+    const ps = await az(token, "GET", "/v1/api/pipelines-and-stages");
+    const stages: { id: number; name: string; pipeline: string }[] = [];
+    for (const p of (Array.isArray(ps) ? ps : (ps.data || []))) {
+      const list = (p.stages || []).filter((x: any) => Number(x.status) !== 0);
+      const q = list.find((x: any) => x.asQuoted);
+      if (!q) continue; // pipelines without a quoted stage (e.g. lender partners) aren't sales pipelines
+      for (const x of list) if (Number(x.seq) >= Number(q.seq)) stages.push({ id: Number(x.id), name: String(x.name), pipeline: String(p.name) });
+    }
+    stats.stages = stages.length;
+    const byId = new Map<string, any>();
+    for (const st of stages) {
+      for (const l of await leadsList(token, { workflowStageId: st.id })) {
+        if (!l.id || [2, 3, 5].includes(Number(l.status))) continue;
+        byId.set(String(l.id), { ...l, _stage: st.name, _pipeline: st.pipeline });
+      }
+    }
+    stats.leads = byId.size;
+    const ids = [...byId.keys()];
+    // premiums already known: the hourly sync's quote_leads (kept current as quotes change), then this table's last pass
+    const known = new Map<string, number>(), checked = new Set<string>();
+    for (let i = 0; i < ids.length; i += 500) {
+      const chunk = ids.slice(i, i + 500);
+      const { data: ql } = await supabase.from("quote_leads").select("lead_id, quoted_premium").eq("agency_id", A).in("lead_id", chunk);
+      for (const r of ql || []) if (Number(r.quoted_premium) > 0) { known.set(r.lead_id, Number(r.quoted_premium)); checked.add(r.lead_id); }
+      const { data: prev } = await supabase.from("az_pipeline").select("lead_id, quoted_premium, premium_checked").eq("agency_id", A).in("lead_id", chunk);
+      for (const r of prev || []) if (r.premium_checked && !checked.has(r.lead_id)) { known.set(r.lead_id, Number(r.quoted_premium) || 0); checked.add(r.lead_id); }
+    }
+    for (const id of ids) {
+      if (checked.has(id)) continue;
+      if (Date.now() - t0 > TIME_BUDGET_MS - 15000) { stats.premiumsLeft++; continue; } // leave time to save
+      try {
+        const qs = await leadQuotes(token, id);
+        known.set(id, qs.reduce((s, q) => s + Number(q.premium || 0), 0)); checked.add(id); stats.premiumsRead++;
+      } catch (e) { if (String(e).includes("__TIME__")) { stats.premiumsLeft++; continue; } if (stats.errors.length < 10) stats.errors.push(`quotes ${id}: ${e}`); }
+    }
+    const rows = ids.map((id) => {
+      const l = byId.get(id), tags = tagList(l);
+      return {
+        agency_id: A, lead_id: id, name: personName(l), producer: producerName(l),
+        quoted_premium: known.get(id) ?? Number(l.quoted || l.premium || 0), premium_checked: checked.has(id),
+        quote_day: isoDate(l.quoteDate) || isoDate(l.enterStageDate), entered_stage: isoDate(l.enterStageDate), created_date: isoDate(l.createDate),
+        stage: l._stage, pipeline_name: l._pipeline, tags: tags.join(", "), confidence: tags.some((t) => /\b(no|low) confidence\b/i.test(t)) ? "low" : "high",
+        lead_source: l.leadSourceName || "", url: `https://app.agencyzoom.com/lead/index?id=${id}`, seen_at: startedAt,
+      };
+    });
+    for (const r of rows) stats.byProducer[r.producer] = Math.round(((stats.byProducer[r.producer] || 0) + r.quoted_premium) * 100) / 100;
+    for (let i = 0; i < rows.length; i += 500) {
+      const { error } = await supabase.from("az_pipeline").upsert(rows.slice(i, i + 500), { onConflict: "agency_id,lead_id" });
+      if (error) throw new Error(`az_pipeline: ${error.message}`);
+    }
+    // leads that left the quoted stages (sold, lost, moved back) drop out; only after every stage was read in full
+    const { error: delErr } = await supabase.from("az_pipeline").delete().eq("agency_id", A).lt("seen_at", startedAt);
+    if (delErr) throw new Error(`az_pipeline cleanup: ${delErr.message}`);
+    stats.calls = calls; stats.seconds = Math.round((Date.now() - t0) / 1000);
+    await supabase.from("sync_log").update({ status: stats.premiumsLeft ? "partial" : "success", finished_at: new Date().toISOString(), records_pulled: rows.length, details: stats }).eq("id", logRow.id);
+    return json({ ok: true, ...stats });
+  } catch (e) {
+    const msg = String((e as any)?.message || e);
+    stats.calls = calls; stats.fatal = msg;
+    await supabase.from("sync_log").update({ status: msg.includes("__TIME__") ? "partial" : "error", finished_at: new Date().toISOString(), details: stats }).eq("id", logRow.id);
+    return json({ ok: false, ...stats }, 500);
+  }
+}
+
 Deno.serve(async (req) => {
   const cronSecret = Deno.env.get("CRON_SECRET");
   if (!cronSecret || req.headers.get("x-cron-secret") !== cronSecret) {
@@ -281,6 +359,7 @@ Deno.serve(async (req) => {
   const cutoff = String(agency.history_cutoff || "0000-00-00");
   if (params.sweep) return await sweep(supabase, A, cutoff, today, azUser, azPass);
   if (params.policies) return await fillPolicies(supabase, A, azUser, azPass);
+  if (params.pipeline) return await pipeline(supabase, A, azUser, azPass);
   const { data: logRow } = await supabase.from("sync_log").insert({ agency_id: A, source: "agencyzoom", status: "running" }).select().single();
   const stats: Record<string, any> = { window: { start, end }, parts, errors: [] as string[] };
   const err = (m: string) => { if (stats.errors.length < 10) stats.errors.push(m); };
