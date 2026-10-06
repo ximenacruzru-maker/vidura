@@ -41,3 +41,13 @@ export function folioFor(pay: string, folios: Folio[]) {
   const from = back(2), to = back(1) // closed on/after the 21st two months back, before the 21st last month
   return folios.filter((f) => f.end_date >= from && f.end_date < to).sort((a, b) => (a.end_date < b.end_date ? 1 : -1))[0] || null
 }
+
+/** Salaried staff: the annual salary in 24 equal checks, one each payday. */
+export const salaryCheck = (annual: number | null | undefined) => Math.round(((Number(annual) || 0) / 24) * 100) / 100
+
+export interface BonusTier { min: number; amount: number }
+/** A salaried person's cash bonus on the agency's premium for a folio: the highest tier reached (tiers don't add up). */
+export function agencyBonus(tiers: BonusTier[] | null | undefined, premium: number) {
+  const hit = (tiers || []).filter((t) => premium >= Number(t.min)).sort((a, b) => Number(b.min) - Number(a.min))[0]
+  return hit ? { amount: Number(hit.amount), min: Number(hit.min) } : { amount: 0, min: 0 }
+}
