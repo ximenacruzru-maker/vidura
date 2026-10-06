@@ -10,6 +10,7 @@ import { supabase } from '../lib/supabase'
 import { useAsync } from '../lib/useAsync'
 import { useSyncStamp } from '../lib/syncEvents'
 import { takeHome, type FilingStatus } from '../lib/takeHome'
+import { BONUS_FROM, bonusMonthFor, monthBonus, monthEnd, monthLabel } from '../lib/retention'
 import { workedMinutes } from './Licensing'
 
 /** My Pay: your own pay on a payday, laid out like a pay stub — hours × your rate (or your salary), plus on the 21st your
@@ -17,7 +18,7 @@ import { workedMinutes } from './Licensing'
  *  admins) see it: the database returns only your own hours, sales and transfers, and the commission calculator
  *  only your own line; where someone can see more (an admin, or whoever runs payroll), this page keeps to theirs. */
 
-interface Staff { name: string; hourly: boolean; rate: number | null; active: boolean; left_on: string | null; salary_annual: number | null; bonus_tiers: BonusTier[] | null }
+interface Staff { name: string; hourly: boolean; rate: number | null; active: boolean; left_on: string | null; salary_annual: number | null; bonus_tiers: BonusTier[] | null; bonus_period: string | null }
 interface Punch { id: number; name: string; work_date: string; start_time: string | null; end_time: string | null; breaks: [string, string][]; edited: boolean }
 interface Comm {
   producer: string; totalPremium: number; policies: number; qualifies: boolean; tierRate: number; total: number
@@ -41,7 +42,7 @@ export default function MyPay() {
   const pickFiling = (f: FilingStatus) => { setFiling(f); try { localStorage.setItem('declara_filing_status', f) } catch { /* private window */ } }
 
   const hours = useAsync(async () => {
-    const staff = await supabase.from('hr_staff').select('name, hourly, rate, active, left_on, salary_annual, bonus_tiers').then((r) => { if (r.error) throw r.error; return r.data as Staff[] })
+    const staff = await supabase.from('hr_staff').select('name, hourly, rate, active, left_on, salary_annual, bonus_tiers, bonus_period').then((r) => { if (r.error) throw r.error; return r.data as Staff[] })
     const row = staff.find((s) => names.has(s.name.trim().toLowerCase())) || null
     if (!row) return { row, punches: [] as Punch[] }
     const { data, error } = await supabase.from('hr_punches').select('*').eq('name', row.name).gte('work_date', check.from).lte('work_date', check.to).order('work_date')
@@ -52,8 +53,12 @@ export default function MyPay() {
   const salaried = !!hours.data?.row?.salary_annual
   const earnsCommission = !!hours.data && !salaried && ['producer', 'protege', 'admin'].includes(me?.role || '')
   const tiers = hours.data?.row?.bonus_tiers
+  // a monthly bonus (calendar month, paid on the 21st after month-end) or one on the folio paid that day
+  const monthly = hours.data?.row?.bonus_period === 'month'
+  const bonusMonth = monthly ? bonusMonthFor(pay) : null
+  const monthBon = useAsync(async () => (bonusMonth && tiers?.length && bonusMonth >= BONUS_FROM ? monthBonus(hours.data!.row!.name, tiers, bonusMonth, todayPacific()) : null), [bonusMonth, tiers?.length, synced])
   const agencyPrem = useAsync(async () => {
-    if (!folio || !tiers?.length) return null
+    if (monthly || !folio || !tiers?.length) return null
     const { data, error } = await supabase.rpc('agency_premium', { p_from: folio.start_date, p_to: folio.end_date })
     if (error) throw error
     return Number(data) || 0
@@ -79,20 +84,28 @@ export default function MyPay() {
   const qualified = (sdr.data || []).filter((t) => t.az_qualifies).length, bound = (sdr.data || []).filter((t) => t.bound).length
   const bonus = qualified * qb + bound * bb
   const salary = salaried ? salaryCheck(row?.salary_annual) : 0
-  const cash = check.commission && agencyPrem.data != null ? agencyBonus(tiers, agencyPrem.data) : { amount: 0, min: 0 }
+  const cash = monthly ? { amount: monthBon.data?.amount || 0, min: monthBon.data?.tier.min || 0 }
+    : check.commission && agencyPrem.data != null ? agencyBonus(tiers, agencyPrem.data) : { amount: 0, min: 0 }
   const total = hourlyPay + salary + (c?.total || 0) + bonus + cash.amount
 
   // estimated take-home for salaried staff: salary as regular pay, the cash bonus as a supplemental payment
   const net = salaried ? takeHome(hourlyPay + salary, (c?.total || 0) + bonus + cash.amount, filing) : null
-  const err = hours.error || comm.error || periods.error || sdr.error || agencyPrem.error
-  const loading = !hours.data || (check.commission && earnsCommission && folio && comm.loading && !comm.data) || (check.commission && tiers?.length && folio && agencyPrem.loading && agencyPrem.data == null)
+  const err = hours.error || comm.error || periods.error || sdr.error || agencyPrem.error || monthBon.error
+  const loading = !hours.data || (check.commission && earnsCommission && folio && comm.loading && !comm.data) || (check.commission && tiers?.length && !monthly && folio && agencyPrem.loading && agencyPrem.data == null) || (monthBon.loading && !monthBon.data)
   // what's in the check, one short line each
   const lines: { label: string; detail: string; amount: number }[] = []
   const folioName = folio ? `${shortDate(folio.start_date)} – ${shortDate(folio.end_date, true)}` : ''
   const firstTier = tiers?.length ? Math.min(...tiers.map((t) => Number(t.min))) : 0
   if (row?.hourly) lines.push({ label: 'Hours', detail: `${hm(mins)} at ${row.rate != null ? money2(row.rate) + '/hr' : '(no rate set)'}`, amount: hourlyPay })
   if (salaried) lines.push({ label: 'Salary', detail: `${money0(Number(row!.salary_annual))} a year, split into 24 checks`, amount: salary })
-  if (check.commission && tiers?.length) lines.push({ label: 'Agency bonus', detail: !folio ? 'Folio not set up yet' : cash.amount ? `Agency wrote ${money0(agencyPrem.data || 0)} last folio` : `Agency wrote ${money0(agencyPrem.data || 0)} last folio · needed ${money0(firstTier)}`, amount: cash.amount })
+  if (check.commission && tiers?.length && !monthly) lines.push({ label: 'Agency bonus', detail: !folio ? 'Folio not set up yet' : cash.amount ? `Agency wrote ${money0(agencyPrem.data || 0)} last folio` : `Agency wrote ${money0(agencyPrem.data || 0)} last folio · needed ${money0(firstTier)}`, amount: cash.amount })
+  if (check.commission && tiers?.length && monthly && bonusMonth) {
+    const mb = monthBon.data, met = mb ? mb.gates.filter((g) => g.ok).length : 0
+    lines.push({ label: 'Monthly bonus', amount: cash.amount, detail: !mb ? `Starts with ${monthLabel(BONUS_FROM)} results, paid ${shortDate(BONUS_FROM.slice(0, 5) + '11-21')}`
+      : !mb.tier.amount ? `${monthLabel(mb.month)}: agency wrote ${money0(mb.premium)} · needed ${money0(firstTier)}`
+      : mb.eligible ? `${monthLabel(mb.month)}: agency wrote ${money0(mb.premium)} · all 4 gates met`
+      : `${monthLabel(mb.month)}: agency wrote ${money0(mb.premium)} (${money0(mb.tier.amount)} tier) · on hold, ${met} of 4 gates met` })
+  }
   if (check.commission && earnsCommission && (c || folio)) lines.push({ label: 'Commission', detail: !folio ? 'Folio not set up yet' : c ? `${c.policies} policies sold ${folioName}` : `No sales credited to you ${folioName}`, amount: c?.total || 0 })
   if (check.commission && (sdr.data?.length || me?.role === 'sdr' || me?.role === 'va')) lines.push({ label: 'SDR bonus', detail: period ? `${period.period_label}: ${qualified} qualified, ${bound} bound` : 'No SDR month for this payday', amount: bonus })
   const upcoming = pay > todayPacific()
@@ -144,7 +157,7 @@ export default function MyPay() {
         )}
       </section>
 
-      {salaried && tiers?.length ? <BonusTracker tiers={tiers} folios={folios} synced={synced} /> : null}
+      {salaried && tiers?.length ? <BonusTracker tiers={tiers} monthly={monthly} name={hours.data!.row!.name} folios={folios} synced={synced} /> : null}
 
       {row?.hourly && (hours.data?.punches.length || 0) > 0 && (
         <Panel title="My hours" sub={`${shortDate(check.from)} – ${shortDate(check.to, true)} · ${hm(mins)}`}>
@@ -199,31 +212,36 @@ export default function MyPay() {
   )
 }
 
-/** Salaried staff: how the folio open now is going toward the next cash bonus (paid the month after it closes). */
-function BonusTracker({ tiers, folios, synced }: { tiers: BonusTier[]; folios: { start_date: string; end_date: string; in_progress?: boolean }[]; synced: unknown }) {
-  const open = folios.find((f) => f.in_progress) || folios.find((f) => f.start_date <= todayPacific() && f.end_date >= todayPacific())
+/** Salaried staff: how the period open now (the calendar month, or the folio) is going toward the next cash bonus,
+ *  with a monthly bonus's eligibility gates so far. */
+function BonusTracker({ tiers, monthly, name, folios, synced }: { tiers: BonusTier[]; monthly: boolean; name: string; folios: { start_date: string; end_date: string; in_progress?: boolean }[]; synced: unknown }) {
+  const today = todayPacific()
+  const f = folios.find((x) => x.in_progress) || folios.find((x) => x.start_date <= today && x.end_date >= today)
+  const open = monthly ? { start_date: today.slice(0, 7) + '-01', end_date: monthEnd(today.slice(0, 7)) } : f
   const prem = useAsync(async () => {
     if (!open) return null
+    if (monthly) return monthBonus(name, tiers, today.slice(0, 7), today)
     const { data, error } = await supabase.rpc('agency_premium', { p_from: open.start_date, p_to: open.end_date })
     if (error) throw error
-    return Number(data) || 0
-  }, [open?.start_date, open?.end_date, synced])
+    return { premium: Number(data) || 0, gates: null }
+  }, [open?.start_date, open?.end_date, monthly, name, synced])
   if (!open || prem.data == null) return null
+  const written = prem.data.premium, gateList = prem.data.gates
   const sorted = [...tiers].sort((a, b) => Number(a.min) - Number(b.min))
-  const now = agencyBonus(tiers, prem.data)
-  const next = sorted.find((t) => Number(t.min) > prem.data!)
+  const now = agencyBonus(tiers, written)
+  const next = sorted.find((t) => Number(t.min) > written)
   return (
-    <Panel title="Bonus tracker" sub={`This folio, ${shortDate(open.start_date)} – ${shortDate(open.end_date, true)} · paid next month`}>
+    <Panel title="Bonus tracker" sub={monthly ? `${monthLabel(today.slice(0, 7))} · paid ${shortDate(nextMonth21(today))} once the month is reconciled` : `This folio, ${shortDate(open.start_date)} – ${shortDate(open.end_date, true)} · paid next month`}>
       <div className="pay-big" style={{ textAlign: 'left', padding: 0 }}>
         <div className="pay-k">The agency has written</div>
-        <div className="pay-amt" style={{ fontSize: 28 }}>{money0(prem.data)}</div>
-        <div className="sub">{now.amount ? `Your bonus so far: ${money0(now.amount)}. ` : ''}{next ? `${money0(Number(next.min) - prem.data)} more to reach ${money0(Number(next.amount))}.` : 'Top bonus reached!'}</div>
+        <div className="pay-amt" style={{ fontSize: 28 }}>{money0(written)}</div>
+        <div className="sub">{now.amount ? `Your bonus so far: ${money0(now.amount)}. ` : ''}{next ? `${money0(Number(next.min) - written)} more to reach ${money0(Number(next.amount))}.` : 'Top bonus reached!'}</div>
       </div>
       {/* one step per bonus: each fills from the bonus before it to this one */}
-      <div className="pay-steps" style={{ gridTemplateColumns: `repeat(${sorted.length}, 1fr)` }} role="img" aria-label={`${money0(prem.data)} written`}>
+      <div className="pay-steps" style={{ gridTemplateColumns: `repeat(${sorted.length}, 1fr)` }} role="img" aria-label={`${money0(written)} written`}>
         {sorted.map((t, i) => {
           const lo = i ? Number(sorted[i - 1].min) : 0, hi = Number(t.min)
-          const fill = Math.max(0, Math.min(1, (prem.data! - lo) / (hi - lo)))
+          const fill = Math.max(0, Math.min(1, (written - lo) / (hi - lo)))
           return (
             <div key={t.min} className={'pay-step' + (fill >= 1 ? ' hit' : '')}>
               <div className="pay-bar"><div className="pay-fill" style={{ width: fill * 100 + '%' }} /></div>
@@ -233,6 +251,13 @@ function BonusTracker({ tiers, folios, synced }: { tiers: BonusTier[]; folios: {
           )
         })}
       </div>
+      {gateList && (
+        <div className="gates">
+          <div className="pay-k" style={{ margin: '16px 0 6px' }}>Bonus gates so far</div>
+          {gateList.map((g) => <div key={g.label} className={'gate' + (g.ok ? ' ok' : '')}><span>{g.ok ? '✓' : '•'}</span><div><div className="strong">{g.label}</div><div className="sub">{g.detail}</div></div></div>)}
+        </div>
+      )}
     </Panel>
   )
 }
+const nextMonth21 = (day: string) => { const [y, m] = day.split('-').map(Number); return m === 12 ? `${y + 1}-01-21` : `${y}-${String(m + 1).padStart(2, '0')}-21` }

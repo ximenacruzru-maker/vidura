@@ -43,6 +43,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     { to: '/today', label: first ? `${first}’s Space` : 'My Space', icon: 'today', show: true },
     { to: '/work', label: 'Work & Tickets', icon: 'tickets', show: c('work') },
     { to: '/chat', label: 'Team Chat', icon: 'chat', show: c('chat') },
+    { to: '/retention', label: 'Retention', icon: 'service', show: c('retention') },
     { to: '/pay', label: 'My Pay', icon: 'reports', show: me?.role !== 'owner' },
     { to: '/my-commissions', label: 'My Commissions', icon: 'sales', show: me?.role === 'sdr' || me?.role === 'va' },
     { div: true },
