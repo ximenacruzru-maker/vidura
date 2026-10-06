@@ -865,3 +865,7 @@ html[data-theme="astra"] .xd .mc-btn { border-color: #E5252E; background: #2A101
 .pay-bar { height: 12px; border-radius: 6px; background: var(--track, var(--line)); overflow: hidden; margin-bottom: 6px; }
 .pay-fill { height: 100%; background: var(--good, var(--blue)); }
 @media (max-width: 700px) { .pay-amt { font-size: 32px; } .pay-nav .btn-ghost { padding-left: 8px; padding-right: 8px; } }
+.gate { display: flex; gap: 10px; align-items: flex-start; padding: 6px 0; }
+.gate > span { width: 20px; height: 20px; flex: none; border-radius: 50%; display: grid; place-items: center; font-size: 12px; background: var(--warn-bg, var(--line)); color: var(--warn, var(--ink)); }
+.gate.ok > span { background: var(--good-bg, var(--line)); color: var(--good, var(--ink)); }
+.talk-track { font-size: 15px; line-height: 1.6; margin: 0; font-style: italic; }

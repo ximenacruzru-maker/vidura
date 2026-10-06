@@ -7,6 +7,7 @@ import { getFolios, getPolicies, getQuotes, isAdmin, type Policy, type QuoteLead
 import { addDays, mdy, money0, todayPacific } from '../lib/format'
 import { supabase } from '../lib/supabase'
 import { useAsync } from '../lib/useAsync'
+import { RetentionTiles } from './Retention'
 import { getWork, isDone } from './WorkQueue'
 
 interface Item { id: number; area: string | null; name: string; priority: string | null; due_time: string | null; sort: number; active: boolean }
@@ -23,6 +24,8 @@ export default function MySpace() {
   const [reload, setReload] = useState(0)
   const [newItem, setNewItem] = useState('')
   const owner = me?.role === 'owner'
+  // the retention role takes no new-business leads: My Space shows the retention scorecard instead of the pipeline
+  const retentionRole = !!(me?.access as Record<string, unknown> | undefined)?.retention
   const [day, setDay] = useState(today)
   const rateFrom = today.slice(0, 4) + '-01-01'
   const yearFrom = today.slice(0, 4) + '-01-01' > QUOTES_FROM ? today.slice(0, 4) + '-01-01' : QUOTES_FROM
@@ -90,6 +93,7 @@ export default function MySpace() {
   return (
     <>
       {head}
+      {retentionRole ? <RetentionTiles name={me?.producer_name || me?.display_name || ''} /> : <>
       <Tiles>
         <Tile label={`${who} quoted pipeline · this folio`} value={money0(prem(pipeFolio))}
           sub={`${pipeFolio.length} open quote${pipeFolio.length === 1 ? '' : 's'}${folio ? ' since ' + mdy(folio.start_date) : ''} · ${money0(prem(pipe))} in pipeline overall`} />
@@ -108,6 +112,7 @@ export default function MySpace() {
           <Tile label="Sold" value={money0(daySold.reduce((a, p) => a + p.premium, 0))} sub={`${daySold.length} polic${daySold.length === 1 ? 'y' : 'ies'}`} />
         </Tiles>
       </Panel>
+      </>}
       <div className="grid2">
         <Panel title="Daily checklist" sub="Ticks are yours and reset each morning.">
           <div className="prog-row"><span>{done.size} of {data.items.length}</span><div className="progress"><i style={{ width: pct + '%' }} /></div><span>{pct}%</span></div>

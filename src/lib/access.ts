@@ -11,6 +11,7 @@ export const SECTIONS: { key: string; label: string; note: string }[] = [
   { key: 'proteges', label: 'Protégé program', note: 'Milestones and training checklist for protégés' },
   { key: 'passwords', label: 'Agency passwords', note: 'View and copy the saved logins — on for everyone by default; only admins can add or change them' },
   { key: 'hr', label: 'HR (timesheets & pay rates)', note: 'Everyone’s hours and hourly rates' },
+  { key: 'retention', label: 'Retention scorecard', note: 'Owns client success and retention: the daily huddle scorecard, saves, losses and cross-sell, Net Book Movement; My Space shows retention instead of the sales pipeline' },
   { key: 'work_manager', label: 'Runs the work queue', note: 'Sees every work item and assigns them to anyone; everyone else sees only the work assigned to them (admins see all)' },
 ]
 
