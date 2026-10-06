@@ -86,52 +86,68 @@ export default function MyPay() {
   const net = salaried ? takeHome(hourlyPay + salary, (c?.total || 0) + bonus + cash.amount, filing) : null
   const err = hours.error || comm.error || periods.error || sdr.error || agencyPrem.error
   const loading = !hours.data || (check.commission && earnsCommission && folio && comm.loading && !comm.data) || (check.commission && tiers?.length && folio && agencyPrem.loading && agencyPrem.data == null)
+  // what's in the check, one short line each
   const lines: { label: string; detail: string; amount: number }[] = []
-  if (row?.hourly) lines.push({ label: 'Hourly pay', detail: `${hm(mins)} × ${row.rate != null ? money2(row.rate) + '/hr' : 'no rate set'} · ${shortDate(check.from)} – ${shortDate(check.to, true)}`, amount: hourlyPay })
-  if (salaried) lines.push({ label: 'Salary', detail: `${money2(Number(row!.salary_annual))} a year ÷ 24 paydays`, amount: salary })
-  if (check.commission && tiers?.length) lines.push({ label: 'Agency bonus', detail: folio ? `Folio ${shortDate(folio.start_date)} – ${shortDate(folio.end_date, true)} · agency wrote ${money2(agencyPrem.data || 0)} · ${cash.amount ? `reached ${money0(cash.min)}` : `next bonus at ${money0(Math.min(...tiers.map((t) => Number(t.min))))}`} · ${tiers.map((t) => `${money0(Number(t.min))} → ${money0(Number(t.amount))}`).join(', ')}` : 'Folio not set up yet', amount: cash.amount })
-  if (check.commission && earnsCommission && (c || folio)) lines.push({ label: 'Commission', detail: folio ? `Folio ${shortDate(folio.start_date)} – ${shortDate(folio.end_date, true)}${c ? ` · ${c.policies} policies · ${c.qualifies ? 'qualified' : 'not qualified'} · tier ${pct(c.tierRate)}` : ' · no sales credited to you'}` : 'Folio not set up yet', amount: c?.total || 0 })
-  if (check.commission && (sdr.data?.length || me?.role === 'sdr' || me?.role === 'va')) lines.push({ label: 'SDR bonus', detail: period ? `${period.period_label} transfers · ${qualified} qualified × $${qb} + ${bound} bound × $${bb}` : 'No SDR month for this payday', amount: bonus })
+  const folioName = folio ? `${shortDate(folio.start_date)} – ${shortDate(folio.end_date, true)}` : ''
+  const firstTier = tiers?.length ? Math.min(...tiers.map((t) => Number(t.min))) : 0
+  if (row?.hourly) lines.push({ label: 'Hours', detail: `${hm(mins)} at ${row.rate != null ? money2(row.rate) + '/hr' : '(no rate set)'}`, amount: hourlyPay })
+  if (salaried) lines.push({ label: 'Salary', detail: `${money0(Number(row!.salary_annual))} a year, split into 24 checks`, amount: salary })
+  if (check.commission && tiers?.length) lines.push({ label: 'Agency bonus', detail: !folio ? 'Folio not set up yet' : cash.amount ? `Agency wrote ${money0(agencyPrem.data || 0)} last folio` : `Agency wrote ${money0(agencyPrem.data || 0)} last folio · needed ${money0(firstTier)}`, amount: cash.amount })
+  if (check.commission && earnsCommission && (c || folio)) lines.push({ label: 'Commission', detail: !folio ? 'Folio not set up yet' : c ? `${c.policies} policies sold ${folioName}` : `No sales credited to you ${folioName}`, amount: c?.total || 0 })
+  if (check.commission && (sdr.data?.length || me?.role === 'sdr' || me?.role === 'va')) lines.push({ label: 'SDR bonus', detail: period ? `${period.period_label}: ${qualified} qualified, ${bound} bound` : 'No SDR month for this payday', amount: bonus })
+  const upcoming = pay > todayPacific()
+  const weekday = new Date(pay + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })
 
   return (
     <>
-      <PageHead kicker="Workspace" title="My Pay" sub="Your pay on each payday. Only you and the agency admins can see these numbers." />
-      <Panel title={`Payday ${mdy(pay)}`} sub={salaried ? (check.commission ? 'The 21st pays your salary (1/24 of the year) plus your cash bonus on what the agency wrote in last month’s folio.' : 'The 5th pays your salary (1/24 of the year). Cash bonuses are paid on the 21st.') : check.commission ? 'The 21st pays hours for the 1st–15th, plus your commission for last month’s folio and SDR bonus for last month’s transfers. What you earn in the folio open now is paid next month.' : 'The 5th pays hours for the 16th to the end of last month. Commission and SDR bonuses are paid on the 21st.'}
-        right={<div className="filters">
+      <PageHead kicker="Workspace" title="My Pay" sub="Only you and the agency admins can see this." />
+      <section className="panel pay-card">
+        <div className="pay-nav">
           <button className="btn-ghost" onClick={() => setPay(stepPay(pay, -1))} aria-label="Previous payday">‹ {shortDate(stepPay(pay, -1))}</button>
+          <div className="pay-day"><div className="pay-k">{upcoming ? 'Next paycheck' : 'Paycheck'}</div><div className="strong">{weekday}</div></div>
           <button className="btn-ghost" onClick={() => setPay(stepPay(pay, 1))} aria-label="Next payday">{shortDate(stepPay(pay, 1))} ›</button>
-        </div>}>
-        {err ? <ErrorBox error={err} /> : loading ? <Loading what="Adding up your pay" /> : lines.length ? (
-          <table className="tbl paystub">
-            <tbody>
-              {lines.map((l) => (
-                <tr key={l.label}><td><div className="strong">{l.label}</div><div className="sub">{l.detail}</div></td><td className="r mono">{money2(l.amount)}</td></tr>
-              ))}
-              <tr className="paystub-total"><td className="strong">Total {pay > todayPacific() ? 'so far' : ''}</td><td className="r mono strong">{money2(total)}</td></tr>
-            </tbody>
-          </table>
-        ) : <Empty>Nothing to show for this payday. If you think that’s wrong, ask an admin to check your pay setup under HR.</Empty>}
-        {!err && !loading && pay > todayPacific() && lines.length > 0 && <div className="sub" style={{ marginTop: 8 }}>This payday hasn’t happened yet: the figures grow as hours, sales and transfers come in.</div>}
-      </Panel>
+        </div>
+        {err ? <ErrorBox error={err} /> : loading ? <Loading what="Adding up your pay" /> : !lines.length ? (
+          <Empty>Nothing to show for this payday. If you think that’s wrong, ask an admin to check your pay setup under HR.</Empty>
+        ) : (
+          <>
+            <div className="pay-big">
+              <div className="pay-k">{net ? 'You take home about' : upcoming ? 'Your pay so far' : 'Your pay'}</div>
+              <div className="pay-amt">{money2(net ? net.net : total)}</div>
+              {net && <div className="sub">{money2(total)} before taxes · {money2(net.deductions)} in taxes</div>}
+            </div>
+            <table className="tbl paystub">
+              <tbody>
+                {lines.map((l) => (
+                  <tr key={l.label}><td><div className="strong">{l.label}</div><div className="sub">{l.detail}</div></td><td className="r mono">{money2(l.amount)}</td></tr>
+                ))}
+                {net && <tr><td><div className="strong">Taxes</div><div className="sub">Estimated for San Jose, CA</div></td><td className="r mono">−{money2(net.deductions)}</td></tr>}
+                <tr className="paystub-total"><td className="strong">{net ? 'Take-home (estimate)' : 'Total'}</td><td className="r mono strong">{money2(net ? net.net : total)}</td></tr>
+              </tbody>
+            </table>
+            {net && (
+              <details className="pay-taxes">
+                <summary>See the taxes</summary>
+                <div className="filters" style={{ margin: '10px 0' }}>
+                  <select value={filing} onChange={(e) => pickFiling(e.target.value as FilingStatus)} aria-label="Filing status">
+                    <option value="single">Single</option><option value="married">Married filing jointly</option>
+                  </select>
+                </div>
+                <table className="tbl inner">
+                  <tbody>{net.lines.map((l) => <tr key={l.label}><td>{l.label}</td><td className="r mono">−{money2(l.amount)}</td></tr>)}</tbody>
+                </table>
+                <div className="sub" style={{ marginTop: 8 }}>An estimate: your real check depends on your W-4 and things like 401(k) or health insurance. Bonuses are withheld at the flat bonus rates.</div>
+              </details>
+            )}
+            {upcoming && <div className="sub pay-note">This payday hasn’t happened yet, so these numbers can still change.</div>}
+          </>
+        )}
+      </section>
 
-      {net && !err && !loading && (
-        <Panel title="Estimated take-home" sub="What lands in your bank account after taxes, for a paycheck in San Jose, CA. An estimate: your actual check depends on your W-4 and any deductions such as 401(k) or health insurance."
-          right={<div className="filters"><select value={filing} onChange={(e) => pickFiling(e.target.value as FilingStatus)} aria-label="Filing status">
-            <option value="single">Single</option><option value="married">Married filing jointly</option>
-          </select></div>}>
-          <table className="tbl paystub">
-            <tbody>
-              <tr><td className="strong">Gross pay</td><td className="r mono">{money2(net.gross)}</td></tr>
-              {net.lines.map((l) => <tr key={l.label}><td>{l.label}</td><td className="r mono">−{money2(l.amount)}</td></tr>)}
-              <tr className="paystub-total"><td className="strong">Estimated take-home</td><td className="r mono strong">{money2(net.net)}</td></tr>
-            </tbody>
-          </table>
-          <div className="sub" style={{ marginTop: 8 }}>Salary is taxed as if every check were the same; a cash bonus is withheld at the flat bonus rates (22% federal, 10.23% California). San Jose has no city income tax.</div>
-        </Panel>
-      )}
+      {salaried && tiers?.length ? <BonusTracker tiers={tiers} folios={folios} synced={synced} /> : null}
 
       {row?.hourly && (hours.data?.punches.length || 0) > 0 && (
-        <Panel title="My hours" sub={`${shortDate(check.from)} – ${shortDate(check.to, true)} · ${hm(mins)} worked`}>
+        <Panel title="My hours" sub={`${shortDate(check.from)} – ${shortDate(check.to, true)} · ${hm(mins)}`}>
           <table className="tbl">
             <thead><tr><th>Date</th><th>In</th><th>Out</th><th>Breaks</th><th className="r">Worked</th></tr></thead>
             <tbody>{hours.data!.punches.map((p) => (
@@ -142,7 +158,7 @@ export default function MyPay() {
       )}
 
       {check.commission && c && comm.data && (
-        <Panel title="My commission" sub={`${comm.data.plan.name} · ${c.policies} policies · ${money2(c.totalPremium)} premium credited to you`}>
+        <Panel title="How your commission adds up" sub={`${c.policies} policies · ${money2(c.totalPremium)} premium`}>
           <table className="tbl">
             <thead><tr><th>Bucket</th><th className="r">Premium</th><th className="r">Rate</th><th className="r">Commission</th></tr></thead>
             <tbody>
@@ -180,5 +196,43 @@ export default function MyPay() {
         </Panel>
       )}
     </>
+  )
+}
+
+/** Salaried staff: how the folio open now is going toward the next cash bonus (paid the month after it closes). */
+function BonusTracker({ tiers, folios, synced }: { tiers: BonusTier[]; folios: { start_date: string; end_date: string; in_progress?: boolean }[]; synced: unknown }) {
+  const open = folios.find((f) => f.in_progress) || folios.find((f) => f.start_date <= todayPacific() && f.end_date >= todayPacific())
+  const prem = useAsync(async () => {
+    if (!open) return null
+    const { data, error } = await supabase.rpc('agency_premium', { p_from: open.start_date, p_to: open.end_date })
+    if (error) throw error
+    return Number(data) || 0
+  }, [open?.start_date, open?.end_date, synced])
+  if (!open || prem.data == null) return null
+  const sorted = [...tiers].sort((a, b) => Number(a.min) - Number(b.min))
+  const now = agencyBonus(tiers, prem.data)
+  const next = sorted.find((t) => Number(t.min) > prem.data!)
+  return (
+    <Panel title="Bonus tracker" sub={`This folio, ${shortDate(open.start_date)} – ${shortDate(open.end_date, true)} · paid next month`}>
+      <div className="pay-big" style={{ textAlign: 'left', padding: 0 }}>
+        <div className="pay-k">The agency has written</div>
+        <div className="pay-amt" style={{ fontSize: 28 }}>{money0(prem.data)}</div>
+        <div className="sub">{now.amount ? `Your bonus so far: ${money0(now.amount)}. ` : ''}{next ? `${money0(Number(next.min) - prem.data)} more to reach ${money0(Number(next.amount))}.` : 'Top bonus reached!'}</div>
+      </div>
+      {/* one step per bonus: each fills from the bonus before it to this one */}
+      <div className="pay-steps" style={{ gridTemplateColumns: `repeat(${sorted.length}, 1fr)` }} role="img" aria-label={`${money0(prem.data)} written`}>
+        {sorted.map((t, i) => {
+          const lo = i ? Number(sorted[i - 1].min) : 0, hi = Number(t.min)
+          const fill = Math.max(0, Math.min(1, (prem.data! - lo) / (hi - lo)))
+          return (
+            <div key={t.min} className={'pay-step' + (fill >= 1 ? ' hit' : '')}>
+              <div className="pay-bar"><div className="pay-fill" style={{ width: fill * 100 + '%' }} /></div>
+              <div className="strong">{money0(Number(t.amount))}</div>
+              <div className="sub">at {money0(hi)}</div>
+            </div>
+          )
+        })}
+      </div>
+    </Panel>
   )
 }
