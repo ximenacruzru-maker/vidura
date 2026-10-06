@@ -11,6 +11,7 @@ import { useAsync } from '../../lib/useAsync'
 import { Bars, DayChart, Donut, ICO, Meter, RenewalChart, ScoreCard } from './parts'
 import { useDarkFix, useFitFigures, useLegacyLook } from './look'
 import VsLastYear from './VsLastYear'
+import RetentionReport from './RetentionReport'
 import './executive.css'
 
 /* Filters survive leaving and coming back within a session, as they did while the original screens stayed loaded. */
@@ -122,6 +123,7 @@ export function Dashboard({ D }: { D: PerfData }) {
           setRange={(r) => setF((x) => ({ ...x, prodFrom: r.from, prodTo: r.to }))} goals={goals} />
         {me?.role === 'owner' && <FarmersRevenue D={D} />}
         <VsLastYear />
+        <RetentionReport />
 
         <div className="scg" style={{ gridTemplateColumns: 'repeat(6, minmax(0, 1fr))' }}>
           <ScoreCard icon={ICO.dollar} iconClass="i-blue" label="Written premium" value={x.total} display={money0(x.total)} drill="premium" onDrill={onDrill}
