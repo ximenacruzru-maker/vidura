@@ -477,8 +477,9 @@ export async function certificatePdf(p: Producer, c: Cert): Promise<Blob> {
   } finally { fr.remove() }
 }
 
-/** Files the certificate on the client's profile (Documents, as a certificate) and returns its title. */
-export async function saveCertificate(p: Producer, c: Cert, agencyId: string) {
+/** Files the certificate on the client's profile (Documents, as a certificate), with who issued it and the exact
+ *  time (kept as the document's created time), and returns its title and that time. */
+export async function saveCertificate(p: Producer, c: Cert, agencyId: string, issuedBy?: string) {
   if (!c.accountId) throw new Error('no client')
   const blob = await certificatePdf(p, c)
   const slug = (x: string) => x.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40)
@@ -490,12 +491,13 @@ export async function saveCertificate(p: Producer, c: Cert, agencyId: string) {
   if (up.error) throw up.error
   const first = LINES.find((l) => c[l.key].on)
   const title = `Certificate — ${c.holderName.trim() || 'holder'} (${mdy(c.date)})`
-  const { error } = await supabase.from('documents').insert({
+  const { data, error } = await supabase.from('documents').insert({
     id, category: 'coi', account_id: c.accountId, policy_number: first ? c[first.key].policy || null : null, title,
     file_name: fileName, mime: 'application/pdf', storage_path: path, size_bytes: blob.size, admin_only: false, uploaded: true,
-  })
+    issued_by: issuedBy || null,
+  }).select('created_at').single()
   if (error) throw error
-  return title
+  return { title, at: (data as { created_at: string }).created_at }
 }
 
 /** Prints the certificate from a hidden frame (Save as PDF from the print dialog), leaving the page as it is. */
