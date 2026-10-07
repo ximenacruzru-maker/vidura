@@ -1,4 +1,8 @@
 import { Link } from 'react-router-dom'
+import { useAuth } from '../../auth'
+import { useFolio } from '../../components/FolioPicker'
+import { agencyName } from '../../lib/data'
+import { PdfButton } from '../Retention'
 import { supabase } from '../../lib/supabase'
 import { useAsync } from '../../lib/useAsync'
 import { useSyncStamp } from '../../lib/syncEvents'
@@ -15,6 +19,8 @@ const KIND: Record<RetentionEntry['kind'], string> = { save: 'Save', loss: 'Loss
 const us = (iso: string) => iso.slice(5, 7) + '/' + iso.slice(8, 10) + '/' + iso.slice(0, 4)
 
 export default function RetentionReport() {
+  const { me } = useAuth()
+  const { folios } = useFolio()
   const synced = useSyncStamp()
   const day = todayPacific(), month = day.slice(0, 7)
   const { data } = useAsync(async () => {
@@ -39,7 +45,10 @@ export default function RetentionReport() {
       <div className="panel-h">
         <div><div className="panel-t">Retention &amp; book growth</div>
           <div className="panel-s">{who} &middot; month to date &middot; Net Book Movement = saved + cross-sell &minus; lost premium</div></div>
-        <Link className="yoy-csv" to="/retention">Open the full report</Link>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <PdfButton className="yoy-csv" name={data.names[0]} folio={folios.find((f) => f.in_progress) || folios.find((f) => f.start_date <= day && f.end_date >= day) || null} agency={agencyName(me)} />
+          <Link className="yoy-csv" to="/retention">Open the full report</Link>
+        </div>
       </div>
       <div className="panel-b">
         <div className="scg" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>

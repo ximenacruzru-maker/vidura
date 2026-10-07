@@ -1,9 +1,12 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth'
+import { useFolio } from '../components/FolioPicker'
 import { Empty, ErrorBox, Loading, PageHead, Panel, Tile, Tiles } from '../components/ui'
 import { mdy, money0, todayPacific } from '../lib/format'
 import { supabase } from '../lib/supabase'
+import { agencyName } from '../lib/data'
+import { downloadRetentionPdf } from '../lib/retentionPdf'
 import { useAsync } from '../lib/useAsync'
 import { LOSS_REASONS, TARGETS, gates, monthEnd, monthLabel, movement, type RetentionDay, type RetentionEntry, type RetentionMonth } from '../lib/retention'
 
@@ -39,24 +42,35 @@ export default function Retention() {
   const data = useAsync(async () => {
     if (!name) return null
     const yday = prevWorkday(from <= today && today <= to ? today : to)
-    const [days, log, rec, week] = await Promise.all([
+    const [days, log, week] = await Promise.all([
       supabase.from('retention_days').select('*').eq('name', name).gte('day', from < yday ? from : yday).lte('day', to).order('day').then((r) => { if (r.error) throw r.error; return r.data as RetentionDay[] }),
       supabase.from('retention_log').select('*').eq('name', name).gte('day', from).lte('day', to).order('day', { ascending: false }).order('id', { ascending: false }).then((r) => { if (r.error) throw r.error; return r.data as RetentionEntry[] }),
-      supabase.from('retention_months').select('*').eq('name', name).eq('month', month).maybeSingle().then((r) => { if (r.error) throw r.error; return r.data as RetentionMonth | null }),
       supabase.from('retention_log').select('*').eq('name', name).eq('kind', 'save').gte('day', weekStart(today)).lte('day', today).then((r) => { if (r.error) throw r.error; return r.data as RetentionEntry[] }),
     ])
-    return { days, log, rec, week }
+    return { days, log, week }
   }, [name, from, to, reload])
+
+  // the bonus is measured on folios: the gates show the folio open now, or the one that closed in the month picked
+  const { folios } = useFolio()
+  const openFolio = folios.find((f) => f.in_progress) || folios.find((f) => f.start_date <= today && f.end_date >= today)
+  const gFolio = month === today.slice(0, 7) ? (folios.find((f) => f.in_progress) || folios.find((f) => f.start_date <= today && f.end_date >= today)) : folios.find((f) => f.end_date.slice(0, 7) === month)
+  const gate = useAsync(async () => {
+    if (!name || !gFolio) return null
+    const [days, rec] = await Promise.all([
+      supabase.from('retention_days').select('*').eq('name', name).gte('day', gFolio.start_date).lte('day', gFolio.end_date).then((r) => { if (r.error) throw r.error; return r.data as RetentionDay[] }),
+      supabase.from('retention_months').select('*').eq('name', name).eq('month', gFolio.start_date).maybeSingle().then((r) => { if (r.error) throw r.error; return r.data as RetentionMonth | null }),
+    ])
+    return { rec, g: gates(gFolio, days, rec, today) }
+  }, [name, gFolio?.start_date, gFolio?.end_date, reload])
+  const rec = gate.data?.rec || null, g = gate.data?.g || []
 
   const head = <PageHead kicker="Client success" title="Retention & book growth" sub="Net Book Movement = saved premium + cross-sell premium − lost premium. Activity explains the result; it doesn’t replace it." />
   if (people.error || data.error) return <>{head}<ErrorBox error={people.error || data.error} /></>
   if (!name && people.data) return <>{head}<Empty>No one has the retention role yet. Switch on “Retention scorecard” for them under Settings → Team & access.</Empty></>
   if (!data.data) return <>{head}<Loading what="Loading the scorecard" /></>
 
-  const { days, log, rec, week } = data.data
-  const monthDays = days.filter((d) => d.day >= from)
+  const { days, log, week } = data.data
   const mv = movement(log)
-  const g = gates(month, monthDays, rec, today)
   const live = month === today.slice(0, 7)
   const tday = days.find((d) => d.day === today)
   const months = Array.from({ length: 6 }, (_, i) => { const d = new Date(today.slice(0, 7) + '-15T12:00:00Z'); d.setUTCMonth(d.getUTCMonth() - i); return d.toISOString().slice(0, 7) }).filter((m) => m >= '2026-10')
@@ -66,6 +80,7 @@ export default function Retention() {
       <PageHead kicker="Client success" title="Retention & book growth" sub="Net Book Movement = saved premium + cross-sell premium − lost premium. Activity explains the result; it doesn’t replace it."
         right={<div className="filters">
           {!mineRole && (people.data?.length || 0) > 1 && <select value={name} onChange={(e) => setPicked(e.target.value)} aria-label="Person">{people.data!.map((p) => <option key={p}>{p}</option>)}</select>}
+          <PdfButton name={name} folio={openFolio || null} agency={agencyName(me)} />
           <select value={month} onChange={(e) => setMonth(e.target.value)} aria-label="Month">{(months.length ? months : [month]).map((m) => <option key={m} value={m}>{monthLabel(m)}</option>)}</select>
         </div>} />
       <section className="panel rt-hero">
@@ -112,12 +127,12 @@ export default function Retention() {
         </div>
         <div>
           <TalkTrack days={days} log={log} today={today} mvNet={mv.net} />
-          <Panel title="Bonus gates" sub={`${monthLabel(month)} · all four must be met`}>
+          <Panel title="Bonus gates" sub={gFolio ? `Folio ${mdy(gFolio.start_date)} – ${mdy(gFolio.end_date)} · all four must be met` : 'Folio not set up yet'}>
             {g.slice(0, 3).map((x) => <div key={x.label} className={'gate' + (x.ok ? ' ok' : '')}><span>{x.ok ? '✓' : '•'}</span><div><div className="strong">{x.label}</div><div className="sub">{x.detail}</div></div></div>)}
             {/* gate 4 is the reconciliation mark itself */}
             <label className="check rt-gate4">
-              <input type="checkbox" checked={!!rec?.reconciled} onChange={async (e) => {
-                const { error } = await supabase.from('retention_months').upsert({ name, month, reconciled: e.target.checked, reconciled_note: e.target.checked ? `Reconciled ${mdy(today)} by ${me?.display_name || 'staff'}` : null, updated_at: new Date().toISOString() }, { onConflict: 'agency_id,name,month' })
+              <input type="checkbox" disabled={!gFolio} checked={!!rec?.reconciled} onChange={async (e) => {
+                const { error } = await supabase.from('retention_months').upsert({ name, month: gFolio!.start_date, reconciled: e.target.checked, reconciled_note: e.target.checked ? `Reconciled ${mdy(today)} by ${me?.display_name || 'staff'}` : null, updated_at: new Date().toISOString() }, { onConflict: 'agency_id,name,month' })
                 if (error) alert(error.message); else bump()
               }} />
               <div><div className="check-t">Premium reporting reconciled</div><div className="sub">{rec?.reconciled ? rec.reconciled_note : 'Tick once Farmers and brokered reporting is reconciled and outstanding items have owners.'}</div></div>
@@ -266,5 +281,16 @@ export function RetentionTiles({ name }: { name: string }) {
       </Tiles>
       <div className="sub" style={{ margin: '-6px 0 16px' }}><Link to="/retention">Open the retention scorecard →</Link></div>
     </>
+  )
+}
+
+/** Downloads the PDF report: today, the folio, the month and the year to date. */
+export function PdfButton({ name, folio, agency, className = 'btn-ghost' }: { name: string; folio: { start_date: string; end_date: string } | null; agency: string; className?: string }) {
+  const [busy, setBusy] = useState(false)
+  return (
+    <button className={className} disabled={busy || !name} onClick={async () => {
+      setBusy(true)
+      try { await downloadRetentionPdf(name, folio, todayPacific(), agency) } catch (e) { alert('The report could not be made: ' + String((e as Error)?.message || e)) } finally { setBusy(false) }
+    }}>{busy ? 'Making the PDF…' : 'Download PDF report'}</button>
   )
 }
