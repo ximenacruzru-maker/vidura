@@ -894,6 +894,20 @@ html[data-theme="astra"] .xd .mc-btn { border-color: #E5252E; background: #2A101
 .rt-entry-b { flex: 1; min-width: 0; }
 .rt-entry-r { text-align: right; flex: none; }
 .rt-add { border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; margin-bottom: 14px; background: var(--tint, transparent); }
+.sdr-bound { padding: 20px 22px; margin-bottom: 16px; border: 2px solid var(--good, var(--blue)); }
+.sdr-bound-h { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; align-items: flex-end; }
+.sdr-bound-k { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.sdr-bound-n { font-size: 44px; font-weight: 800; line-height: 1.1; color: var(--good, var(--ink)); font-variant-numeric: tabular-nums; }
+.sdr-bound-n span { font-size: 18px; font-weight: 700; margin-left: 6px; }
+.sdr-bound-earn { display: inline-block; margin-top: 6px; padding: 4px 12px; border-radius: 999px; font-weight: 800; font-size: 15px; color: #fff; background: var(--good, var(--blue)); }
+.sdr-bound-total { text-align: right; }
+.sdr-bound-amt { font-size: 32px; font-weight: 800; color: var(--good, var(--ink)); font-variant-numeric: tabular-nums; }
+.sdr-bound-list { margin-top: 14px; display: flex; flex-direction: column; }
+.sdr-bound-row { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
+.sdr-bound-c { flex: 1; min-width: 0; }
+.sdr-bound-plus { font-weight: 800; color: var(--good, var(--ink)); white-space: nowrap; }
+.tbl tr.row-bound td { background: color-mix(in srgb, var(--good, #16a34a) 12%, transparent); font-weight: 600; }
+@media (max-width: 640px) { .sdr-bound-total { text-align: left; } .sdr-bound-row { flex-wrap: wrap; } .sdr-bound-plus { flex-basis: 100%; } }
 .rt-daynav { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .rt-daynav .fld { width: auto; }
 .rt-priority { margin: 4px 0 10px; padding: 10px 12px; border-radius: var(--radius); background: var(--tint, transparent); border: 1px solid var(--line); font-size: 13.5px; }
