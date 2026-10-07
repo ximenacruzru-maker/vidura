@@ -90,10 +90,11 @@ export default function Payroll() {
       const mins = ps.reduce((a, p) => a + workedMinutes(p), 0)
       return { name: s.name, role: (s.role || '') + (!s.active && s.left_on ? ` (last day ${shortDate(s.left_on)})` : ''), days: ps.length, mins, rate: s.rate, pay: s.rate ? Math.round((mins / 60) * s.rate * 100) / 100 : 0 }
     })
-    const sdrs = new Map<string, { logged: number; qualified: number; bound: number }>()
+    const sdrs = new Map<string, { logged: number; qualified: number; bound: number; qOnly: number }>()
     for (const t of sdr.data || []) {
-      const o = sdrs.get(t.sdr) || { logged: 0, qualified: 0, bound: 0 }
-      o.logged++; if (t.az_qualifies) o.qualified++; if (t.bound) o.bound++
+      const o = sdrs.get(t.sdr) || { logged: 0, qualified: 0, bound: 0, qOnly: 0 }
+      // a bound transfer earns the bound bonus in place of the qualified one ($35 total, not $15 + $35)
+      o.logged++; if (t.az_qualifies) o.qualified++; if (t.bound) o.bound++; else if (t.az_qualifies) o.qOnly++
       sdrs.set(t.sdr, o)
     }
     // one line per person: SDR tags carry first names, so they join a full name with the same first name
@@ -116,7 +117,7 @@ export default function Payroll() {
       else if (check.commission && agencyPrem.data != null) p.cash += agencyBonus(s.bonus_tiers, agencyPrem.data).amount
     }
     for (const c of comm.data || []) if (c.total && !noComm.has(first(c.producer))) person(c.producer, 'Producer').comm += c.total
-    for (const [n, o] of sdrs) person(n, 'SDR').bonus += o.qualified * qb + o.bound * bb
+    for (const [n, o] of sdrs) person(n, 'SDR').bonus += o.qOnly * qb + o.bound * bb
     const who = [...people.values()].map((p) => ({ ...p, total: p.pay + p.salary + p.comm + p.bonus + p.cash })).filter((p) => p.total || p.hours).sort((a, b) => b.total - a.total)
     return { hourly, sdrs, who, salaried }
   }, [hours.data, comm.data, sdr.data, qb, bb, check.from, check.commission, agencyPrem.data, gated.data])
@@ -137,9 +138,9 @@ export default function Payroll() {
         [], [`Commission · folio ${folioLabel || 'not found'}`],
         ['Producer', 'Total premium', 'Policies', 'Qualifies', 'Tier rate', 'Commission'],
         ...(comm.data || []).map((c) => [c.producer, r2(c.totalPremium), c.policies, c.qualifies ? 'Yes' : 'No', Math.round(c.tierRate * 1000) / 10 + '%', r2(c.total)]),
-        [], [`SDR bonus · ${period?.period_label || '—'} transfers · $${qb} per qualified, $${bb} per bound`],
+        [], [`SDR bonus · ${period?.period_label || '—'} transfers · $${qb} per qualified, $${bb} per bound (in place of the $${qb})`],
         ['SDR', 'Transfers', 'Qualified', 'Bound', 'SDR bonus'],
-        ...[...lines.sdrs].map(([n, o]) => [n, o.logged, o.qualified, o.bound, r2(o.qualified * qb + o.bound * bb)]),
+        ...[...lines.sdrs].map(([n, o]) => [n, o.logged, o.qualified, o.bound, r2(o.qOnly * qb + o.bound * bb)]),
         ...(lines.salaried.length ? [
           [], [`Agency bonus · folio ${folioLabel || 'not found'} · agency premium ${r2(agencyPrem.data || 0)}`],
           ['Name', 'Annual salary', 'Bonus tiers', 'Agency bonus', 'Measured on', 'Gates'],

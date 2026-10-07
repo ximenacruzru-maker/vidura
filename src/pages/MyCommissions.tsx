@@ -35,8 +35,10 @@ export default function MyCommissions() {
 
   const qb = Number(period?.qualified_transfer_bonus) || 0, bb = Number(period?.bound_policy_bonus) || 0
   const rows = transfers.data || []
+  // a bound transfer earns the bound bonus in place of the qualified one ($35 total, not $15 + $35)
   const qualified = rows.filter((t) => t.az_qualifies).length, bound = rows.filter((t) => t.bound).length
-  const bonus = qualified * qb + bound * bb
+  const qOnly = rows.filter((t) => t.az_qualifies && !t.bound).length
+  const bonus = qOnly * qb + bound * bb
   // pace for the month in progress: what the month comes to if the rest of it goes like the days so far
   const [y, mo] = month.split('-').map(Number)
   const days = new Date(Date.UTC(y, mo, 0)).getUTCDate()
@@ -49,7 +51,7 @@ export default function MyCommissions() {
     <>
       <PageHead kicker="Workspace" title="My Commissions" sub="How your month is going: your transfers, how many qualified and bound, and the bonus they add up to." />
       <Panel title={monthLabel(month) + (live ? ' · in progress' : '')}
-        sub={period ? `$${qb} per qualified transfer · $${bb} per bound policy · paid on ${mdy(period.pay_date)}` : ''}
+        sub={period ? `$${qb} per qualified transfer · $${bb} total per bound policy · paid on ${mdy(period.pay_date)}` : ''}
         right={<div className="filters"><select value={month} onChange={(e) => setMonth(e.target.value)} aria-label="Month">
           {months.map((p) => <option key={p.month} value={p.month}>{monthLabel(p.month)}{p.month === thisMonth ? ' (this month)' : ''}</option>)}
         </select></div>}>
@@ -57,11 +59,34 @@ export default function MyCommissions() {
           <Tiles>
             <Tile label={live ? 'Bonus so far' : 'Bonus earned'} value={money2(bonus)} sub={pace != null ? `on pace for ${money0(pace)} this month` : period?.closed ? 'month closed' : `paid ${mdy(period?.pay_date || '')}`} tone="good" />
             <Tile label="Transfers" value={rows.length} sub={live ? `${dayNow} of ${days} days in` : `${days} days`} />
-            <Tile label="Qualified" value={qualified} sub={`${rate}% of transfers · ${money0(qualified * qb)}`} tone={qualified ? 'good' : undefined} />
-            <Tile label="Bound" value={bound} sub={money0(bound * bb)} tone={bound ? 'good' : undefined} />
+            <Tile label="Qualified" value={qualified} sub={`${rate}% of transfers · ${money0(qOnly * qb)} not yet bound`} tone={qualified ? 'good' : undefined} />
+            <Tile label="Bound" value={bound} sub={`${money0(bb)} earned on bound · ${money0(bound * bb)}`} tone={bound ? 'good' : undefined} />
           </Tiles>
         )}
       </Panel>
+
+      {/* bound policies, front and center: each one earns the bound bonus */}
+      {transfers.data && (
+        <section className="panel sdr-bound">
+          <div className="sdr-bound-h">
+            <div>
+              <div className="sdr-bound-k">Bound policies · {monthLabel(month)}</div>
+              <div className="sdr-bound-n">{bound}<span> bound</span></div>
+              <div className="sdr-bound-earn">{money0(bb)} earned on bound</div>
+            </div>
+            <div className="sdr-bound-total"><div className="sdr-bound-k">Earned on bound</div><div className="sdr-bound-amt">{money0(bound * bb)}</div></div>
+          </div>
+          {bound ? (
+            <div className="sdr-bound-list">{rows.filter((t) => t.bound).map((t) => (
+              <div key={t.lead_id} className="sdr-bound-row">
+                <span className="pill pill-good">Bound</span>
+                <div className="sdr-bound-c"><div className="strong">{t.client}</div><div className="sub">{mdy(String(t.date_time).slice(0, 10))}{t.producer ? ` · ${t.producer}` : ''}</div></div>
+                <div className="sdr-bound-plus">+{money0(bb)} earned on bound</div>
+              </div>
+            ))}</div>
+          ) : <div className="sub">No bound policies yet this month — every transfer that binds earns {money0(bb)}.</div>}
+        </section>
+      )}
 
       {transfers.data && (
         <Panel title="My transfers" sub="A transfer qualifies once AgencyZoom shows a real quote on it; bound once the policy is sold.">
@@ -70,11 +95,11 @@ export default function MyCommissions() {
               <table className="tbl">
                 <thead><tr><th>Transferred</th><th>Client</th><th>Producer</th><th>Status</th><th className="r">Quoted</th><th>Qualifies</th><th>Bound</th><th className="r">Earned</th></tr></thead>
                 <tbody>{rows.map((t) => (
-                  <tr key={t.lead_id}><td>{mdy(String(t.date_time).slice(0, 10))}</td><td>{t.client}</td><td>{t.producer}</td><td>{t.status}</td>
+                  <tr key={t.lead_id} className={t.bound ? 'row-bound' : undefined}><td>{mdy(String(t.date_time).slice(0, 10))}</td><td>{t.client}</td><td>{t.producer}</td><td>{t.status}</td>
                     <td className="r mono">{t.az_quote_premium ? money2(t.az_quote_premium) : '—'}</td>
                     <td><span className={'pill ' + (t.az_qualifies ? 'pill-good' : 'pill-muted')}>{t.az_qualifies ? 'Yes' : 'Not yet'}</span></td>
-                    <td>{t.bound ? <span className="pill pill-good">Bound</span> : ''}</td>
-                    <td className="r mono">{money0((t.az_qualifies ? qb : 0) + (t.bound ? bb : 0))}</td></tr>
+                    <td>{t.bound ? <span className="pill pill-good">Bound · {money0(bb)} earned</span> : ''}</td>
+                    <td className="r mono">{money0(t.bound ? bb : t.az_qualifies ? qb : 0)}</td></tr>
                 ))}</tbody>
               </table>
             </div>
