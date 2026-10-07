@@ -4,7 +4,9 @@ import { Empty, ErrorBox, Loading, PageHead, Panel, Tabs, Tile, Tiles } from '..
 import { getReference } from '../lib/books'
 import { supabase } from '../lib/supabase'
 import { useAsync } from '../lib/useAsync'
-import { agencyShort } from '../lib/data'
+import { agencyShort, isAdmin } from '../lib/data'
+import { HANDBOOK_STEP, getProgress } from '../lib/onboarding'
+import Onboarding from './Onboarding'
 
 type Status = 'Not started' | 'In progress' | 'Completed'
 interface Course { id: string; title: string; desc: string }
@@ -30,19 +32,28 @@ async function classroomModules(): Promise<ClassModule[]> {
 export default function Training() {
   const { session, me } = useAuth()
   const ag = agencyShort(me)
-  const [tab, setTab] = useState<'dash' | 'fu' | 'class'>('dash')
+  // a new hire gets their onboarding and Farmers University only; Farmers University opens once the handbook is downloaded
+  const trainee = me?.role === 'new_hire'
+  const [tab, setTab] = useState<'dash' | 'fu' | 'class' | 'onboard'>(trainee ? 'onboard' : 'dash')
   const [reload, setReload] = useState(0)
   const { data, error } = useAsync(async () => {
-    const [fu, cls, prog] = await Promise.all([
+    const [fu, cls, prog, onboard] = await Promise.all([
       getReference<FuModule[]>('fu_modules'),
-      classroomModules().catch(() => []),
+      trainee ? Promise.resolve([] as ClassModule[]) : classroomModules().catch(() => []),
       supabase.from('training_progress').select('course,status').eq('user_id', session!.user.id).then((r) => { if (r.error) throw r.error; return r.data as { course: string; status: Status }[] }),
+      trainee ? getProgress(session!.user.id) : Promise.resolve([]),
     ])
-    return { fu: fu || [], cls, st: new Map(prog.map((p) => [p.course, p.status])) }
+    return { fu: fu || [], cls, st: new Map(prog.map((p) => [p.course, p.status])), handbookDone: onboard.some((p) => p.step === HANDBOOK_STEP) }
   }, [reload])
 
-  const head = <PageHead kicker="Team development" title="Training" sub={`Farmers University first, then the ${ag} classroom.`} />
-  const tabs = <Tabs tabs={[{ key: 'dash', label: 'Dashboard' }, { key: 'fu', label: 'Farmers University' }, { key: 'class', label: `${ag} Classroom` }]} value={tab} onChange={setTab} />
+  const head = trainee
+    ? <PageHead kicker="New hire · SDR" title="Training" sub="Your onboarding first, then Farmers University. You’ll move to your SDR pages once your training is done." />
+    : <PageHead kicker="Team development" title="Training" sub={`Farmers University first, then the ${ag} classroom.`} />
+  const tabs = <Tabs tabs={trainee
+    ? [{ key: 'onboard' as const, label: 'Onboarding' }, { key: 'fu' as const, label: 'Farmers University' }]
+    : [{ key: 'dash' as const, label: 'Dashboard' }, { key: 'fu' as const, label: 'Farmers University' }, { key: 'class' as const, label: `${ag} Classroom` }, ...(isAdmin(me?.role) ? [{ key: 'onboard' as const, label: 'New-hire onboarding' }] : [])]} value={tab} onChange={setTab} />
+  // the onboarding loads its own data, so it shows even while the course list loads
+  if (tab === 'onboard') return <>{head}{tabs}<Onboarding preview={!trainee} onProgress={() => setReload((n) => n + 1)} /></>
   if (error) return <>{head}{tabs}<ErrorBox error={error} /></>
   if (!data) return <>{head}{tabs}<Loading /></>
 
@@ -122,7 +133,18 @@ export default function Training() {
         </>
       )}
 
-      {tab === 'fu' && (
+      {tab === 'fu' && trainee && !data.handbookDone && (
+        <section className="panel ob-step ob-locked">
+          <div className="ob-num">🔒</div>
+          <div className="ob-body">
+            <div className="strong">Farmers University is locked</div>
+            <div className="sub">Download the employee handbook first — it’s step 1 on your Onboarding tab.</div>
+            <div className="row-actions" style={{ marginTop: 10 }}><button className="btn-primary" onClick={() => setTab('onboard')}>Go to onboarding</button></div>
+          </div>
+        </section>
+      )}
+
+      {tab === 'fu' && (!trainee || data.handbookDone) && (
         <>
           <div className="note-box" style={{ marginBottom: 14 }}><b>Farmers University</b> — built and maintained by Farmers. Modules are taken in order, and each lesson opens once the one before it is signed off. Your progress is saved to your login.</div>
           {data.fu.length ? data.fu.map((m, idx) => {
@@ -153,9 +175,9 @@ export default function Training() {
               </Panel>
             )
           }) : <Empty>The Farmers University course list isn’t loaded.</Empty>}
-          <Panel title={`${ag} brokered training`} sub="Our own courses for the brokered book — written in house, added here as they are ready">
+          {!trainee && <Panel title={`${ag} brokered training`} sub="Our own courses for the brokered book — written in house, added here as they are ready">
             <Empty>Nothing published yet. Farmers covers the Farmers book; these will cover Kraft Lake, Burns &amp; Wilcox, KW Specialty, AU Gold and the surplus lines paperwork.</Empty>
-          </Panel>
+          </Panel>}
         </>
       )}
 

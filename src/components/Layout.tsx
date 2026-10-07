@@ -38,13 +38,15 @@ export default function Layout({ children }: { children: ReactNode }) {
 
   const c = (k: string) => can(me, k)
   const first = (me?.display_name || '').split(' ')[0]
+  // a new hire sees only the training (and their settings) until their role is changed
+  const trainee = me?.role === 'new_hire'
   const nav: Item[] = [
     { h: 'Workspace' },
-    { to: '/today', label: first ? `${first}’s Space` : 'My Space', icon: 'today', show: true },
+    { to: '/today', label: first ? `${first}’s Space` : 'My Space', icon: 'today', show: !trainee },
     { to: '/work', label: 'Work & Tickets', icon: 'tickets', show: c('work') },
     { to: '/chat', label: 'Team Chat', icon: 'chat', show: c('chat') },
     { to: '/retention', label: 'Retention', icon: 'service', show: c('retention') },
-    { to: '/pay', label: 'My Pay', icon: 'reports', show: me?.role !== 'owner' },
+    { to: '/pay', label: 'My Pay', icon: 'reports', show: me?.role !== 'owner' && !trainee },
     { to: '/my-commissions', label: 'My Commissions', icon: 'sales', show: me?.role === 'sdr' || me?.role === 'va' },
     { div: true },
     { h: 'Performance' },
@@ -57,7 +59,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     { to: '/payroll', label: 'Office Payroll', icon: 'reports', show: c('payroll') },
     { h: 'Team Development' },
     { to: '/training', label: 'Training', icon: 'training', show: c('training') },
-    { to: '/hr', label: c('hr') ? 'HR / Licensing' : 'Licensing', icon: 'licensing', show: true },
+    { to: '/hr', label: c('hr') ? 'HR / Licensing' : 'Licensing', icon: 'licensing', show: !trainee },
     { to: '/proteges', label: 'Proteges', icon: 'proteges', show: c('proteges') },
     { div: true },
     { to: '/settings', label: 'Settings', icon: 'settings', show: true },
