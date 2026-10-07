@@ -1,17 +1,23 @@
 // The retention & book growth report as a PDF: what was done today, in the folio, in the month and in the year to date
-// — Net Book Movement, saves, cross-sell, losses, service notes and the huddle numbers — with today's and the folio's
+// — Net Book Movement, saves, cross-sell, new business, losses, service notes and the huddle numbers — with today's and the folio's
 // entries in full, the folio bonus and its gates, and the year month by month. For the person in the role and admins.
+// The daily huddle report (huddle: true) is the same report for one workday — the day before the huddle — with that
+// day's numbers, entries and talk track, and the folio, month and year as of that day; no bonus or yearly pages.
 import { supabase } from './supabase'
 import { loadScript } from './perf/commissionFiles'
 import { folioBonus, movement, type Period, type RetentionDay, type RetentionEntry } from './retention'
 import type { BonusTier } from './payday'
 
-const KIND: Record<RetentionEntry['kind'], string> = { save: 'Save', loss: 'Loss', cross_sell: 'Cross-sell', review: 'Service / review' }
+const KIND: Record<RetentionEntry['kind'], string> = { save: 'Save', loss: 'Loss', cross_sell: 'Cross-sell', new_business: 'New business', review: 'Service / review' }
 const m0 = (n: number) => (n < 0 ? '-$' : '$') + Math.round(Math.abs(n)).toLocaleString('en-US')
 const us = (iso: string) => iso.slice(5, 7) + '/' + iso.slice(8, 10) + '/' + iso.slice(0, 4)
 const monthName = (m: string) => new Date(m + '-15T12:00:00Z').toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' })
 
-export async function downloadRetentionPdf(name: string, folio: Period | null, today: string, agency = 'Your agency') {
+export async function downloadRetentionPdf(name: string, folio: Period | null, today: string, agency = 'Your agency', huddle = false) {
+  // in a huddle report, `today` is the day being reported on
+  const dayName = new Date(today + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' })
+  const nextWorkday = (() => { const d = new Date(today + 'T12:00:00Z'); do { d.setUTCDate(d.getUTCDate() + 1) } while (d.getUTCDay() === 0 || d.getUTCDay() === 6); return d.toISOString().slice(0, 10) })()
+  const dayLabel = huddle ? dayName : 'Today'
   const year = today.slice(0, 4), month = today.slice(0, 7)
   const from = folio && folio.start_date < year + '-01-01' ? folio.start_date : year + '-01-01'
   const [days, log, staff] = await Promise.all([
@@ -19,7 +25,7 @@ export async function downloadRetentionPdf(name: string, folio: Period | null, t
     supabase.from('retention_log').select('*').eq('name', name).gte('day', from).lte('day', today).order('day').order('id').then((r) => { if (r.error) throw r.error; return r.data as RetentionEntry[] }),
     supabase.from('hr_staff').select('bonus_tiers').eq('name', name).maybeSingle().then((r) => (r.data as { bonus_tiers: BonusTier[] | null } | null)),
   ])
-  const bonus = folio ? await folioBonus(name, staff?.bonus_tiers, folio, today) : null
+  const bonus = folio && !huddle ? await folioBonus(name, staff?.bonus_tiers, folio, today) : null
 
   const w = window as unknown as { jspdf?: { jsPDF: new (o: object) => any } }
   if (!w.jspdf) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js')
@@ -30,10 +36,10 @@ export async function downloadRetentionPdf(name: string, folio: Period | null, t
     navy: [27, 39, 84], navy2: [44, 62, 128], ink: [33, 37, 52], muted: [112, 117, 135], faint: [160, 165, 180],
     line: [226, 229, 238], soft: [246, 247, 251], card: [255, 255, 255], teal: [14, 148, 136], tealSoft: [224, 245, 242],
     green: [22, 150, 82], greenSoft: [225, 245, 233], red: [214, 54, 54], redSoft: [252, 230, 230],
-    amber: [214, 128, 18], amberSoft: [253, 240, 220], violet: [113, 74, 214], violetSoft: [237, 232, 252], gold: [201, 160, 60],
+    amber: [214, 128, 18], amberSoft: [253, 240, 220], blueSoft: [228, 233, 250], violet: [113, 74, 214], violetSoft: [237, 232, 252], gold: [201, 160, 60],
   }
   const KIND_STYLE: Record<RetentionEntry['kind'], { fg: RGB; bg: RGB }> = {
-    save: { fg: C.green, bg: C.greenSoft }, cross_sell: { fg: C.teal, bg: C.tealSoft }, loss: { fg: C.red, bg: C.redSoft }, review: { fg: C.violet, bg: C.violetSoft },
+    save: { fg: C.green, bg: C.greenSoft }, cross_sell: { fg: C.teal, bg: C.tealSoft }, new_business: { fg: C.navy2, bg: C.blueSoft }, loss: { fg: C.red, bg: C.redSoft }, review: { fg: C.violet, bg: C.violetSoft },
   }
   let y = 0
   const fill = (c: RGB) => pdf.setFillColor(c[0], c[1], c[2])
@@ -53,10 +59,11 @@ export async function downloadRetentionPdf(name: string, folio: Period | null, t
     fill(C.teal); pdf.rect(0, h, W, 4, 'F')
     if (first) {
       txt('RETENTION & BOOK GROWTH', L, 38, 9, true, [150, 200, 220])
-      txt('Performance Report', L, 64, 24, true, [255, 255, 255])
+      txt(huddle ? 'Daily Huddle Report' : 'Performance Report', L, 64, 24, true, [255, 255, 255])
       txt(`${name}  ·  Director of Client Success, Retention & Book Growth`, L, 86, 10, false, [205, 212, 235])
       txt(agency, R, 38, 9, true, [205, 212, 235], 'right')
-      txt(`Generated ${us(today)}`, R, 64, 10, false, [255, 255, 255], 'right')
+      txt(huddle ? `${dayName} ${us(today)}` : `Generated ${us(today)}`, R, 64, 10, false, [255, 255, 255], 'right')
+      if (huddle) txt(`for the ${us(nextWorkday)} huddle`, R, 96, 9, false, [205, 212, 235], 'right')
       if (folio) txt(`Folio ${us(folio.start_date)} – ${us(folio.end_date)}`, R, 80, 9, false, [205, 212, 235], 'right')
     } else {
       txt('Retention & Book Growth', L, 29, 12, true, [255, 255, 255])
@@ -84,7 +91,7 @@ export async function downloadRetentionPdf(name: string, folio: Period | null, t
 
   // ---- the periods ----
   const periods: { label: string; from: string; to: string }[] = [
-    { label: 'Today', from: today, to: today },
+    { label: dayLabel, from: today, to: today },
     ...(folio ? [{ label: 'This folio', from: folio.start_date, to: folio.end_date < today ? folio.end_date : today }] : []),
     { label: 'This month', from: month + '-01', to: today },
     { label: 'Year to date', from: year + '-01-01', to: today },
@@ -100,30 +107,34 @@ export async function downloadRetentionPdf(name: string, folio: Period | null, t
   // ================= page 1 =================
   band(true); y = 140
 
-  // hero: Net Book Movement + the three parts
-  const heroH = 104
-  box(L, y, CW, heroH, C.soft, 10)
-  const nbm = headline.mv.net
-  txt(`NET BOOK MOVEMENT · ${folio ? 'THIS FOLIO' : 'THIS MONTH'}`, L + 18, y + 26, 8, true, C.muted)
-  txt(m0(nbm), L + 18, y + 62, 34, true, nbm >= 0 ? C.green : C.red)
-  txt('saved + cross-sell − lost premium'.replace('−', '-'), L + 18, y + 82, 8.5, false, C.muted)
-  const parts: { label: string; v: string; n: number; c: RGB; bg: RGB }[] = [
-    { label: 'Saved', v: m0(headline.mv.saved.p), n: headline.mv.saved.n, c: C.green, bg: C.greenSoft },
-    { label: 'Cross-sell', v: m0(headline.mv.cross.p), n: headline.mv.cross.n, c: C.teal, bg: C.tealSoft },
-    { label: 'Lost', v: m0(headline.mv.lost.p), n: headline.mv.lost.n, c: C.red, bg: C.redSoft },
-  ]
-  const pw = 104, px0 = R - 14 - parts.length * pw - (parts.length - 1) * 8
-  parts.forEach((p, i) => {
-    const x = px0 + i * (pw + 8)
-    box(x, y + 14, pw, heroH - 28, C.card, 8); box(x, y + 14, 4, heroH - 28, p.c, 2)
-    txt(p.label.toUpperCase(), x + 14, y + 34, 7.5, true, C.muted)
-    txt(p.v, x + 14, y + 58, 16, true, p.c)
-    txt(`${p.n} polic${p.n === 1 ? 'y' : 'ies'}`, x + 14, y + 74, 8, false, C.muted)
-  })
-  y += heroH + 8
+  if (!huddle) {
+    // hero: Net Book Movement + the three parts
+    const heroH = 104
+    box(L, y, CW, heroH, C.soft, 10)
+    const nbm = headline.mv.net
+    txt(`NET BOOK MOVEMENT · ${folio ? 'THIS FOLIO' : 'THIS MONTH'}`, L + 18, y + 26, 8, true, C.muted)
+    txt(m0(nbm), L + 18, y + 60, 32, true, nbm >= 0 ? C.green : C.red)
+    txt('saved + cross-sell + new business', L + 18, y + 80, 8.5, false, C.muted)
+    txt('- lost premium', L + 18, y + 92, 8.5, false, C.muted)
+    const parts: { label: string; v: string; n: number; c: RGB; bg: RGB }[] = [
+      { label: 'Saved', v: m0(headline.mv.saved.p), n: headline.mv.saved.n, c: C.green, bg: C.greenSoft },
+      { label: 'Cross-sell', v: m0(headline.mv.cross.p), n: headline.mv.cross.n, c: C.teal, bg: C.tealSoft },
+      { label: 'New business', v: m0(headline.mv.fresh.p), n: headline.mv.fresh.n, c: C.navy2, bg: C.blueSoft },
+      { label: 'Lost', v: m0(headline.mv.lost.p), n: headline.mv.lost.n, c: C.red, bg: C.redSoft },
+    ]
+    const pw = 80, px0 = R - 14 - parts.length * pw - (parts.length - 1) * 6
+    parts.forEach((p, i) => {
+      const x = px0 + i * (pw + 6)
+      box(x, y + 14, pw, heroH - 28, C.card, 8); box(x, y + 14, 4, heroH - 28, p.c, 2)
+      txt(p.label.toUpperCase(), x + 14, y + 34, 7.5, true, C.muted)
+      txt(p.v, x + 14, y + 58, 16, true, p.c)
+      txt(`${p.n} polic${p.n === 1 ? 'y' : 'ies'}`, x + 14, y + 74, 8, false, C.muted)
+    })
+    y += heroH + 8
+  } else y -= 10
 
   // today: goals as progress cards
-  section('Today', us(today))
+  section(huddle ? `${dayName}’s work` : 'Today', us(today))
   const td = days.find((d) => d.day === today)
   const goals: { label: string; now: number; goal: number; show: string; good: boolean; c: RGB }[] = [
     { label: 'At-risk touches', now: td?.at_risk_touches ?? 0, goal: 15, show: `${td?.at_risk_touches ?? 0} / 15`, good: (td?.at_risk_touches ?? 0) >= 15, c: C.navy2 },
@@ -138,14 +149,14 @@ export async function downloadRetentionPdf(name: string, folio: Period | null, t
     box(x, y, gw, gh, C.soft, 8)
     txt(fit(g.label.toUpperCase(), 7, gw - 20, true), x + 10, y + 17, 7, true, C.muted)
     txt(g.show, x + 10, y + 39, 16, true, g.good ? C.green : C.ink)
-    if (g.label.startsWith('Critical')) txt(g.good ? 'goal met' : 'needs an owner today', x + 10, y + 53, 7.5, false, g.good ? C.green : C.red)
+    if (g.label.startsWith('Critical')) txt(g.good ? 'goal met' : 'needs an owner', x + 10, y + 53, 7.5, false, g.good ? C.green : C.red)
     else bar(x + 10, y + 48, gw - 20, g.now / g.goal, g.good ? C.green : g.c, 5)
   })
   y += gh + 10
-  if (!td) { txt('Today’s scorecard isn’t logged yet.', L, y + 4, 9, false, C.amber); y += 14 }
+  if (!td) { txt(huddle ? `${dayName}’s scorecard wasn’t logged.` : 'Today’s scorecard isn’t logged yet.', L, y + 4, 9, false, C.amber); y += 14 }
   if (td?.priority) {
     room(30); box(L, y, CW, 26, C.amberSoft, 6); box(L, y, 4, 26, C.amber, 2)
-    txt('TODAY’S PRIORITY', L + 14, y + 16.5, 7.5, true, C.amber); txt(fit(td.priority, 9.5, CW - 130), L + 108, y + 16.5, 9.5, false, C.ink); y += 34
+    txt(huddle ? 'PRIORITY THAT DAY' : 'TODAY’S PRIORITY', L + 14, y + 16.5, 7.5, true, C.amber); txt(fit(td.priority, 9.5, CW - 130), L + 108, y + 16.5, 9.5, false, C.ink); y += 34
   }
 
   /** The log as a table: day, a colored type pill, client, premium (green / red), notes that wrap. */
@@ -174,10 +185,24 @@ export async function downloadRetentionPdf(name: string, folio: Period | null, t
     })
     stroke(C.line); pdf.setLineWidth(0.8); pdf.line(L, y, R, y); y += 12
   }
-  entries(log.filter((e) => e.day === today), 'Nothing logged today yet.')
+  entries(log.filter((e) => e.day === today), huddle ? `Nothing logged on ${us(today)}.` : 'Nothing logged today yet.')
+
+  // ---- huddle: the talk track, filled in from the day ----
+  if (huddle) {
+    const d = stats[0], mtd = stats[periods.findIndex((p) => p.label === 'This month')]
+    const say = `On ${dayName} I completed ${td?.at_risk_touches ?? 0} at-risk touches and ${td?.renewal_conversations ?? 0} live renewal conversations. ` +
+      `I saved ${d.mv.saved.n} policies / ${m0(d.mv.saved.p)} premium, lost ${d.mv.lost.n} policies / ${m0(d.mv.lost.p)} premium, and generated ${m0(d.mv.cross.p)} in cross-sell premium and ${m0(d.mv.fresh.p)} in new business. ` +
+      `My MTD Net Book Movement is ${m0(mtd.mv.net)}. I have ${td?.open_critical_aged ?? 0} critical cases open past a day.` +
+      (td?.priority ? ` My priority: ${td.priority}.`.replace('..', '.') : '')
+    section('Huddle talk track', `for the ${us(nextWorkday)} huddle`, 80)
+    font(10); const lines = pdf.splitTextToSize(`“${say}”`, CW - 36) as string[]
+    const th = 22 + lines.length * 14
+    room(th); box(L, y, CW, th, C.soft, 8); box(L, y, 4, th, C.teal, 2)
+    lines.forEach((ln, k) => txt(ln, L + 18, y + 20 + k * 14, 10, false, C.ink)); y += th + 8
+  }
 
   // the periods side by side
-  section('At a glance', 'today · folio · month · year to date', 200)
+  section('At a glance', `${huddle ? dayName.toLowerCase() : 'today'} · folio · month · year to date`, 200)
   {
     const labelW = 168, cw = (CW - labelW) / periods.length
     room(30)
@@ -188,6 +213,7 @@ export async function downloadRetentionPdf(name: string, folio: Period | null, t
       ['Net Book Movement', (s) => m0(s.mv.net), C.navy],
       ['Saved premium', (s) => `${m0(s.mv.saved.p)}  (${s.mv.saved.n})`, C.green],
       ['Cross-sell premium', (s) => `${m0(s.mv.cross.p)}  (${s.mv.cross.n})`, C.teal],
+      ['New business premium', (s) => `${m0(s.mv.fresh.p)}  (${s.mv.fresh.n})`, C.navy2],
       ['Lost premium', (s) => `${m0(s.mv.lost.p)}  (${s.mv.lost.n})`, C.red],
       ['Service / review calls', (s) => String(s.reviews)],
       ['At-risk touches', (s) => String(s.touches)],
@@ -248,34 +274,36 @@ export async function downloadRetentionPdf(name: string, folio: Period | null, t
   }
 
   // ---- the year: a bar chart of Net Book Movement by month, then the numbers ----
-  section(`${year} month by month`, '', 180)
-  const months = [...new Set([...log.map((e) => e.day.slice(0, 7)), ...days.map((d) => d.day.slice(0, 7))])].filter((m) => m.startsWith(year)).sort()
-  if (!months.length) { box(L, y, CW, 22, C.soft, 6); txt('Nothing logged this year yet.', L + 12, y + 14.5, 9, false, C.muted); y += 30 }
-  else {
-    const mv = months.map((m) => ({ m, ...movement(log.filter((e) => e.day.startsWith(m))), notes: log.filter((e) => e.day.startsWith(m) && e.kind === 'review').length }))
-    const chartH = 110
-    room(chartH + 30)
-    box(L, y, CW, chartH + 24, C.soft, 10)
-    const max = Math.max(1, ...mv.map((x) => Math.abs(x.net)))
-    const zero = y + 14 + chartH * (mv.some((x) => x.net < 0) ? 0.6 : 0.85)
-    stroke(C.line); pdf.setLineWidth(0.8); pdf.line(L + 14, zero, R - 14, zero)
-    const slot = (CW - 28) / Math.max(mv.length, 6), bw = Math.min(42, slot * 0.55)
-    mv.forEach((x, i) => {
-      const cx = L + 14 + slot * i + slot / 2, hgt = (Math.abs(x.net) / max) * (chartH * (x.net < 0 ? 0.35 : 0.6))
-      box(cx - bw / 2, x.net >= 0 ? zero - hgt : zero, bw, Math.max(hgt, 1.5), x.net >= 0 ? C.green : C.red, 3)
-      txt(m0(x.net), cx, x.net >= 0 ? zero - hgt - 5 : zero + hgt + 11, 8, true, x.net >= 0 ? C.green : C.red, 'center')
-      txt(new Date(x.m + '-15T12:00:00Z').toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' }), cx, y + chartH + 16, 8, true, C.muted, 'center')
-    })
-    y += chartH + 32
-    const cols = ['MONTH', 'SAVED', 'CROSS-SELL', 'LOST', 'NET BOOK MOVEMENT', 'SERVICE CALLS'], cw = CW / cols.length
-    room(40); box(L, y, CW, 18, C.navy, 4)
-    cols.forEach((c, i) => txt(c, i ? L + (i + 1) * cw - 8 : L + 8, y + 12, 7, true, [255, 255, 255], i ? 'right' : undefined)); y += 18
-    mv.forEach((x, i) => {
-      room(20); if (i % 2) { fill(C.soft); pdf.rect(L, y, CW, 19, 'F') }
-      const cells: [string, RGB][] = [[monthName(x.m), C.ink], [`${m0(x.saved.p)} (${x.saved.n})`, C.green], [`${m0(x.cross.p)} (${x.cross.n})`, C.teal], [`${m0(x.lost.p)} (${x.lost.n})`, C.red], [m0(x.net), x.net >= 0 ? C.green : C.red], [String(x.notes), C.violet]]
-      cells.forEach(([v, c], k) => txt(v, k ? L + (k + 1) * cw - 8 : L + 8, y + 13, 9, k === 0 || k === 4, c, k ? 'right' : undefined))
-      y += 19
-    })
+  if (!huddle) {
+    section(`${year} month by month`, '', 180)
+    const months = [...new Set([...log.map((e) => e.day.slice(0, 7)), ...days.map((d) => d.day.slice(0, 7))])].filter((m) => m.startsWith(year)).sort()
+    if (!months.length) { box(L, y, CW, 22, C.soft, 6); txt('Nothing logged this year yet.', L + 12, y + 14.5, 9, false, C.muted); y += 30 }
+    else {
+      const mv = months.map((m) => ({ m, ...movement(log.filter((e) => e.day.startsWith(m))), notes: log.filter((e) => e.day.startsWith(m) && e.kind === 'review').length }))
+      const chartH = 110
+      room(chartH + 30)
+      box(L, y, CW, chartH + 24, C.soft, 10)
+      const max = Math.max(1, ...mv.map((x) => Math.abs(x.net)))
+      const zero = y + 14 + chartH * (mv.some((x) => x.net < 0) ? 0.6 : 0.85)
+      stroke(C.line); pdf.setLineWidth(0.8); pdf.line(L + 14, zero, R - 14, zero)
+      const slot = (CW - 28) / Math.max(mv.length, 6), bw = Math.min(42, slot * 0.55)
+      mv.forEach((x, i) => {
+        const cx = L + 14 + slot * i + slot / 2, hgt = (Math.abs(x.net) / max) * (chartH * (x.net < 0 ? 0.35 : 0.6))
+        box(cx - bw / 2, x.net >= 0 ? zero - hgt : zero, bw, Math.max(hgt, 1.5), x.net >= 0 ? C.green : C.red, 3)
+        txt(m0(x.net), cx, x.net >= 0 ? zero - hgt - 5 : zero + hgt + 11, 8, true, x.net >= 0 ? C.green : C.red, 'center')
+        txt(new Date(x.m + '-15T12:00:00Z').toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' }), cx, y + chartH + 16, 8, true, C.muted, 'center')
+      })
+      y += chartH + 32
+      const cols = ['MONTH', 'SAVED', 'CROSS-SELL', 'NEW BUSINESS', 'LOST', 'NET MOVEMENT', 'SERVICE'], cw = CW / cols.length
+      room(40); box(L, y, CW, 18, C.navy, 4)
+      cols.forEach((c, i) => txt(c, i ? L + (i + 1) * cw - 8 : L + 8, y + 12, 7, true, [255, 255, 255], i ? 'right' : undefined)); y += 18
+      mv.forEach((x, i) => {
+        room(20); if (i % 2) { fill(C.soft); pdf.rect(L, y, CW, 19, 'F') }
+        const cells: [string, RGB][] = [[monthName(x.m), C.ink], [`${m0(x.saved.p)} (${x.saved.n})`, C.green], [`${m0(x.cross.p)} (${x.cross.n})`, C.teal], [`${m0(x.fresh.p)} (${x.fresh.n})`, C.navy2], [`${m0(x.lost.p)} (${x.lost.n})`, C.red], [m0(x.net), x.net >= 0 ? C.green : C.red], [String(x.notes), C.violet]]
+        cells.forEach(([v, c], k) => txt(v, k ? L + (k + 1) * cw - 8 : L + 8, y + 13, 9, k === 0 || k === 5, c, k ? 'right' : undefined))
+        y += 19
+      })
+    }
   }
 
   // footers
@@ -286,6 +314,6 @@ export async function downloadRetentionPdf(name: string, folio: Period | null, t
     txt(`${agency}  ·  Retention & Book Growth  ·  ${name}`, L, H - 20, 7.5, false, C.faint)
     txt(`Page ${i} of ${pages}`, R, H - 20, 7.5, true, C.muted, 'right')
   }
-  pdf.setProperties({ title: `Retention report — ${name} — ${us(today)}` })
-  pdf.save(`Retention_Report_${name.replace(/\s+/g, '_')}_${today}.pdf`)
+  pdf.setProperties({ title: `${huddle ? 'Huddle report' : 'Retention report'} — ${name} — ${us(today)}` })
+  pdf.save(`${huddle ? 'Huddle_Report' : 'Retention_Report'}_${name.replace(/\s+/g, '_')}_${today}.pdf`)
 }

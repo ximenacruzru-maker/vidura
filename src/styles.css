@@ -894,6 +894,9 @@ html[data-theme="astra"] .xd .mc-btn { border-color: #E5252E; background: #2A101
 .rt-entry-b { flex: 1; min-width: 0; }
 .rt-entry-r { text-align: right; flex: none; }
 .rt-add { border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; margin-bottom: 14px; background: var(--tint, transparent); }
+.rt-daynav { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.rt-daynav .fld { width: auto; }
+.rt-priority { margin: 4px 0 10px; padding: 10px 12px; border-radius: var(--radius); background: var(--tint, transparent); border: 1px solid var(--line); font-size: 13.5px; }
 .rt-rhythm summary { cursor: pointer; font-weight: 600; color: var(--blue); margin-bottom: 8px; }
 @media (max-width: 900px) {
   .rt-hero, .rt-grid { grid-template-columns: 1fr; }

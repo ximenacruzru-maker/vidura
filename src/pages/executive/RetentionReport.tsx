@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../../auth'
 import { useFolio } from '../../components/FolioPicker'
 import { agencyName } from '../../lib/data'
-import { PdfButton } from '../Retention'
+import { HuddleButton, PdfButton } from '../Retention'
 import { supabase } from '../../lib/supabase'
 import { useAsync } from '../../lib/useAsync'
 import { useSyncStamp } from '../../lib/syncEvents'
@@ -13,9 +13,9 @@ import { ICO, ScoreCard } from './parts'
 
 /** The retention & book growth report on the Executive Dashboard: what the Director of Client Success has done this
  *  month — Net Book Movement (saved + cross-sell − lost premium), today's huddle numbers and every logged save, loss,
- *  cross-sell and service / review. Shown to everyone who has the dashboard (owner and admins). */
+ *  cross-sell, new business and service / review. Shown to everyone who has the dashboard (owner and admins). */
 
-const KIND: Record<RetentionEntry['kind'], string> = { save: 'Save', loss: 'Loss', cross_sell: 'Cross-sell', review: 'Service / review' }
+const KIND: Record<RetentionEntry['kind'], string> = { save: 'Save', loss: 'Loss', cross_sell: 'Cross-sell', new_business: 'New business', review: 'Service / review' }
 const us = (iso: string) => iso.slice(5, 7) + '/' + iso.slice(8, 10) + '/' + iso.slice(0, 4)
 
 export default function RetentionReport() {
@@ -23,6 +23,7 @@ export default function RetentionReport() {
   const { folios } = useFolio()
   const synced = useSyncStamp()
   const day = todayPacific(), month = day.slice(0, 7)
+  const prevDay = (() => { const d = new Date(day + 'T12:00:00Z'); do { d.setUTCDate(d.getUTCDate() - 1) } while (d.getUTCDay() === 0 || d.getUTCDay() === 6); return d.toISOString().slice(0, 10) })()
   const { data } = useAsync(async () => {
     const who = await supabase.from('staff_accounts').select('producer_name').eq('access->>retention', 'true')
     const names = ((who.data || []) as { producer_name: string | null }[]).map((r) => r.producer_name).filter(Boolean) as string[]
@@ -44,8 +45,9 @@ export default function RetentionReport() {
     <div className="panel" style={{ marginBottom: 16 }}>
       <div className="panel-h">
         <div><div className="panel-t">Retention &amp; book growth</div>
-          <div className="panel-s">{who} &middot; month to date &middot; Net Book Movement = saved + cross-sell &minus; lost premium</div></div>
+          <div className="panel-s">{who} &middot; month to date &middot; Net Book Movement = saved + cross-sell + new business &minus; lost premium</div></div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <HuddleButton className="yoy-csv" name={data.names[0]} day={prevDay} agency={agencyName(me)} label="Huddle PDF" />
           <PdfButton className="yoy-csv" name={data.names[0]} folio={folios.find((f) => f.in_progress) || folios.find((f) => f.start_date <= day && f.end_date >= day) || null} agency={agencyName(me)} />
           <Link className="yoy-csv" to="/retention">Open the full report</Link>
         </div>
@@ -53,10 +55,10 @@ export default function RetentionReport() {
       <div className="panel-b">
         <div className="scg" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
           <ScoreCard icon={ICO.trend} iconClass={mv.net >= 0 ? 'i-green' : 'i-red'} label="Net Book Movement · MTD" value={mv.net} display={money0(mv.net)}
-            goalLine={`${money0(mv.saved.p)} saved + ${money0(mv.cross.p)} cross-sell`} pct={null} tone={mv.net >= 0 ? 'good' : 'bad'}
+            goalLine={`${money0(mv.saved.p)} saved + ${money0(mv.cross.p)} cross-sell + ${money0(mv.fresh.p)} new`} pct={null} tone={mv.net >= 0 ? 'good' : 'bad'}
             delta={{ tone: 'flat', arrow: '', value: '−' + money0(mv.lost.p) }} goalNote="lost" />
-          <ScoreCard icon={ICO.shield} iconClass="i-green" label="Saves & cross-sell" value={mv.saved.n + mv.cross.n} display={`${mv.saved.n} / ${mv.cross.n}`}
-            goalLine={`${mv.saved.n} saved · ${mv.cross.n} cross-sold`} pct={null} tone="good"
+          <ScoreCard icon={ICO.shield} iconClass="i-green" label="Saves, cross-sell & new" value={mv.saved.n + mv.cross.n + mv.fresh.n} display={`${mv.saved.n} / ${mv.cross.n} / ${mv.fresh.n}`}
+            goalLine={`${mv.saved.n} saved · ${mv.cross.n} cross-sold · ${mv.fresh.n} new business`} pct={null} tone="good"
             delta={{ tone: 'flat', arrow: '', value: String(data.log.filter((e) => e.kind === 'review').length) }} goalNote="service / reviews" />
           <ScoreCard icon={ICO.warn} iconClass={mv.lost.n > TARGETS.cancellationsMax ? 'i-red' : 'i-amber'} label="Losses · MTD" value={mv.lost.n} display={String(mv.lost.n)}
             goalLine={`Limit ${TARGETS.cancellationsMax} a month`} pct={Math.min(100, (mv.lost.n / TARGETS.cancellationsMax) * 100)} tone={mv.lost.n > TARGETS.cancellationsMax ? 'bad' : 'good'}

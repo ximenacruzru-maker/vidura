@@ -1,6 +1,7 @@
-// Retention & book growth (Ximena's role from Oct 6, 2026): the daily huddle scorecard, the save / loss / cross-sell
-// log, Net Book Movement, and the folio bonus with its eligibility gates.
-//   Net Book Movement = saved premium + cross-sell premium − lost premium
+// Retention & book growth (Ximena's role from Oct 6, 2026): the daily huddle scorecard, the save / loss / cross-sell /
+// new business log, Net Book Movement, and the folio bonus with its eligibility gates.
+//   Net Book Movement = saved premium + cross-sell premium + new business premium − lost premium
+//   (new business: a new customer, e.g. a lender referral; a cross-sell is a new policy for an existing client)
 //   Bonus: the highest tier of agency premium written in the folio ($1,000 at $100k, $2,500 at $150k, $5,000 at $200k),
 //   paid on the 21st with the folio before it, like commission (Nov 21 pays the Sep 21 – Oct 20 folio), from the first
 //   folio the role was in place for, and only when all four gates are met over that folio:
@@ -12,7 +13,7 @@ import { supabase } from './supabase'
 import { agencyBonus, type BonusTier } from './payday'
 
 export interface RetentionDay { name: string; day: string; at_risk_touches: number; renewal_conversations: number; escalations: number; escalations_same_day: number; open_critical_aged: number; brokered_current: boolean; priority: string | null }
-export interface RetentionEntry { id: number; name: string; day: string; kind: 'save' | 'loss' | 'cross_sell' | 'review'; client: string; policies: number; premium: number; carrier: string | null; reason: string | null; note: string | null }
+export interface RetentionEntry { id: number; name: string; day: string; kind: 'save' | 'loss' | 'cross_sell' | 'new_business' | 'review'; client: string; policies: number; premium: number; carrier: string | null; reason: string | null; note: string | null }
 export interface RetentionMonth { name: string; month: string; reconciled: boolean; reconciled_note: string | null }
 
 export const ROLE_FROM = '2026-10-06' // the role took effect October 6, 2026: scorecard days count from then
@@ -33,8 +34,8 @@ export function workdays(from: string, through: string) {
 
 export function movement(entries: RetentionEntry[]) {
   const sum = (k: RetentionEntry['kind']) => entries.filter((e) => e.kind === k).reduce((a, e) => ({ n: a.n + Number(e.policies || 0), p: a.p + Number(e.premium || 0) }), { n: 0, p: 0 })
-  const saved = sum('save'), lost = sum('loss'), cross = sum('cross_sell')
-  return { saved, lost, cross, net: saved.p + cross.p - lost.p, netPif: cross.n - lost.n }
+  const saved = sum('save'), lost = sum('loss'), cross = sum('cross_sell'), fresh = sum('new_business')
+  return { saved, lost, cross, fresh, net: saved.p + cross.p + fresh.p - lost.p, netPif: cross.n + fresh.n - lost.n }
 }
 
 export interface Gate { label: string; ok: boolean; detail: string }

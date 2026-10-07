@@ -8,22 +8,27 @@ import { supabase } from '../lib/supabase'
 import { agencyName } from '../lib/data'
 import { downloadRetentionPdf } from '../lib/retentionPdf'
 import { useAsync } from '../lib/useAsync'
-import { LOSS_REASONS, TARGETS, gates, monthEnd, monthLabel, movement, type RetentionDay, type RetentionEntry, type RetentionMonth } from '../lib/retention'
+import { LOSS_REASONS, ROLE_FROM, TARGETS, gates, monthEnd, monthLabel, movement, type RetentionDay, type RetentionEntry, type RetentionMonth } from '../lib/retention'
 
 /** Retention & book growth: the Director of Client Success's daily huddle scorecard. Log the day's numbers, every
- *  documented save, loss and cross-sell, and see Net Book Movement (saved + cross-sell − lost premium), the huddle
+ *  documented save, loss, cross-sell and new business, and see Net Book Movement (saved + cross-sell + new business − lost premium), the huddle
  *  talk track filled in, and how the month's bonus gates stand. The person in the role sees their own; admins see it
  *  too (and can pick whose, if more than one person has the role). */
 
-const KIND_LABEL: Record<RetentionEntry['kind'], string> = { save: 'Save', loss: 'Loss', cross_sell: 'Cross-sell', review: 'Service / review' }
+const KIND_LABEL: Record<RetentionEntry['kind'], string> = { save: 'Save', loss: 'Loss', cross_sell: 'Cross-sell', new_business: 'New business', review: 'Service / review' }
 const blankDay = (name: string, day: string): RetentionDay => ({ name, day, at_risk_touches: 0, renewal_conversations: 0, escalations: 0, escalations_same_day: 0, open_critical_aged: 0, brokered_current: true, priority: '' })
 const weekStart = (day: string) => { const d = new Date(day + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return d.toISOString().slice(0, 10) }
-const prevWorkday = (day: string) => { const d = new Date(day + 'T12:00:00Z'); do { d.setUTCDate(d.getUTCDate() - 1) } while (d.getUTCDay() === 0 || d.getUTCDay() === 6); return d.toISOString().slice(0, 10) }
+const stepWorkday = (day: string, by: 1 | -1) => { const d = new Date(day + 'T12:00:00Z'); do { d.setUTCDate(d.getUTCDate() + by) } while (d.getUTCDay() === 0 || d.getUTCDay() === 6); return d.toISOString().slice(0, 10) }
+const prevWorkday = (day: string) => stepWorkday(day, -1)
+const longDay = (day: string) => new Date(day + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
 
 export default function Retention() {
   const { me } = useAuth()
   const today = todayPacific()
   const [month, setMonth] = useState(today.slice(0, 7))
+  // the day shown in the daily scorecard (switching to a day in another month loads that month)
+  const [day, setDay] = useState(today)
+  const goDay = (d: string) => { const c = d > today ? today : d < ROLE_FROM ? ROLE_FROM : d; setDay(c); setMonth(c.slice(0, 7)) }
   const [reload, setReload] = useState(0)
   const [adding, setAdding] = useState(false)
   const bump = () => setReload((n) => n + 1)
@@ -64,7 +69,7 @@ export default function Retention() {
   }, [name, gFolio?.start_date, gFolio?.end_date, reload])
   const rec = gate.data?.rec || null, g = gate.data?.g || []
 
-  const head = <PageHead kicker="Client success" title="Retention & book growth" sub="Net Book Movement = saved premium + cross-sell premium − lost premium. Activity explains the result; it doesn’t replace it." />
+  const head = <PageHead kicker="Client success" title="Retention & book growth" sub="Net Book Movement = saved premium + cross-sell premium + new business premium − lost premium. Activity explains the result; it doesn’t replace it." />
   if (people.error || data.error) return <>{head}<ErrorBox error={people.error || data.error} /></>
   if (!name && people.data) return <>{head}<Empty>No one has the retention role yet. Switch on “Retention scorecard” for them under Settings → Team & access.</Empty></>
   if (!data.data) return <>{head}<Loading what="Loading the scorecard" /></>
@@ -77,11 +82,12 @@ export default function Retention() {
 
   return (
     <>
-      <PageHead kicker="Client success" title="Retention & book growth" sub="Net Book Movement = saved premium + cross-sell premium − lost premium. Activity explains the result; it doesn’t replace it."
+      <PageHead kicker="Client success" title="Retention & book growth" sub="Net Book Movement = saved premium + cross-sell premium + new business premium − lost premium. Activity explains the result; it doesn’t replace it."
         right={<div className="filters">
           {!mineRole && (people.data?.length || 0) > 1 && <select value={name} onChange={(e) => setPicked(e.target.value)} aria-label="Person">{people.data!.map((p) => <option key={p}>{p}</option>)}</select>}
+          <HuddleButton name={name} day={prevWorkday(today)} agency={agencyName(me)} label="Huddle PDF" />
           <PdfButton name={name} folio={openFolio || null} agency={agencyName(me)} />
-          <select value={month} onChange={(e) => setMonth(e.target.value)} aria-label="Month">{(months.length ? months : [month]).map((m) => <option key={m} value={m}>{monthLabel(m)}</option>)}</select>
+          <select value={month} onChange={(e) => { const m = e.target.value; setMonth(m); setDay(m === today.slice(0, 7) ? today : monthEnd(m)) }} aria-label="Month">{(months.length ? months : [month]).map((m) => <option key={m} value={m}>{monthLabel(m)}</option>)}</select>
         </div>} />
       <section className="panel rt-hero">
         <div className="rt-hero-main">
@@ -89,7 +95,8 @@ export default function Retention() {
           <div className={'pay-amt' + (mv.net < 0 ? ' neg' : '')}>{money0(mv.net)}</div>
           <div className="rt-eq">
             <span><b>{money0(mv.saved.p)}</b> saved ({mv.saved.n})</span><i>+</i>
-            <span><b>{money0(mv.cross.p)}</b> cross-sell ({mv.cross.n})</span><i>−</i>
+            <span><b>{money0(mv.cross.p)}</b> cross-sell ({mv.cross.n})</span><i>+</i>
+            <span><b>{money0(mv.fresh.p)}</b> new business ({mv.fresh.n})</span><i>−</i>
             <span className="bad"><b>{money0(mv.lost.p)}</b> lost ({mv.lost.n})</span>
           </div>
         </div>
@@ -102,10 +109,12 @@ export default function Retention() {
         </div>
       </section>
 
+      <DailyScorecard name={name} agency={agencyName(me)} day={day} today={today} rec={days.find((d) => d.day === day)} entries={log.filter((e) => e.day === day)} onDay={goDay} />
+
       <div className="rt-grid">
         <div>
-          <DayForm key={name + today} name={name} days={days} today={today} onSaved={bump} />
-          <Panel title={`${monthLabel(month)} log`} sub={`${log.length} entr${log.length === 1 ? 'y' : 'ies'} · saves, losses, cross-sells and service notes`}
+          <DayForm key={name + day} name={name} day={day} days={days} today={today} onSaved={bump} />
+          <Panel title={`${monthLabel(month)} log`} sub={`${log.length} entr${log.length === 1 ? 'y' : 'ies'} · saves, losses, cross-sells, new business and service notes`}
             right={<button className={adding ? 'btn-ghost' : 'btn-primary'} onClick={() => setAdding(!adding)}>{adding ? 'Close' : '+ Add to log'}</button>}>
             {adding && <LogForm name={name} today={today} onSaved={() => { bump(); setAdding(false) }} />}
             {log.length ? (
@@ -170,12 +179,50 @@ function Goal({ label, now, goal, limit }: { label: string; now: number; goal: n
   )
 }
 
-function DayForm({ name, days, today, onSaved }: { name: string; days: RetentionDay[]; today: string; onSaved: () => void }) {
-  const [day, setDay] = useState(today)
+/** The daily scorecard: one day at a time — switch back and forth by day — with that day's huddle numbers against
+ *  their goals, its premium movement, and everything logged that day. */
+function DailyScorecard({ name, agency, day, today, rec, entries, onDay }: { name: string; agency: string; day: string; today: string; rec?: RetentionDay; entries: RetentionEntry[]; onDay: (d: string) => void }) {
+  const mv = movement(entries)
+  const reviews = entries.filter((e) => e.kind === 'review').length
+  const weekend = [0, 6].includes(new Date(day + 'T12:00:00Z').getUTCDay())
+  return (
+    <Panel title="Daily scorecard" sub={longDay(day) + (day === today ? ' · today' : '')}
+      right={<div className="filters rt-daynav">
+        <button className="btn-ghost" disabled={day <= ROLE_FROM} onClick={() => onDay(stepWorkday(day, -1))} aria-label="Previous day">‹ Prev</button>
+        <input type="date" className="fld" value={day} min={ROLE_FROM} max={today} onChange={(e) => onDay(e.target.value || today)} aria-label="Day" />
+        <button className="btn-ghost" disabled={day >= today} onClick={() => onDay(stepWorkday(day, 1))} aria-label="Next day">Next ›</button>
+        {day !== today && <button className="btn-ghost" onClick={() => onDay(today)}>Today</button>}
+        <HuddleButton name={name} day={day} agency={agency} label="PDF for this day" />
+      </div>}>
+      {!rec && <div className="sub" style={{ marginBottom: 10 }}>{weekend ? 'A weekend day — no scorecard due.' : 'The scorecard for this day isn’t logged yet.'}</div>}
+      <Tiles>
+        <Tile label="At-risk touches" value={`${rec?.at_risk_touches ?? 0} / ${TARGETS.touches}`} sub="goal 15 a day" tone={(rec?.at_risk_touches ?? 0) >= TARGETS.touches ? 'good' : undefined} />
+        <Tile label="Renewal conversations" value={`${rec?.renewal_conversations ?? 0} / ${TARGETS.conversations}`} sub="live, with next actions" tone={(rec?.renewal_conversations ?? 0) >= TARGETS.conversations ? 'good' : undefined} />
+        <Tile label="Escalations contacted same day" value={rec?.escalations ? `${Math.min(rec.escalations_same_day, rec.escalations)} / ${rec.escalations}` : '0'} sub="goal 100%" tone={rec && rec.escalations_same_day < rec.escalations ? 'warn' : rec ? 'good' : undefined} />
+        <Tile label="Critical cases aged >1 day" value={rec?.open_critical_aged ?? 0} sub="goal 0" tone={(rec?.open_critical_aged ?? 0) > 0 ? 'warn' : rec ? 'good' : undefined} />
+        <Tile label="Premium movement" value={money0(mv.net)} sub={`${mv.saved.n} saved · ${mv.cross.n} cross-sell · ${mv.fresh.n} new · ${mv.lost.n} lost · ${reviews} service`} tone={mv.net > 0 ? 'good' : mv.net < 0 ? 'warn' : undefined} />
+      </Tiles>
+      {rec?.priority && <div className="rt-priority"><b>Priority:</b> {rec.priority}</div>}
+      {entries.length ? (
+        <div className="rt-log">{entries.map((e) => (
+          <div key={e.id} className="rt-entry">
+            <span className={'pill ' + (e.kind === 'loss' ? 'pill-bad' : e.kind === 'review' ? 'pill-muted' : 'pill-good')}>{KIND_LABEL[e.kind]}</span>
+            <div className="rt-entry-b">
+              <div className="strong">{e.client}{e.carrier ? <span className="sub"> · {e.carrier}</span> : null}</div>
+              <div className="sub">{[e.policies > 1 ? `${e.policies} policies` : '', e.reason, e.note].filter(Boolean).join(' · ') || '\u00a0'}</div>
+            </div>
+            <div className="rt-entry-r"><div className="mono strong">{e.kind === 'review' ? '' : (e.kind === 'loss' ? '−' : '+') + money0(Number(e.premium))}</div></div>
+          </div>
+        ))}</div>
+      ) : <Empty>Nothing logged on {mdy(day)}.</Empty>}
+    </Panel>
+  )
+}
+
+function DayForm({ name, day, days, today, onSaved }: { name: string; day: string; days: RetentionDay[]; today: string; onSaved: () => void }) {
   const saved = days.find((d) => d.day === day)
   const [draft, setDraft] = useState<RetentionDay>(() => saved || blankDay(name, day))
   const [busy, setBusy] = useState(false)
-  const pick = (d: string) => { setDay(d); setDraft(days.find((x) => x.day === d) || blankDay(name, d)) }
   const num = (k: keyof RetentionDay, label: string, goal?: string) => (
     <label className="rt-num"><span className="rt-num-l">{label}</span>
       <input className="fld" type="number" min={0} value={Number(draft[k]) || 0} onChange={(e) => setDraft({ ...draft, [k]: Math.max(0, Number(e.target.value) || 0) })} />
@@ -189,8 +236,7 @@ function DayForm({ name, days, today, onSaved }: { name: string; days: Retention
     if (error) alert(error.message); else onSaved()
   }
   return (
-    <Panel title={day === today ? 'Today’s scorecard' : `Scorecard for ${mdy(day)}`} sub={saved ? 'Saved · update it any time during the day' : 'Not logged yet · counts toward the 95% bonus gate'}
-      right={<input type="date" className="fld" value={day} max={today} onChange={(e) => pick(e.target.value || today)} aria-label="Scorecard day" />}>
+    <Panel title={day === today ? 'Update today’s scorecard' : `Update the scorecard for ${mdy(day)}`} sub={saved ? 'Saved · update it any time during the day · pick the day above' : 'Not logged yet · counts toward the 95% bonus gate'}>
       <div className="form-grid rt-day">
         {num('at_risk_touches', 'At-risk touches', `goal ${TARGETS.touches}`)}
         {num('renewal_conversations', 'Live renewal conversations', `goal ${TARGETS.conversations}`)}
@@ -220,7 +266,7 @@ function LogForm({ name, today, onSaved }: { name: string; today: string; onSave
   return (
     <div className="rt-add">
       <div className="row-actions" role="group" aria-label="Type" style={{ marginBottom: 10, flexWrap: 'wrap' }}>
-        {(['save', 'loss', 'cross_sell', 'review'] as const).map((k) => <button key={k} className={d.kind === k ? 'btn-primary' : 'btn-ghost'} onClick={() => setD({ ...d, kind: k })}>{KIND_LABEL[k]}</button>)}
+        {(['save', 'loss', 'cross_sell', 'new_business', 'review'] as const).map((k) => <button key={k} className={d.kind === k ? 'btn-primary' : 'btn-ghost'} onClick={() => setD({ ...d, kind: k })}>{KIND_LABEL[k]}</button>)}
       </div>
       <div className="form-grid">
         <label style={{ gridColumn: '1 / -1' }}>Client<input className="fld" value={d.client} onChange={(e) => setD({ ...d, client: e.target.value })} /></label>
@@ -243,7 +289,7 @@ function TalkTrack({ days, log, today, mvNet }: { days: RetentionDay[]; log: Ret
   const yd = days.find((d) => d.day === y), td = days.find((d) => d.day === today)
   const ylog = useMemo(() => movement(log.filter((e) => e.day === y)), [log, y])
   const text = `Yesterday I completed ${yd?.at_risk_touches ?? 0} at-risk touches and ${yd?.renewal_conversations ?? 0} live renewal conversations. ` +
-    `I saved ${ylog.saved.n} policies / ${money0(ylog.saved.p)} premium, lost ${ylog.lost.n} policies / ${money0(ylog.lost.p)} premium, and generated ${money0(ylog.cross.p)} in cross-sell premium. ` +
+    `I saved ${ylog.saved.n} policies / ${money0(ylog.saved.p)} premium, lost ${ylog.lost.n} policies / ${money0(ylog.lost.p)} premium, and generated ${money0(ylog.cross.p)} in cross-sell premium and ${money0(ylog.fresh.p)} in new business. ` +
     `My MTD Net Book Movement is ${money0(mvNet)}. I have ${td?.open_critical_aged ?? yd?.open_critical_aged ?? 0} critical cases open past a day. ` +
     `Today’s priority is ${td?.priority || yd?.priority || '—'}.`
   return (
@@ -273,7 +319,7 @@ export function RetentionTiles({ name }: { name: string }) {
   return (
     <>
       <Tiles>
-        <Tile label="Net Book Movement · MTD" value={money0(mv.net)} sub={`${money0(mv.saved.p)} saved + ${money0(mv.cross.p)} cross-sell − ${money0(mv.lost.p)} lost`} tone={mv.net >= 0 ? 'good' : 'warn'} />
+        <Tile label="Net Book Movement · MTD" value={money0(mv.net)} sub={`${money0(mv.saved.p)} saved + ${money0(mv.cross.p + mv.fresh.p)} cross-sell & new − ${money0(mv.lost.p)} lost`} tone={mv.net >= 0 ? 'good' : 'warn'} />
         <Tile label="At-risk touches today" value={`${td?.at_risk_touches ?? 0} / ${TARGETS.touches}`} sub={td ? 'from today’s scorecard' : 'today’s scorecard not logged yet'} tone={(td?.at_risk_touches ?? 0) >= TARGETS.touches ? 'good' : undefined} />
         <Tile label="Renewal conversations today" value={`${td?.renewal_conversations ?? 0} / ${TARGETS.conversations}`} sub="live conversations with next actions" tone={(td?.renewal_conversations ?? 0) >= TARGETS.conversations ? 'good' : undefined} />
         <Tile label="Saves this week" value={`${saves} / ${TARGETS.savesPerWeek}`} sub="documented saves since Monday" tone={saves >= TARGETS.savesPerWeek ? 'good' : undefined} />
@@ -281,6 +327,20 @@ export function RetentionTiles({ name }: { name: string }) {
       </Tiles>
       <div className="sub" style={{ margin: '-6px 0 16px' }}><Link to="/retention">Open the retention scorecard →</Link></div>
     </>
+  )
+}
+
+/** Downloads the daily huddle report for one workday (by default the one before today): that day's numbers, entries
+ *  and talk track, with the folio, month and year to date as of that day. */
+export function HuddleButton({ name, day, agency, label = 'Huddle PDF', className = 'btn-ghost' }: { name: string; day: string; agency: string; label?: string; className?: string }) {
+  const [busy, setBusy] = useState(false)
+  const { folios } = useFolio()
+  const folio = folios.find((f) => f.start_date <= day && f.end_date >= day) || null
+  return (
+    <button className={className} disabled={busy || !name} title={`The ${mdy(day)} numbers for the daily huddle`} onClick={async () => {
+      setBusy(true)
+      try { await downloadRetentionPdf(name, folio, day, agency, true) } catch (e) { alert('The report could not be made: ' + String((e as Error)?.message || e)) } finally { setBusy(false) }
+    }}>{busy ? 'Making the PDF…' : label}</button>
   )
 }
 
