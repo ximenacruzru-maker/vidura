@@ -45,13 +45,15 @@ function Gate() {
     )
   }
   if ((me.must_change_password || sessionStorage.getItem('vx_recovery')) && !pwDone) return <ChangePassword forced onDone={() => { sessionStorage.removeItem('vx_recovery'); setPwDone(true) }} />
-  const home = can(me, 'performance') ? '/' : '/today'
+  // a new hire has only the training (and settings): it is their home and the rest isn't routed
+  const trainee = me.role === 'new_hire'
+  const home = trainee ? '/training' : can(me, 'performance') ? '/' : '/today'
   return (
     <FolioProvider>
       <Layout>
         <Suspense fallback={<div className="center"><Loading what="Loading" /></div>}>
         <Routes>
-          <Route path="/" element={can(me, 'performance') ? <ExecutiveDashboard /> : <Navigate to="/today" replace />} />
+          <Route path="/" element={can(me, 'performance') ? <ExecutiveDashboard /> : <Navigate to={home} replace />} />
           {/* Performance screens not yet rebuilt: the original screens, shown by the layout's LegacyHost */}
           {['/legacy-dashboard', '/legacy-sales', '/huddle', '/legacy-reports', '/year-end', '/legacy-commissions', '/commission-setup', '/legacy-sdr'].map((p) =>
             <Route key={p} path={p} element={can(me, 'performance') ? null : <Navigate to="/today" replace />} />)}
@@ -65,9 +67,9 @@ function Gate() {
           <Route path="/team" element={<Navigate to="/settings" replace />} />
           <Route path="/password" element={<ChangePassword />} />
           {can(me, 'retention') && <Route path="/retention" element={<Retention />} />}
-          <Route path="/pay" element={<MyPay />} />
-          <Route path="/my-commissions" element={<MyCommissions />} />
-          <Route path="/today" element={<MySpace />} />
+          {!trainee && <Route path="/pay" element={<MyPay />} />}
+          {!trainee && <Route path="/my-commissions" element={<MyCommissions />} />}
+          {!trainee && <Route path="/today" element={<MySpace />} />}
           {can(me, 'books') && <Route path="/books/:book" element={<Books />} />}
           {can(me, 'books') && <Route path="/books" element={<Navigate to="/books/farmers" replace />} />}
           {/* Renewals now live on Books of Business as an alert; old links open it expanded. */}
@@ -76,7 +78,7 @@ function Gate() {
           {can(me, 'work') && <Route path="/work" element={<WorkQueue />} />}
           {can(me, 'chat') && <Route path="/chat" element={<Chat />} />}
           {can(me, 'proteges') && <Route path="/proteges" element={<Proteges />} />}
-          <Route path="/hr" element={<Licensing />} />
+          {!trainee && <Route path="/hr" element={<Licensing />} />}
           {can(me, 'payroll') && <Route path="/payroll" element={<Payroll />} />}
           {can(me, 'passwords') && <Route path="/passwords" element={<Navigate to="/resources?tab=passwords" replace />} />}
           {can(me, 'training') && <Route path="/training" element={<Training />} />}

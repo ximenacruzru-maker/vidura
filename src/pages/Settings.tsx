@@ -11,7 +11,7 @@ import { supabase } from '../lib/supabase'
 import { useAsync } from '../lib/useAsync'
 
 type Row = StaffAccount & { last_sign_in_at: string | null }
-const ROLES: Role[] = ['owner', 'admin', 'producer', 'protege', 'sdr', 'csr', 'va']
+const ROLES: Role[] = ['owner', 'admin', 'producer', 'protege', 'sdr', 'csr', 'va', 'new_hire']
 
 async function call(body: Record<string, unknown>) {
   const { data, error } = await supabase.functions.invoke('staff-admin', { body })

@@ -11,8 +11,8 @@ const cors = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...cors, "Content-Type": "application/json" } });
-const ROLES = ["owner", "admin", "producer", "protege", "sdr", "csr", "va"];
-const SECTIONS = ["performance", "books", "resources", "work", "chat", "training", "proteges", "passwords", "hr", "work_manager", "payroll"];
+const ROLES = ["owner", "admin", "producer", "protege", "sdr", "csr", "va", "new_hire"];
+const SECTIONS = ["performance", "books", "resources", "work", "chat", "training", "proteges", "passwords", "hr", "work_manager", "retention"];
 
 function cleanAccess(a: unknown) {
   const out: Record<string, boolean> = {};

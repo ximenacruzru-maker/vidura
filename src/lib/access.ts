@@ -17,7 +17,7 @@ export const SECTIONS: { key: string; label: string; note: string }[] = [
 
 const BASE = ['books', 'resources', 'work', 'chat', 'training', 'passwords']
 export function roleDefaults(role: Role): Record<string, boolean> {
-  const on = role === 'owner' || role === 'admin' ? SECTIONS.map((s) => s.key) : role === 'protege' ? [...BASE, 'proteges'] : BASE
+  const on = role === 'owner' || role === 'admin' ? SECTIONS.map((s) => s.key) : role === 'protege' ? [...BASE, 'proteges'] : role === 'new_hire' ? ['training'] : BASE
   return Object.fromEntries(SECTIONS.map((s) => [s.key, on.includes(s.key)]))
 }
 
@@ -31,4 +31,4 @@ export function can(me: StaffAccount | null | undefined, section: string) {
   return section in a ? !!a[section] : !!roleDefaults(me.role)[section]
 }
 
-export const ROLE_LABEL: Record<string, string> = { owner: 'Agency Owner', admin: 'Admin', producer: 'Producer', protege: 'Protégé', sdr: 'SDR', csr: 'CSR', va: 'VA' }
+export const ROLE_LABEL: Record<string, string> = { owner: 'Agency Owner', admin: 'Admin', producer: 'Producer', protege: 'Protégé', sdr: 'SDR', csr: 'CSR', va: 'VA', new_hire: 'New hire' }
