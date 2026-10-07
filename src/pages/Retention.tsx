@@ -12,7 +12,7 @@ import { LOSS_REASONS, TARGETS, gates, monthEnd, monthLabel, movement, type Rete
  *  talk track filled in, and how the month's bonus gates stand. The person in the role sees their own; admins see it
  *  too (and can pick whose, if more than one person has the role). */
 
-const KIND_LABEL: Record<RetentionEntry['kind'], string> = { save: 'Save', loss: 'Loss', cross_sell: 'Cross-sell' }
+const KIND_LABEL: Record<RetentionEntry['kind'], string> = { save: 'Save', loss: 'Loss', cross_sell: 'Cross-sell', review: 'Service / review' }
 const blankDay = (name: string, day: string): RetentionDay => ({ name, day, at_risk_touches: 0, renewal_conversations: 0, escalations: 0, escalations_same_day: 0, open_critical_aged: 0, brokered_current: true, priority: '' })
 const weekStart = (day: string) => { const d = new Date(day + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return d.toISOString().slice(0, 10) }
 const prevWorkday = (day: string) => { const d = new Date(day + 'T12:00:00Z'); do { d.setUTCDate(d.getUTCDate() - 1) } while (d.getUTCDay() === 0 || d.getUTCDay() === 6); return d.toISOString().slice(0, 10) }
@@ -22,6 +22,7 @@ export default function Retention() {
   const today = todayPacific()
   const [month, setMonth] = useState(today.slice(0, 7))
   const [reload, setReload] = useState(0)
+  const [adding, setAdding] = useState(false)
   const bump = () => setReload((n) => n + 1)
 
   // whose scorecard: your own if the role is yours, otherwise (an admin) the people who have it
@@ -57,6 +58,7 @@ export default function Retention() {
   const mv = movement(log)
   const g = gates(month, monthDays, rec, today)
   const live = month === today.slice(0, 7)
+  const tday = days.find((d) => d.day === today)
   const months = Array.from({ length: 6 }, (_, i) => { const d = new Date(today.slice(0, 7) + '-15T12:00:00Z'); d.setUTCMonth(d.getUTCMonth() - i); return d.toISOString().slice(0, 7) }).filter((m) => m >= '2026-10')
 
   return (
@@ -66,63 +68,90 @@ export default function Retention() {
           {!mineRole && (people.data?.length || 0) > 1 && <select value={name} onChange={(e) => setPicked(e.target.value)} aria-label="Person">{people.data!.map((p) => <option key={p}>{p}</option>)}</select>}
           <select value={month} onChange={(e) => setMonth(e.target.value)} aria-label="Month">{(months.length ? months : [month]).map((m) => <option key={m} value={m}>{monthLabel(m)}</option>)}</select>
         </div>} />
-      <Tiles>
-        <Tile label={`Net Book Movement · ${live ? 'MTD' : monthLabel(month)}`} value={money0(mv.net)} sub={`${money0(mv.saved.p)} saved + ${money0(mv.cross.p)} cross-sell − ${money0(mv.lost.p)} lost`} tone={mv.net >= 0 ? 'good' : 'warn'} />
-        <Tile label="Saved" value={money0(mv.saved.p)} sub={`${mv.saved.n} polic${mv.saved.n === 1 ? 'y' : 'ies'} protected`} tone="good" />
-        <Tile label="Lost" value={money0(mv.lost.p)} sub={`${mv.lost.n} of ≤${TARGETS.cancellationsMax} cancellations this month`} tone={mv.lost.n > TARGETS.cancellationsMax ? 'warn' : undefined} />
-        <Tile label="Cross-sell" value={money0(mv.cross.p)} sub={`${mv.cross.n} polic${mv.cross.n === 1 ? 'y' : 'ies'} added`} />
-        <Tile label="Saves this week" value={`${week.length} / ${TARGETS.savesPerWeek}`} sub={`${money0(week.reduce((a, e) => a + Number(e.premium), 0))} protected since ${mdy(weekStart(today))}`} tone={week.length >= TARGETS.savesPerWeek ? 'good' : undefined} />
-        <Tile label="Net PIF (logged)" value={(mv.netPif > 0 ? '+' : '') + mv.netPif} sub={`cross-sell − lost policies · target +${TARGETS.netPif}`} tone={mv.netPif >= TARGETS.netPif ? 'good' : undefined} />
-      </Tiles>
-
-      <div className="grid2">
-        <DayForm key={name + today} name={name} days={days} today={today} onSaved={bump} />
-        <LogForm name={name} today={today} onSaved={bump} />
-      </div>
-
-      <TalkTrack days={days} log={log} today={today} mvNet={mv.net} />
-
-      <Panel title={`${monthLabel(month)} log`} sub={`${log.length} entr${log.length === 1 ? 'y' : 'ies'} · every save, loss and cross-sell with its annual premium`}>
-        {log.length ? (
-          <div className="tbl-wrap">
-            <table className="tbl">
-              <thead><tr><th>Day</th><th>Type</th><th>Client</th><th className="r">Policies</th><th className="r">Premium</th><th>Carrier</th><th>Reason / note</th><th /></tr></thead>
-              <tbody>{log.map((e) => (
-                <tr key={e.id}><td>{mdy(e.day)}</td><td><span className={'pill ' + (e.kind === 'loss' ? 'pill-bad' : 'pill-good')}>{KIND_LABEL[e.kind]}</span></td><td>{e.client}</td>
-                  <td className="r">{e.policies}</td><td className="r mono">{e.kind === 'loss' ? '−' : ''}{money0(Number(e.premium))}</td><td>{e.carrier}</td><td className="sub">{[e.reason, e.note].filter(Boolean).join(' · ')}</td>
-                  <td className="r"><button className="linkbtn" onClick={async () => { if (!confirm(`Remove this ${KIND_LABEL[e.kind].toLowerCase()} for ${e.client}?`)) return; const { error } = await supabase.from('retention_log').delete().eq('id', e.id); if (error) alert(error.message); else bump() }}>remove</button></td></tr>
-              ))}</tbody>
-            </table>
+      <section className="panel rt-hero">
+        <div className="rt-hero-main">
+          <div className="pay-k">Net Book Movement · {live ? `${monthLabel(month)} so far` : monthLabel(month)}</div>
+          <div className={'pay-amt' + (mv.net < 0 ? ' neg' : '')}>{money0(mv.net)}</div>
+          <div className="rt-eq">
+            <span><b>{money0(mv.saved.p)}</b> saved ({mv.saved.n})</span><i>+</i>
+            <span><b>{money0(mv.cross.p)}</b> cross-sell ({mv.cross.n})</span><i>−</i>
+            <span className="bad"><b>{money0(mv.lost.p)}</b> lost ({mv.lost.n})</span>
           </div>
-        ) : <Empty>Nothing logged for {monthLabel(month)} yet.</Empty>}
-      </Panel>
+        </div>
+        <div className="rt-goals">
+          <Goal label="At-risk touches today" now={tday?.at_risk_touches ?? 0} goal={TARGETS.touches} />
+          <Goal label="Renewal conversations today" now={tday?.renewal_conversations ?? 0} goal={TARGETS.conversations} />
+          <Goal label="Saves this week" now={week.length} goal={TARGETS.savesPerWeek} />
+          <Goal label="Cancellations this month" now={mv.lost.n} goal={TARGETS.cancellationsMax} limit />
+          <Goal label="Net PIF this month" now={mv.netPif} goal={TARGETS.netPif} />
+        </div>
+      </section>
 
-      <Panel title="Bonus gates" sub={`${monthLabel(month)} · the monthly bonus pays only when all four are met`}>
-        {g.map((x) => <div key={x.label} className={'gate' + (x.ok ? ' ok' : '')}><span>{x.ok ? '✓' : '•'}</span><div><div className="strong">{x.label}</div><div className="sub">{x.detail}</div></div></div>)}
-        <label className="check" style={{ marginTop: 8 }}>
-          <input type="checkbox" checked={!!rec?.reconciled} onChange={async (e) => {
-            const { error } = await supabase.from('retention_months').upsert({ name, month, reconciled: e.target.checked, reconciled_note: e.target.checked ? `Reconciled ${mdy(today)} by ${me?.display_name || 'staff'}` : null, updated_at: new Date().toISOString() }, { onConflict: 'agency_id,name,month' })
-            if (error) alert(error.message); else bump()
-          }} />
-          <div><div className="check-t">Farmers and brokered premium reporting is reconciled for {monthLabel(month)}</div><div className="sub">Known outstanding payments and carrier items have owners and next actions.</div></div>
-        </label>
-      </Panel>
-
-      <Panel title="How the day runs">
-        <table className="tbl"><tbody>
-          {[['8:30–9:00', 'Review IVR, Service Advantage and open-service queues', 'Prioritized case list and huddle numbers'],
-            ['9:00–10:00', 'Scan upcoming renewals, nonpayment and cancellation-risk lists', 'First retention contacts before huddle'],
-            ['10:00', 'Huddle: yesterday, month-to-date and open exceptions', 'Today’s saves, calls and resolutions committed'],
-            ['10:15–12:00', 'Live renewal, save and escalation conversations', 'Documented outcomes, premium saved or next action'],
-            ['1:00–2:30', 'Brokered renewals, remarketing, payment and carrier follow-up', 'Paid, bound and reconciled brokered business'],
-            ['2:30–3:30', 'Coverage reviews, cross-sell and producer handoffs', 'Qualified opportunities and incremental premium'],
-            ['3:30–4:30', 'Close cases, update SOPs and reconcile the scorecard', 'No unowned critical case; board updated by 4:30']].map(([t, f, o]) => (
-            <tr key={t}><td className="mono" style={{ whiteSpace: 'nowrap' }}>{t}</td><td><div className="strong">{f}</div><div className="sub">{o}</div></td></tr>
-          ))}
-        </tbody></table>
-        <div className="sub" style={{ marginTop: 8 }}>Escalate immediately: rate increase or price complaint, cancellation or nonrenewal language, nonpayment or reinstatement risk, coverage reduction because of price, dissatisfaction or complaint, underwriting or missing information, brokered renewal/payment/carrier concern, or a request for a manager. A transfer doesn’t end ownership.</div>
-      </Panel>
+      <div className="rt-grid">
+        <div>
+          <DayForm key={name + today} name={name} days={days} today={today} onSaved={bump} />
+          <Panel title={`${monthLabel(month)} log`} sub={`${log.length} entr${log.length === 1 ? 'y' : 'ies'} · saves, losses, cross-sells and service notes`}
+            right={<button className={adding ? 'btn-ghost' : 'btn-primary'} onClick={() => setAdding(!adding)}>{adding ? 'Close' : '+ Add to log'}</button>}>
+            {adding && <LogForm name={name} today={today} onSaved={() => { bump(); setAdding(false) }} />}
+            {log.length ? (
+              <div className="rt-log">{log.map((e) => (
+                <div key={e.id} className="rt-entry">
+                  <span className={'pill ' + (e.kind === 'loss' ? 'pill-bad' : e.kind === 'review' ? 'pill-muted' : 'pill-good')}>{KIND_LABEL[e.kind]}</span>
+                  <div className="rt-entry-b">
+                    <div className="strong">{e.client}{e.carrier ? <span className="sub"> · {e.carrier}</span> : null}</div>
+                    <div className="sub">{mdy(e.day)}{e.policies > 1 ? ` · ${e.policies} policies` : ''}{e.reason ? ` · ${e.reason}` : ''}{e.note ? ` · ${e.note}` : ''}</div>
+                  </div>
+                  <div className="rt-entry-r">
+                    <div className="mono strong">{e.kind === 'review' ? '' : (e.kind === 'loss' ? '−' : '+') + money0(Number(e.premium))}</div>
+                    <button className="linkbtn" onClick={async () => { if (!confirm(`Remove this ${KIND_LABEL[e.kind].toLowerCase()} for ${e.client}?`)) return; const { error } = await supabase.from('retention_log').delete().eq('id', e.id); if (error) alert(error.message); else bump() }}>remove</button>
+                  </div>
+                </div>
+              ))}</div>
+            ) : !adding && <Empty>Nothing logged for {monthLabel(month)} yet.</Empty>}
+          </Panel>
+        </div>
+        <div>
+          <TalkTrack days={days} log={log} today={today} mvNet={mv.net} />
+          <Panel title="Bonus gates" sub={`${monthLabel(month)} · all four must be met`}>
+            {g.slice(0, 3).map((x) => <div key={x.label} className={'gate' + (x.ok ? ' ok' : '')}><span>{x.ok ? '✓' : '•'}</span><div><div className="strong">{x.label}</div><div className="sub">{x.detail}</div></div></div>)}
+            {/* gate 4 is the reconciliation mark itself */}
+            <label className="check rt-gate4">
+              <input type="checkbox" checked={!!rec?.reconciled} onChange={async (e) => {
+                const { error } = await supabase.from('retention_months').upsert({ name, month, reconciled: e.target.checked, reconciled_note: e.target.checked ? `Reconciled ${mdy(today)} by ${me?.display_name || 'staff'}` : null, updated_at: new Date().toISOString() }, { onConflict: 'agency_id,name,month' })
+                if (error) alert(error.message); else bump()
+              }} />
+              <div><div className="check-t">Premium reporting reconciled</div><div className="sub">{rec?.reconciled ? rec.reconciled_note : 'Tick once Farmers and brokered reporting is reconciled and outstanding items have owners.'}</div></div>
+            </label>
+          </Panel>
+          <Panel title="How the day runs" sub="The daily rhythm from the plan">
+            <details className="rt-rhythm"><summary>Show the schedule and escalation triggers</summary><table className="tbl"><tbody>
+              {[['8:30–9:00', 'Review IVR, Service Advantage and open-service queues', 'Prioritized case list and huddle numbers'],
+                ['9:00–10:00', 'Scan upcoming renewals, nonpayment and cancellation-risk lists', 'First retention contacts before huddle'],
+                ['10:00', 'Huddle: yesterday, month-to-date and open exceptions', 'Today’s saves, calls and resolutions committed'],
+                ['10:15–12:00', 'Live renewal, save and escalation conversations', 'Documented outcomes, premium saved or next action'],
+                ['1:00–2:30', 'Brokered renewals, remarketing, payment and carrier follow-up', 'Paid, bound and reconciled brokered business'],
+                ['2:30–3:30', 'Coverage reviews, cross-sell and producer handoffs', 'Qualified opportunities and incremental premium'],
+                ['3:30–4:30', 'Close cases, update SOPs and reconcile the scorecard', 'No unowned critical case; board updated by 4:30']].map(([t, f, o]) => (
+                <tr key={t}><td className="mono" style={{ whiteSpace: 'nowrap' }}>{t}</td><td><div className="strong">{f}</div><div className="sub">{o}</div></td></tr>
+              ))}
+            </tbody></table>
+            <div className="sub" style={{ marginTop: 8 }}>Escalate immediately: rate increase or price complaint, cancellation or nonrenewal language, nonpayment or reinstatement risk, coverage reduction because of price, dissatisfaction or complaint, underwriting or missing information, brokered renewal/payment/carrier concern, or a request for a manager. A transfer doesn’t end ownership.</div></details>
+          </Panel>
+        </div>
+      </div>
     </>
+  )
+}
+
+/** One goal with its progress: the number against the goal, and a bar (a limit, like cancellations, warns as it fills). */
+function Goal({ label, now, goal, limit }: { label: string; now: number; goal: number; limit?: boolean }) {
+  const pct = Math.max(0, Math.min(100, (now / goal) * 100))
+  const tone = limit ? (now > goal ? 'bad' : now > goal * 0.8 ? 'warn' : 'good') : now >= goal ? 'good' : ''
+  return (
+    <div className={'rt-goal ' + tone}>
+      <div className="rt-goal-h"><span>{label}</span><b>{now > 0 && label.startsWith('Net') ? '+' : ''}{now}<span className="sub"> {limit ? 'of ≤' : '/ '}{goal}</span></b></div>
+      <div className="pay-bar"><div className="pay-fill" style={{ width: pct + '%' }} /></div>
+    </div>
   )
 }
 
@@ -133,8 +162,9 @@ function DayForm({ name, days, today, onSaved }: { name: string; days: Retention
   const [busy, setBusy] = useState(false)
   const pick = (d: string) => { setDay(d); setDraft(days.find((x) => x.day === d) || blankDay(name, d)) }
   const num = (k: keyof RetentionDay, label: string, goal?: string) => (
-    <label>{label}{goal && <span className="sub" style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 500 }}> · {goal}</span>}
+    <label className="rt-num"><span className="rt-num-l">{label}</span>
       <input className="fld" type="number" min={0} value={Number(draft[k]) || 0} onChange={(e) => setDraft({ ...draft, [k]: Math.max(0, Number(e.target.value) || 0) })} />
+      <span className="rt-num-g">{goal || '\u00a0'}</span>
     </label>
   )
   const save = async () => {
@@ -144,15 +174,15 @@ function DayForm({ name, days, today, onSaved }: { name: string; days: Retention
     if (error) alert(error.message); else onSaved()
   }
   return (
-    <Panel title="Daily scorecard" sub={saved ? `Saved for ${mdy(day)} · update it any time` : `Not logged for ${mdy(day)} yet`}
+    <Panel title={day === today ? 'Today’s scorecard' : `Scorecard for ${mdy(day)}`} sub={saved ? 'Saved · update it any time during the day' : 'Not logged yet · counts toward the 95% bonus gate'}
       right={<input type="date" className="fld" value={day} max={today} onChange={(e) => pick(e.target.value || today)} aria-label="Scorecard day" />}>
-      <div className="form-grid">
+      <div className="form-grid rt-day">
         {num('at_risk_touches', 'At-risk touches', `goal ${TARGETS.touches}`)}
         {num('renewal_conversations', 'Live renewal conversations', `goal ${TARGETS.conversations}`)}
-        {num('escalations', 'Critical escalations')}
+        {num('escalations', 'Critical escalations', 'received today')}
         {num('escalations_same_day', 'Contacted same day', 'goal 100%')}
         {num('open_critical_aged', 'Critical cases aged >1 day', 'goal 0')}
-        <label className="coi-tick"><input type="checkbox" checked={draft.brokered_current} onChange={(e) => setDraft({ ...draft, brokered_current: e.target.checked })} /> Brokered business current</label>
+        <label className="coi-tick rt-tick"><input type="checkbox" checked={draft.brokered_current} onChange={(e) => setDraft({ ...draft, brokered_current: e.target.checked })} /> Brokered business current</label>
         <label style={{ gridColumn: '1 / -1' }}>Today’s priority<input className="fld" value={draft.priority || ''} onChange={(e) => setDraft({ ...draft, priority: e.target.value })} placeholder="e.g. Martinez renewal +18% — call before noon" /></label>
       </div>
       <div className="row-actions" style={{ marginTop: 12 }}><button className="btn-primary" disabled={busy} onClick={save}>{busy ? 'Saving…' : 'Save scorecard'}</button></div>
@@ -168,26 +198,27 @@ function LogForm({ name, today, onSaved }: { name: string; today: string; onSave
     if (!d.client.trim()) return alert('Add the client’s name.')
     if (d.kind === 'loss' && !d.reason) return alert('Pick a reason for the loss.')
     setBusy(true)
-    const { error } = await supabase.from('retention_log').insert({ name, kind: d.kind, day: d.day, client: d.client.trim(), policies: Number(d.policies) || 1, premium: Number(d.premium) || 0, carrier: d.carrier || null, reason: d.reason || null, note: d.note || null })
+    const { error } = await supabase.from('retention_log').insert({ name, kind: d.kind, day: d.day, client: d.client.trim(), policies: Number(d.policies) || 1, premium: d.kind === 'review' ? 0 : Number(d.premium) || 0, carrier: d.carrier || null, reason: d.reason || null, note: d.note || null })
     setBusy(false)
     if (error) alert(error.message); else { setD({ ...blank, kind: d.kind }); onSaved() }
   }
   return (
-    <Panel title="Log a save, loss or cross-sell" sub="Annual premium protected, lost or added. Every loss gets a reason.">
+    <div className="rt-add">
       <div className="row-actions" role="group" aria-label="Type" style={{ marginBottom: 10, flexWrap: 'wrap' }}>
-        {(['save', 'loss', 'cross_sell'] as const).map((k) => <button key={k} className={d.kind === k ? 'btn-primary' : 'btn-ghost'} onClick={() => setD({ ...d, kind: k })}>{KIND_LABEL[k]}</button>)}
+        {(['save', 'loss', 'cross_sell', 'review'] as const).map((k) => <button key={k} className={d.kind === k ? 'btn-primary' : 'btn-ghost'} onClick={() => setD({ ...d, kind: k })}>{KIND_LABEL[k]}</button>)}
       </div>
       <div className="form-grid">
         <label style={{ gridColumn: '1 / -1' }}>Client<input className="fld" value={d.client} onChange={(e) => setD({ ...d, client: e.target.value })} /></label>
         <label>Day<input className="fld" type="date" max={today} value={d.day} onChange={(e) => setD({ ...d, day: e.target.value || today })} /></label>
         <label>Policies<input className="fld" type="number" min={1} value={d.policies} onChange={(e) => setD({ ...d, policies: Math.max(1, Number(e.target.value) || 1) })} /></label>
-        <label>Annual premium<input className="fld" type="number" min={0} step="1" value={d.premium} onChange={(e) => setD({ ...d, premium: e.target.value })} /></label>
+        {d.kind !== 'review' && <label>Annual premium<input className="fld" type="number" min={0} step="1" value={d.premium} onChange={(e) => setD({ ...d, premium: e.target.value })} /></label>}
         <label>Carrier<input className="fld" value={d.carrier} onChange={(e) => setD({ ...d, carrier: e.target.value })} /></label>
         {d.kind === 'loss' && <label>Reason<select className="fld" value={d.reason} onChange={(e) => setD({ ...d, reason: e.target.value })}><option value="">Pick one</option>{LOSS_REASONS.map((r) => <option key={r}>{r}</option>)}</select></label>}
         <label style={{ gridColumn: '1 / -1' }}>Note<input className="fld" value={d.note} onChange={(e) => setD({ ...d, note: e.target.value })} /></label>
       </div>
       <div className="row-actions" style={{ marginTop: 12 }}><button className="btn-primary" disabled={busy} onClick={save}>{busy ? 'Saving…' : `Log ${KIND_LABEL[d.kind].toLowerCase()}`}</button></div>
-    </Panel>
+      <div className="sub" style={{ marginTop: 8 }}>A service / review entry is a note only and doesn’t change the totals. Every loss needs a reason.</div>
+    </div>
   )
 }
 

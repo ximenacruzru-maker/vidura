@@ -12,7 +12,7 @@ import { supabase } from './supabase'
 import { agencyBonus, type BonusTier } from './payday'
 
 export interface RetentionDay { name: string; day: string; at_risk_touches: number; renewal_conversations: number; escalations: number; escalations_same_day: number; open_critical_aged: number; brokered_current: boolean; priority: string | null }
-export interface RetentionEntry { id: number; name: string; day: string; kind: 'save' | 'loss' | 'cross_sell'; client: string; policies: number; premium: number; carrier: string | null; reason: string | null; note: string | null }
+export interface RetentionEntry { id: number; name: string; day: string; kind: 'save' | 'loss' | 'cross_sell' | 'review'; client: string; policies: number; premium: number; carrier: string | null; reason: string | null; note: string | null }
 export interface RetentionMonth { name: string; month: string; reconciled: boolean; reconciled_note: string | null }
 
 export const BONUS_FROM = '2026-10' // the plan measures bonuses from October 2026 results
