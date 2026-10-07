@@ -941,7 +941,17 @@ html[data-theme="astra"] .xd .mc-btn { border-color: #E5252E; background: #2A101
 @media (max-width: 700px) { .ob-count { text-align: left; } .ob-step { padding: 14px; gap: 12px; } }
 .ob-welcome { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 24px; padding: 20px 22px; }
 .ob-welcome p { margin: 6px 0 0; line-height: 1.6; }
-.ob-payrow { display: grid; grid-template-columns: 110px 1fr; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); line-height: 1.5; }
+.ob-payrow { display: grid; grid-template-columns: 124px 1fr; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); line-height: 1.5; }
 .ob-payrow:first-of-type { border-top: 0; }
 .ob-payrow b { color: var(--blue); }
 @media (max-width: 800px) { .ob-welcome { grid-template-columns: 1fr; } .ob-payrow { grid-template-columns: 90px 1fr; } }
+.ob-policy { margin: 12px 0 0; padding: 12px 14px; border-radius: 10px; background: var(--soft); border: 1px solid var(--line); line-height: 1.55; }
+.ob-policy p { margin: 6px 0; }
+.ob-policy p:first-child { margin-top: 0; }
+.ob-bullet { position: relative; padding-left: 16px; margin: 4px 0; }
+.ob-bullet::before { content: ''; position: absolute; left: 4px; top: .6em; width: 5px; height: 5px; border-radius: 50%; background: var(--blue); }
+.ob-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.ob-chip { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--soft); color: var(--muted); border: 1px solid var(--line); white-space: nowrap; }
+.ob-chip.on { background: var(--good-bg, var(--soft)); color: var(--good, var(--ink)); border-color: transparent; }
+.ob-chip small { margin-left: 4px; opacity: .8; }
+.ob-hero > div:first-child { flex: 1 1 360px; }
