@@ -10,7 +10,7 @@ import { supabase } from '../lib/supabase'
 import { useAsync } from '../lib/useAsync'
 import { useSyncStamp } from '../lib/syncEvents'
 import { takeHome, type FilingStatus } from '../lib/takeHome'
-import { BONUS_FROM, bonusMonthFor, monthBonus, monthEnd, monthLabel } from '../lib/retention'
+import { bonusCounts, folioBonus } from '../lib/retention'
 import { workedMinutes } from './Licensing'
 
 /** My Pay: your own pay on a payday, laid out like a pay stub — hours × your rate (or your salary), plus on the 21st your
@@ -53,12 +53,11 @@ export default function MyPay() {
   const salaried = !!hours.data?.row?.salary_annual
   const earnsCommission = !!hours.data && !salaried && ['producer', 'protege', 'admin'].includes(me?.role || '')
   const tiers = hours.data?.row?.bonus_tiers
-  // a monthly bonus (calendar month, paid on the 21st after month-end) or one on the folio paid that day
-  const monthly = hours.data?.row?.bonus_period === 'month'
-  const bonusMonth = monthly ? bonusMonthFor(pay) : null
-  const monthBon = useAsync(async () => (bonusMonth && tiers?.length && bonusMonth >= BONUS_FROM ? monthBonus(hours.data!.row!.name, tiers, bonusMonth, todayPacific()) : null), [bonusMonth, tiers?.length, synced])
+  // the cash bonus is on the folio paid that day; a gated one (the retention role) also needs the four gates met
+  const gated = hours.data?.row?.bonus_period === 'folio_gated'
+  const gatedBon = useAsync(async () => (gated && folio && tiers?.length && bonusCounts(folio) ? folioBonus(hours.data!.row!.name, tiers, folio, todayPacific()) : null), [gated, folio?.start_date, folio?.end_date, tiers?.length, synced])
   const agencyPrem = useAsync(async () => {
-    if (monthly || !folio || !tiers?.length) return null
+    if (gated || !folio || !tiers?.length) return null
     const { data, error } = await supabase.rpc('agency_premium', { p_from: folio.start_date, p_to: folio.end_date })
     if (error) throw error
     return Number(data) || 0
@@ -84,27 +83,28 @@ export default function MyPay() {
   const qualified = (sdr.data || []).filter((t) => t.az_qualifies).length, bound = (sdr.data || []).filter((t) => t.bound).length
   const bonus = qualified * qb + bound * bb
   const salary = salaried ? salaryCheck(row?.salary_annual) : 0
-  const cash = monthly ? { amount: monthBon.data?.amount || 0, min: monthBon.data?.tier.min || 0 }
+  const cash = gated ? { amount: gatedBon.data?.amount || 0, min: gatedBon.data?.tier.min || 0 }
     : check.commission && agencyPrem.data != null ? agencyBonus(tiers, agencyPrem.data) : { amount: 0, min: 0 }
   const total = hourlyPay + salary + (c?.total || 0) + bonus + cash.amount
 
   // estimated take-home for salaried staff: salary as regular pay, the cash bonus as a supplemental payment
   const net = salaried ? takeHome(hourlyPay + salary, (c?.total || 0) + bonus + cash.amount, filing) : null
-  const err = hours.error || comm.error || periods.error || sdr.error || agencyPrem.error || monthBon.error
-  const loading = !hours.data || (check.commission && earnsCommission && folio && comm.loading && !comm.data) || (check.commission && tiers?.length && !monthly && folio && agencyPrem.loading && agencyPrem.data == null) || (monthBon.loading && !monthBon.data)
+  const err = hours.error || comm.error || periods.error || sdr.error || agencyPrem.error || gatedBon.error
+  const loading = !hours.data || (check.commission && earnsCommission && folio && comm.loading && !comm.data) || (check.commission && tiers?.length && !gated && folio && agencyPrem.loading && agencyPrem.data == null) || (gatedBon.loading && !gatedBon.data)
   // what's in the check, one short line each
   const lines: { label: string; detail: string; amount: number }[] = []
   const folioName = folio ? `${shortDate(folio.start_date)} – ${shortDate(folio.end_date, true)}` : ''
   const firstTier = tiers?.length ? Math.min(...tiers.map((t) => Number(t.min))) : 0
   if (row?.hourly) lines.push({ label: 'Hours', detail: `${hm(mins)} at ${row.rate != null ? money2(row.rate) + '/hr' : '(no rate set)'}`, amount: hourlyPay })
   if (salaried) lines.push({ label: 'Salary', detail: `${money0(Number(row!.salary_annual))} a year, split into 24 checks`, amount: salary })
-  if (check.commission && tiers?.length && !monthly) lines.push({ label: 'Agency bonus', detail: !folio ? 'Folio not set up yet' : cash.amount ? `Agency wrote ${money0(agencyPrem.data || 0)} last folio` : `Agency wrote ${money0(agencyPrem.data || 0)} last folio · needed ${money0(firstTier)}`, amount: cash.amount })
-  if (check.commission && tiers?.length && monthly && bonusMonth) {
-    const mb = monthBon.data, met = mb ? mb.gates.filter((g) => g.ok).length : 0
-    lines.push({ label: 'Monthly bonus', amount: cash.amount, detail: !mb ? `Starts with ${monthLabel(BONUS_FROM)} results, paid ${shortDate(BONUS_FROM.slice(0, 5) + '11-21')}`
-      : !mb.tier.amount ? `${monthLabel(mb.month)}: agency wrote ${money0(mb.premium)} · needed ${money0(firstTier)}`
-      : mb.eligible ? `${monthLabel(mb.month)}: agency wrote ${money0(mb.premium)} · all 4 gates met`
-      : `${monthLabel(mb.month)}: agency wrote ${money0(mb.premium)} (${money0(mb.tier.amount)} tier) · on hold, ${met} of 4 gates met` })
+  if (check.commission && tiers?.length && !gated) lines.push({ label: 'Agency bonus', detail: !folio ? 'Folio not set up yet' : cash.amount ? `Agency wrote ${money0(agencyPrem.data || 0)} last folio` : `Agency wrote ${money0(agencyPrem.data || 0)} last folio · needed ${money0(firstTier)}`, amount: cash.amount })
+  if (check.commission && tiers?.length && gated) {
+    const gb = gatedBon.data, met = gb ? gb.gates.filter((g) => g.ok).length : 0
+    lines.push({ label: 'Agency bonus', amount: cash.amount, detail: !folio ? 'Folio not set up yet'
+      : !gb ? `Starts with the folio your role began in, paid ${shortDate(nextFolioPay(folios))}`
+      : !gb.tier.amount ? `Agency wrote ${money0(gb.premium)} in the ${folioName} folio · needed ${money0(firstTier)}`
+      : gb.eligible ? `Agency wrote ${money0(gb.premium)} in the ${folioName} folio · all 4 gates met`
+      : `Agency wrote ${money0(gb.premium)} in the ${folioName} folio (${money0(gb.tier.amount)} level) · on hold, ${met} of 4 gates met` })
   }
   if (check.commission && earnsCommission && (c || folio)) lines.push({ label: 'Commission', detail: !folio ? 'Folio not set up yet' : c ? `${c.policies} policies sold ${folioName}` : `No sales credited to you ${folioName}`, amount: c?.total || 0 })
   if (check.commission && (sdr.data?.length || me?.role === 'sdr' || me?.role === 'va')) lines.push({ label: 'SDR bonus', detail: period ? `${period.period_label}: ${qualified} qualified, ${bound} bound` : 'No SDR month for this payday', amount: bonus })
@@ -157,7 +157,7 @@ export default function MyPay() {
         )}
       </section>
 
-      {salaried && tiers?.length ? <BonusTracker tiers={tiers} monthly={monthly} name={hours.data!.row!.name} folios={folios} synced={synced} /> : null}
+      {salaried && tiers?.length ? <BonusTracker tiers={tiers} gated={gated} name={hours.data!.row!.name} folios={folios} synced={synced} /> : null}
 
       {row?.hourly && (hours.data?.punches.length || 0) > 0 && (
         <Panel title="My hours" sub={`${shortDate(check.from)} – ${shortDate(check.to, true)} · ${hm(mins)}`}>
@@ -212,26 +212,25 @@ export default function MyPay() {
   )
 }
 
-/** Salaried staff: how the period open now (the calendar month, or the folio) is going toward the next cash bonus,
- *  with a monthly bonus's eligibility gates so far. */
-function BonusTracker({ tiers, monthly, name, folios, synced }: { tiers: BonusTier[]; monthly: boolean; name: string; folios: { start_date: string; end_date: string; in_progress?: boolean }[]; synced: unknown }) {
+/** Salaried staff: how the folio open now is going toward the next cash bonus (paid on the 21st after it closes), with
+ *  a gated bonus's four gates so far. */
+function BonusTracker({ tiers, gated, name, folios, synced }: { tiers: BonusTier[]; gated: boolean; name: string; folios: { start_date: string; end_date: string; in_progress?: boolean }[]; synced: unknown }) {
   const today = todayPacific()
-  const f = folios.find((x) => x.in_progress) || folios.find((x) => x.start_date <= today && x.end_date >= today)
-  const open = monthly ? { start_date: today.slice(0, 7) + '-01', end_date: monthEnd(today.slice(0, 7)) } : f
+  const open = folios.find((x) => x.in_progress) || folios.find((x) => x.start_date <= today && x.end_date >= today)
   const prem = useAsync(async () => {
     if (!open) return null
-    if (monthly) return monthBonus(name, tiers, today.slice(0, 7), today)
+    if (gated) return folioBonus(name, tiers, open, today)
     const { data, error } = await supabase.rpc('agency_premium', { p_from: open.start_date, p_to: open.end_date })
     if (error) throw error
     return { premium: Number(data) || 0, gates: null }
-  }, [open?.start_date, open?.end_date, monthly, name, synced])
+  }, [open?.start_date, open?.end_date, gated, name, synced])
   if (!open || prem.data == null) return null
   const written = prem.data.premium, gateList = prem.data.gates
   const sorted = [...tiers].sort((a, b) => Number(a.min) - Number(b.min))
   const now = agencyBonus(tiers, written)
   const next = sorted.find((t) => Number(t.min) > written)
   return (
-    <Panel title="Bonus tracker" sub={monthly ? `${monthLabel(today.slice(0, 7))} · paid ${shortDate(nextMonth21(today))} once the month is reconciled` : `This folio, ${shortDate(open.start_date)} – ${shortDate(open.end_date, true)} · paid next month`}>
+    <Panel title="Bonus tracker" sub={`This folio, ${shortDate(open.start_date)} – ${shortDate(open.end_date, true)} · paid ${shortDate(payFor(open.end_date))}${gated ? ' once it’s reconciled' : ''}`}>
       <div className="pay-big" style={{ textAlign: 'left', padding: 0 }}>
         <div className="pay-k">The agency has written</div>
         <div className="pay-amt" style={{ fontSize: 28 }}>{money0(written)}</div>
@@ -260,4 +259,6 @@ function BonusTracker({ tiers, monthly, name, folios, synced }: { tiers: BonusTi
     </Panel>
   )
 }
-const nextMonth21 = (day: string) => { const [y, m] = day.split('-').map(Number); return m === 12 ? `${y + 1}-01-21` : `${y}-${String(m + 1).padStart(2, '0')}-21` }
+// a folio is paid on the 21st of the month after it closes (it closes around the 20th)
+const payFor = (end: string) => { const [y, m] = end.split('-').map(Number); return m === 12 ? `${y + 1}-01-21` : `${y}-${String(m + 1).padStart(2, '0')}-21` }
+const nextFolioPay = (folios: { end_date: string; in_progress?: boolean }[]) => payFor((folios.find((f) => f.in_progress) || folios[0])?.end_date || todayPacific())

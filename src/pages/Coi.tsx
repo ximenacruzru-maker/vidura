@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ErrorBox, Loading, Panel } from '../components/ui'
 import { useAuth } from '../auth'
 import { useAsync } from '../lib/useAsync'
-import { todayPacific } from '../lib/format'
+import { issuedAt, todayPacific } from '../lib/format'
 import {
   CERT_CSS, EMPTY_PRODUCER, LETTERS, LINES, certificateHTML, coiProblems, fillFromClient, fillFromDecs, getCoiClients, getCoiProfile, lineName, mergeInsurers, newCert,
   plusYear, printCertificate, saveCertificate, saveCoiProfile, standardOps, type Cert, type CoiClient, type DecRead, type Insurer, type LineKey, type Producer,
@@ -93,9 +93,9 @@ export default function Coi() {
     if (sig === lastSaved.current) return
     setSaved({ ok: true, text: `Saving to ${withClient.clientLabel}’s profile…` })
     try {
-      const title = await saveCertificate(producer, withClient, me.agency_id)
+      const { title, at } = await saveCertificate(producer, withClient, me.agency_id, me.display_name || me.producer_name || undefined)
       lastSaved.current = sig
-      setSaved({ ok: true, text: `Saved to ${withClient.clientLabel}’s profile — ${title}. It’s in the client’s documents in the Brokered Commercial book.` })
+      setSaved({ ok: true, text: `Saved to ${withClient.clientLabel}’s profile on ${issuedAt(at)} — ${title}. It’s under Certificates issued on the client’s account in the Brokered Commercial book.` })
     } catch (e) { setSaved({ ok: false, text: 'Printed, but it could not be saved to the client’s profile: ' + ((e as Error)?.message || 'error') }) }
   }
 

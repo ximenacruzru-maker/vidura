@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Drawer, Empty, ErrorBox, KV, Loading, PageHead, Panel, Search, Tabs, Tile, Tiles } from '../components/ui'
 import { BOOKS, bookTab, daysUntil, fmtBytes, getAccounts, getBookPolicies, getDocs, openDoc, type Account, type BookPolicy, type Doc } from '../lib/books'
-import { mdy, money0, money2, todayPacific } from '../lib/format'
+import { issuedAt, mdy, money0, money2, todayPacific } from '../lib/format'
 import { downloadSheet } from '../lib/excelExport'
 import { useAsync } from '../lib/useAsync'
 import { useAuth } from '../auth'
@@ -156,10 +156,38 @@ export function AccountDrawer({ account, policies, docs, onClose }: { account: A
         }) : <Empty>No policies on file.</Empty>}
       </Panel>
 
+      <CertificatesIssued docs={docs.filter((x) => x.category === 'coi')} />
+
       <Panel title="Documents">
         <DocList docs={docs} empty="No documents filed for this account yet." />
       </Panel>
     </Drawer>
+  )
+}
+
+/** Every certificate of insurance made for this client in the COI generator: the holder, the exact date and time it was
+ *  issued (Pacific) and who issued it, newest first — the agency's record of what went out. */
+function CertificatesIssued({ docs }: { docs: Doc[] }) {
+  const certs = [...docs].sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')))
+  const holder = (t: string) => t.replace(/^Certificate\s*[—-]\s*/, '').replace(/\s*\([^)]*\)\s*$/, '') || t
+  return (
+    <Panel title={`Certificates issued${certs.length ? ` (${certs.length})` : ''}`} sub="Made in the COI generator · the exact date and time each one was issued">
+      {certs.length ? (
+        <table className="tbl">
+          <thead><tr><th>Certificate holder</th><th>Issued</th><th /></tr></thead>
+          <tbody>{certs.map((d) => (
+            <tr key={d.id}>
+              <td><div className="strong">{holder(d.title)}</div>{d.policy_number && <div className="sub">Policy #{d.policy_number}</div>}</td>
+              <td><div>{issuedAt(d.created_at) || '—'}</div>{d.issued_by && <div className="sub">by {d.issued_by}</div>}</td>
+              <td className="r"><div className="row-actions" style={{ justifyContent: 'flex-end' }}>
+                <button className="linkbtn" onClick={() => openDoc(d)}>View</button>
+                <button className="linkbtn" onClick={() => openDoc(d, true)}>Download</button>
+              </div></td>
+            </tr>
+          ))}</tbody>
+        </table>
+      ) : <Empty>No certificates issued for this client yet. Certificates made in the COI generator are filed here automatically.</Empty>}
+    </Panel>
   )
 }
 

@@ -1,10 +1,10 @@
 // Retention & book growth (Ximena's role from Oct 6, 2026): the daily huddle scorecard, the save / loss / cross-sell
-// log, Net Book Movement, and the monthly bonus with its eligibility gates.
+// log, Net Book Movement, and the folio bonus with its eligibility gates.
 //   Net Book Movement = saved premium + cross-sell premium − lost premium
-//   Bonus: the highest tier of qualifying monthly agency premium ($1,000 at $100k, $2,500 at $150k, $5,000 at $200k),
-//   measured by calendar month from October 2026, paid on the 21st after month-end reconciliation, and only when all
-//   four gates are met:
-//     1. at least 95% of the month's daily scorecard entries are in
+//   Bonus: the highest tier of agency premium written in the folio ($1,000 at $100k, $2,500 at $150k, $5,000 at $200k),
+//   paid on the 21st with the folio before it, like commission (Nov 21 pays the Sep 21 – Oct 20 folio), from the first
+//   folio the role was in place for, and only when all four gates are met over that folio:
+//     1. at least 95% of the folio's daily scorecard entries are in (workdays from the day the role began)
 //     2. every critical escalation got same-day contact (or a documented same-day attempt)
 //     3. no critical case left aged over a business day without a blocker and deadline
 //     4. Farmers and brokered premium reporting reconciled (marked by the person or an admin)
@@ -15,7 +15,6 @@ export interface RetentionDay { name: string; day: string; at_risk_touches: numb
 export interface RetentionEntry { id: number; name: string; day: string; kind: 'save' | 'loss' | 'cross_sell' | 'review'; client: string; policies: number; premium: number; carrier: string | null; reason: string | null; note: string | null }
 export interface RetentionMonth { name: string; month: string; reconciled: boolean; reconciled_note: string | null }
 
-export const BONUS_FROM = '2026-10' // the plan measures bonuses from October 2026 results
 export const ROLE_FROM = '2026-10-06' // the role took effect October 6, 2026: scorecard days count from then
 export const TARGETS = { touches: 15, conversations: 5, savesPerWeek: 4, cancellationsMax: 45, netPif: 25 }
 export const LOSS_REASONS = ['Price / rate increase', 'Nonpayment', 'Moved / sold property', 'Went to another agent', 'Coverage no longer needed', 'Underwriting / nonrenewal', 'Service issue', 'Other']
@@ -23,17 +22,10 @@ export const LOSS_REASONS = ['Price / rate increase', 'Nonpayment', 'Moved / sol
 const pad = (n: number) => String(n).padStart(2, '0')
 export const monthEnd = (m: string) => { const [y, mo] = m.split('-').map(Number); return `${m}-${pad(new Date(Date.UTC(y, mo, 0)).getUTCDate())}` }
 export const monthLabel = (m: string) => new Date(m + '-15T12:00:00Z').toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' })
-/** The calendar month a monthly bonus paid on this payday covers: the month before a 21st. None on the 5th. */
-export function bonusMonthFor(pay: string) {
-  if (!pay.endsWith('-21')) return null
-  const [y, m] = pay.split('-').map(Number)
-  return m === 1 ? `${y - 1}-12` : `${y}-${pad(m - 1)}`
-}
-/** Weekdays from the 1st of a month (or the day the role began) through a day (the month's end, or today for the month in progress). */
-export function workdays(month: string, through: string) {
+/** Weekdays from a day (or the day the role began, if later) through another. */
+export function workdays(from: string, through: string) {
   const out: string[] = []
-  const start = month + '-01' < ROLE_FROM && ROLE_FROM.startsWith(month) ? ROLE_FROM : month + '-01'
-  for (let d = new Date(start + 'T12:00:00Z'); d.toISOString().slice(0, 10) <= through && d.toISOString().slice(0, 7) === month; d.setUTCDate(d.getUTCDate() + 1)) {
+  for (let d = new Date((from < ROLE_FROM ? ROLE_FROM : from) + 'T12:00:00Z'); d.toISOString().slice(0, 10) <= through; d.setUTCDate(d.getUTCDate() + 1)) {
     const wd = d.getUTCDay(); if (wd !== 0 && wd !== 6) out.push(d.toISOString().slice(0, 10))
   }
   return out
@@ -46,15 +38,19 @@ export function movement(entries: RetentionEntry[]) {
 }
 
 export interface Gate { label: string; ok: boolean; detail: string }
-/** The four bonus gates for a month, from the scorecard days logged in it and its reconciliation mark. */
-export function gates(month: string, days: RetentionDay[], rec: RetentionMonth | null, today: string): Gate[] {
-  const through = monthEnd(month) < today ? monthEnd(month) : today
-  const due = workdays(month, through)
-  const logged = new Set(days.map((d) => d.day))
+/** A folio (or any stretch of days) a bonus is measured on; its reconciliation mark is kept under its first day. */
+export interface Period { start_date: string; end_date: string }
+
+/** The four bonus gates for a folio, from the scorecard days logged in it and its reconciliation mark. */
+export function gates(p: Period, days: RetentionDay[], rec: RetentionMonth | null, today: string): Gate[] {
+  const through = p.end_date < today ? p.end_date : today
+  const due = workdays(p.start_date, through)
+  const inside = days.filter((d) => d.day >= p.start_date && d.day <= p.end_date)
+  const logged = new Set(inside.map((d) => d.day))
   const done = due.filter((d) => logged.has(d)).length
   const pctDone = due.length ? done / due.length : 1
-  const esc = days.reduce((a, d) => a + d.escalations, 0), same = days.reduce((a, d) => a + Math.min(d.escalations_same_day, d.escalations), 0)
-  const aged = days.filter((d) => d.open_critical_aged > 0)
+  const esc = inside.reduce((a, d) => a + d.escalations, 0), same = inside.reduce((a, d) => a + Math.min(d.escalations_same_day, d.escalations), 0)
+  const aged = inside.filter((d) => d.open_critical_aged > 0)
   return [
     { label: 'Daily scorecard entries (95%)', ok: pctDone >= 0.95, detail: `${done} of ${due.length} workdays logged (${Math.round(pctDone * 100)}%)` },
     { label: 'Same-day contact on critical escalations', ok: same >= esc, detail: esc ? `${same} of ${esc} contacted the same day` : 'No critical escalations logged' },
@@ -63,15 +59,18 @@ export function gates(month: string, days: RetentionDay[], rec: RetentionMonth |
   ]
 }
 
-/** A salaried person's monthly bonus for a month: qualifying agency premium, the tier it reaches, and the gates. */
-export async function monthBonus(name: string, tiers: BonusTier[] | null | undefined, month: string, today: string) {
+/** Whether a folio counts for the gated bonus: the first one is the folio the role began in. */
+export const bonusCounts = (p: Period) => p.end_date >= ROLE_FROM
+
+/** A gated folio bonus: the agency premium written in the folio, the tier it reaches, and the four gates. */
+export async function folioBonus(name: string, tiers: BonusTier[] | null | undefined, p: Period, today: string) {
   const [prem, days, rec] = await Promise.all([
-    supabase.rpc('agency_premium', { p_from: month + '-01', p_to: monthEnd(month) }).then((r) => { if (r.error) throw r.error; return Number(r.data) || 0 }),
-    supabase.from('retention_days').select('*').eq('name', name).gte('day', month + '-01').lte('day', monthEnd(month)).then((r) => { if (r.error) throw r.error; return r.data as RetentionDay[] }),
-    supabase.from('retention_months').select('*').eq('name', name).eq('month', month).maybeSingle().then((r) => { if (r.error) throw r.error; return r.data as RetentionMonth | null }),
+    supabase.rpc('agency_premium', { p_from: p.start_date, p_to: p.end_date }).then((r) => { if (r.error) throw r.error; return Number(r.data) || 0 }),
+    supabase.from('retention_days').select('*').eq('name', name).gte('day', p.start_date).lte('day', p.end_date).then((r) => { if (r.error) throw r.error; return r.data as RetentionDay[] }),
+    supabase.from('retention_months').select('*').eq('name', name).eq('month', p.start_date).maybeSingle().then((r) => { if (r.error) throw r.error; return r.data as RetentionMonth | null }),
   ])
   const tier = agencyBonus(tiers, prem)
-  const g = gates(month, days, rec, today)
+  const g = gates(p, days, rec, today)
   const eligible = g.every((x) => x.ok)
-  return { month, premium: prem, tier, gates: g, eligible, amount: eligible ? tier.amount : 0 }
+  return { period: p, premium: prem, tier, gates: g, eligible, amount: eligible ? tier.amount : 0 }
 }

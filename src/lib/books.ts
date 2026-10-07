@@ -50,6 +50,8 @@ export interface Doc {
   storage_path: string
   size_bytes: number | null
   uploaded: boolean
+  created_at?: string
+  issued_by?: string | null // certificates: who issued it
 }
 
 async function pageAll<T>(table: string, cols = '*', build?: (q: any) => any): Promise<T[]> {

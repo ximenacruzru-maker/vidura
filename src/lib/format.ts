@@ -41,3 +41,13 @@ export function timeAgo(ts: string | null) {
   if (h < 24) return `${h} hr ago`
   return `${Math.round(h / 24)} days ago`
 }
+
+/** An exact moment for the record, in Pacific time: "Wed 10/07/2026 at 2:43:12 PM PT". */
+export function issuedAt(iso: string | null | undefined) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return ''
+  const day = d.toLocaleDateString('en-US', { timeZone: 'America/Los_Angeles', weekday: 'short', month: '2-digit', day: '2-digit', year: 'numeric' }).replace(',', '')
+  const time = d.toLocaleTimeString('en-US', { timeZone: 'America/Los_Angeles', hour: 'numeric', minute: '2-digit', second: '2-digit' })
+  return `${day} at ${time} PT`
+}

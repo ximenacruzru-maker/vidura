@@ -10,7 +10,7 @@ import { supabase } from '../lib/supabase'
 import { useAsync } from '../lib/useAsync'
 import { agencyBonus, checkFor, folioFor, nextPay, salaryCheck, stepPay, type BonusTier } from '../lib/payday'
 import { workedMinutes } from './Licensing'
-import { BONUS_FROM, bonusMonthFor, monthBonus } from '../lib/retention'
+import { bonusCounts, folioBonus } from '../lib/retention'
 
 /** Office payroll: what everyone in the office is owed on one payday, downloaded as one workbook, with the payroll
  *  files (the provider's report, a signed copy) uploaded back to that payday. Payroll is paid twice a month:
@@ -65,15 +65,14 @@ export default function Payroll() {
     if (error) throw error
     return Number(data) || 0
   }, [folio?.start_date, folio?.end_date])
-  // monthly bonuses (calendar month, after month-end reconciliation and the eligibility gates) for salaried staff on one
-  const bonusMonth = bonusMonthFor(pay)
-  const monthly = useAsync(async () => {
-    const list = (hours.data?.staff || []).filter((s) => s.salary_annual && s.bonus_period === 'month' && s.bonus_tiers?.length && s.active)
-    if (!bonusMonth || bonusMonth < BONUS_FROM || !list.length) return {} as Record<string, Awaited<ReturnType<typeof monthBonus>>>
-    const out: Record<string, Awaited<ReturnType<typeof monthBonus>>> = {}
-    for (const s of list) out[s.name] = await monthBonus(s.name, s.bonus_tiers, bonusMonth, todayPacific())
+  // gated folio bonuses (the retention role): the folio paid today, only when its four gates are met
+  const gated = useAsync(async () => {
+    const list = (hours.data?.staff || []).filter((s) => s.salary_annual && s.bonus_period === 'folio_gated' && s.bonus_tiers?.length && s.active)
+    if (!folio || !bonusCounts(folio) || !list.length) return {} as Record<string, Awaited<ReturnType<typeof folioBonus>>>
+    const out: Record<string, Awaited<ReturnType<typeof folioBonus>>> = {}
+    for (const s of list) out[s.name] = await folioBonus(s.name, s.bonus_tiers, folio, todayPacific())
     return out
-  }, [hours.data, bonusMonth])
+  }, [hours.data, folio?.start_date, folio?.end_date])
   const prefix = `${me?.agency_id}/payroll/${pay}/`
   const files = useAsync(async () => {
     const { data, error } = await supabase.from('documents').select('*').eq('category', 'payroll').like('storage_path', prefix + '%').order('storage_path', { ascending: false })
@@ -113,14 +112,14 @@ export default function Payroll() {
     for (const s of salaried) {
       const p = person(s.name, s.role || '')
       p.salary += salaryCheck(s.salary_annual)
-      if (s.bonus_period === 'month') p.cash += monthly.data?.[s.name]?.amount || 0
+      if (s.bonus_period === 'folio_gated') p.cash += gated.data?.[s.name]?.amount || 0
       else if (check.commission && agencyPrem.data != null) p.cash += agencyBonus(s.bonus_tiers, agencyPrem.data).amount
     }
     for (const c of comm.data || []) if (c.total && !noComm.has(first(c.producer))) person(c.producer, 'Producer').comm += c.total
     for (const [n, o] of sdrs) person(n, 'SDR').bonus += o.qualified * qb + o.bound * bb
     const who = [...people.values()].map((p) => ({ ...p, total: p.pay + p.salary + p.comm + p.bonus + p.cash })).filter((p) => p.total || p.hours).sort((a, b) => b.total - a.total)
     return { hourly, sdrs, who, salaried }
-  }, [hours.data, comm.data, sdr.data, qb, bb, check.from, check.commission, agencyPrem.data, monthly.data])
+  }, [hours.data, comm.data, sdr.data, qb, bb, check.from, check.commission, agencyPrem.data, gated.data])
 
   const hoursLabel = `${shortDate(check.from)} – ${shortDate(check.to, true)}`
   const folioLabel = folio ? `${shortDate(folio.start_date)} – ${shortDate(folio.end_date, true)}` : ''
@@ -144,9 +143,9 @@ export default function Payroll() {
         ...(lines.salaried.length ? [
           [], [`Agency bonus · folio ${folioLabel || 'not found'} · agency premium ${r2(agencyPrem.data || 0)}`],
           ['Name', 'Annual salary', 'Bonus tiers', 'Agency bonus', 'Measured on', 'Gates'],
-          ...lines.salaried.map((s) => { const mb = monthly.data?.[s.name]; return [s.name, r2(Number(s.salary_annual)), (s.bonus_tiers || []).map((t) => `${t.min}: ${t.amount}`).join('; '),
-            s.bonus_period === 'month' ? r2(mb?.amount || 0) : r2(agencyBonus(s.bonus_tiers, agencyPrem.data || 0).amount),
-            ...(mb ? [`${mb.month} agency premium ${r2(mb.premium)}`, mb.eligible ? 'all gates met' : 'on hold: ' + mb.gates.filter((g) => !g.ok).map((g) => g.label).join(', ')] : [])] }),
+          ...lines.salaried.map((s) => { const mb = gated.data?.[s.name]; return [s.name, r2(Number(s.salary_annual)), (s.bonus_tiers || []).map((t) => `${t.min}: ${t.amount}`).join('; '),
+            s.bonus_period === 'folio_gated' ? r2(mb?.amount || 0) : r2(agencyBonus(s.bonus_tiers, agencyPrem.data || 0).amount),
+            ...(mb ? [`folio ${mb.period.start_date} to ${mb.period.end_date} agency premium ${r2(mb.premium)}`, mb.eligible ? 'all gates met' : 'on hold: ' + mb.gates.filter((g) => !g.ok).map((g) => g.label).join(', ')] : [])] }),
         ] : []),
       ] : []),
       [], ['Daily punches'],
@@ -155,7 +154,7 @@ export default function Payroll() {
     ], { sheet: `Payroll ${pay}` })
   }
 
-  const err = hours.error || comm.error || sdr.error || periods.error || agencyPrem.error || monthly.error
+  const err = hours.error || comm.error || sdr.error || periods.error || agencyPrem.error || gated.error
   return (
     <>
       <PageHead kicker="Agency" title="Office payroll" sub="Payroll is paid on the 5th and the 21st: the 5th for hours from the 16th to the end of the month, the 21st for hours from the 1st to the 15th, plus commission for last month’s folio and SDR bonuses for last month’s transfers. Download it for the payroll run, then upload the payroll files back here." />
