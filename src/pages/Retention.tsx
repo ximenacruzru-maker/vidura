@@ -12,7 +12,7 @@ import { LOSS_REASONS, TARGETS, gates, monthEnd, monthLabel, movement, type Rete
  *  talk track filled in, and how the month's bonus gates stand. The person in the role sees their own; admins see it
  *  too (and can pick whose, if more than one person has the role). */
 
-const KIND_LABEL: Record<RetentionEntry['kind'], string> = { save: 'Save', loss: 'Loss', cross_sell: 'Cross-sell', review: 'Renewal review' }
+const KIND_LABEL: Record<RetentionEntry['kind'], string> = { save: 'Save', loss: 'Loss', cross_sell: 'Cross-sell', review: 'Service / review' }
 const blankDay = (name: string, day: string): RetentionDay => ({ name, day, at_risk_touches: 0, renewal_conversations: 0, escalations: 0, escalations_same_day: 0, open_critical_aged: 0, brokered_current: true, priority: '' })
 const weekStart = (day: string) => { const d = new Date(day + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return d.toISOString().slice(0, 10) }
 const prevWorkday = (day: string) => { const d = new Date(day + 'T12:00:00Z'); do { d.setUTCDate(d.getUTCDate() - 1) } while (d.getUTCDay() === 0 || d.getUTCDay() === 6); return d.toISOString().slice(0, 10) }
@@ -90,7 +90,7 @@ export default function Retention() {
       <div className="rt-grid">
         <div>
           <DayForm key={name + today} name={name} days={days} today={today} onSaved={bump} />
-          <Panel title={`${monthLabel(month)} log`} sub={`${log.length} entr${log.length === 1 ? 'y' : 'ies'} · saves, losses, cross-sells and renewal reviews`}
+          <Panel title={`${monthLabel(month)} log`} sub={`${log.length} entr${log.length === 1 ? 'y' : 'ies'} · saves, losses, cross-sells and service notes`}
             right={<button className={adding ? 'btn-ghost' : 'btn-primary'} onClick={() => setAdding(!adding)}>{adding ? 'Close' : '+ Add to log'}</button>}>
             {adding && <LogForm name={name} today={today} onSaved={() => { bump(); setAdding(false) }} />}
             {log.length ? (
@@ -217,7 +217,7 @@ function LogForm({ name, today, onSaved }: { name: string; today: string; onSave
         <label style={{ gridColumn: '1 / -1' }}>Note<input className="fld" value={d.note} onChange={(e) => setD({ ...d, note: e.target.value })} /></label>
       </div>
       <div className="row-actions" style={{ marginTop: 12 }}><button className="btn-primary" disabled={busy} onClick={save}>{busy ? 'Saving…' : `Log ${KIND_LABEL[d.kind].toLowerCase()}`}</button></div>
-      <div className="sub" style={{ marginTop: 8 }}>A renewal review is a note only and doesn’t change the totals. Every loss needs a reason.</div>
+      <div className="sub" style={{ marginTop: 8 }}>A service / review entry is a note only and doesn’t change the totals. Every loss needs a reason.</div>
     </div>
   )
 }

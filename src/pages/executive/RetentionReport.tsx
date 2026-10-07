@@ -9,9 +9,9 @@ import { ICO, ScoreCard } from './parts'
 
 /** The retention & book growth report on the Executive Dashboard: what the Director of Client Success has done this
  *  month — Net Book Movement (saved + cross-sell − lost premium), today's huddle numbers and every logged save, loss,
- *  cross-sell and renewal review. Shown to everyone who has the dashboard (owner and admins). */
+ *  cross-sell and service / review. Shown to everyone who has the dashboard (owner and admins). */
 
-const KIND: Record<RetentionEntry['kind'], string> = { save: 'Save', loss: 'Loss', cross_sell: 'Cross-sell', review: 'Renewal review' }
+const KIND: Record<RetentionEntry['kind'], string> = { save: 'Save', loss: 'Loss', cross_sell: 'Cross-sell', review: 'Service / review' }
 const us = (iso: string) => iso.slice(5, 7) + '/' + iso.slice(8, 10) + '/' + iso.slice(0, 4)
 
 export default function RetentionReport() {
@@ -48,7 +48,7 @@ export default function RetentionReport() {
             delta={{ tone: 'flat', arrow: '', value: '−' + money0(mv.lost.p) }} goalNote="lost" />
           <ScoreCard icon={ICO.shield} iconClass="i-green" label="Saves & cross-sell" value={mv.saved.n + mv.cross.n} display={`${mv.saved.n} / ${mv.cross.n}`}
             goalLine={`${mv.saved.n} saved · ${mv.cross.n} cross-sold`} pct={null} tone="good"
-            delta={{ tone: 'flat', arrow: '', value: String(data.log.filter((e) => e.kind === 'review').length) }} goalNote="renewal reviews" />
+            delta={{ tone: 'flat', arrow: '', value: String(data.log.filter((e) => e.kind === 'review').length) }} goalNote="service / reviews" />
           <ScoreCard icon={ICO.warn} iconClass={mv.lost.n > TARGETS.cancellationsMax ? 'i-red' : 'i-amber'} label="Losses · MTD" value={mv.lost.n} display={String(mv.lost.n)}
             goalLine={`Limit ${TARGETS.cancellationsMax} a month`} pct={Math.min(100, (mv.lost.n / TARGETS.cancellationsMax) * 100)} tone={mv.lost.n > TARGETS.cancellationsMax ? 'bad' : 'good'}
             delta={{ tone: 'flat', arrow: '', value: money0(mv.lost.p) }} goalNote="premium lost" />
