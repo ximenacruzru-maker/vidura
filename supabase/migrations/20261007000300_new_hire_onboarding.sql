@@ -47,7 +47,7 @@ create policy "own read" on public.new_hire_profiles for select to authenticated
 grant select, insert, update, delete on public.new_hire_profiles to authenticated;
 
 -- new hires: training only
-create policy "not new hires" on public.book_accounts as restrictive for select to authenticated using (public.current_staff_role() is distinct from 'new_hire');
-create policy "not new hires" on public.book_policies as restrictive for select to authenticated using (public.current_staff_role() is distinct from 'new_hire');
-create policy "not new hires" on public.chat_messages as restrictive for select to authenticated using (public.current_staff_role() is distinct from 'new_hire');
-create policy "new hires: handbook only" on public.documents as restrictive for select to authenticated using (public.current_staff_role() is distinct from 'new_hire' or category = 'handbook');
+create policy "not new hires" on public.book_accounts as restrictive for select to authenticated using (agency_id = public.current_agency_id() and public.current_staff_role() is distinct from 'new_hire');
+create policy "not new hires" on public.book_policies as restrictive for select to authenticated using (agency_id = public.current_agency_id() and public.current_staff_role() is distinct from 'new_hire');
+create policy "not new hires" on public.chat_messages as restrictive for select to authenticated using (agency_id = public.current_agency_id() and public.current_staff_role() is distinct from 'new_hire');
+create policy "new hires: handbook only" on public.documents as restrictive for select to authenticated using (agency_id = public.current_agency_id() and (public.current_staff_role() is distinct from 'new_hire' or category = 'handbook'));

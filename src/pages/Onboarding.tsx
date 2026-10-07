@@ -4,7 +4,7 @@ import { Empty, ErrorBox, Loading, Panel, Tile, Tiles } from '../components/ui'
 import { agencyName, isAdmin } from '../lib/data'
 import { issuedAt } from '../lib/format'
 import { askHandbook, downloadHandbook, getHandbook, uploadHandbook, type Handbook, type Qa } from '../lib/handbook'
-import { HANDBOOK_STEP, ONBOARDING, getProgress, markStep, type OnboardingStep, type Progress } from '../lib/onboarding'
+import { HANDBOOK_STEP, ONBOARDING, WELCOME, getProgress, markStep, type OnboardingStep, type Progress } from '../lib/onboarding'
 import { supabase } from '../lib/supabase'
 import { getReference } from '../lib/books'
 import { useAsync } from '../lib/useAsync'
@@ -37,6 +37,17 @@ export default function Onboarding({ onProgress, preview }: { onProgress?: () =>
         </div>
         <div className="ob-count"><b>{finished}</b><span>of {total} done</span>
           <div className="pay-bar"><div className="pay-fill" style={{ width: (finished / total) * 100 + '%' }} /></div></div>
+      </section>
+
+      <section className="panel ob-welcome">
+        <div className="ob-welcome-who">
+          <div className="pay-k">Who we are</div>
+          {WELCOME.who.map((t, i) => <p key={i}>{t}</p>)}
+        </div>
+        <div className="ob-welcome-pay">
+          <div className="pay-k">How you’re paid</div>
+          {WELCOME.pay.map((x) => <div key={x.when} className="ob-payrow"><b>{x.when}</b><span>{x.what}</span></div>)}
+        </div>
       </section>
 
       <HandbookStep n={1} handbook={data.handbook} done={done.get(HANDBOOK_STEP)} uid={uid} onDone={bump} />
@@ -171,13 +182,23 @@ function HandbookAdmin({ handbook, onDone }: { handbook: Handbook | null; onDone
     const { error } = await supabase.from('new_hire_profiles').upsert({ user_id, ...patch, updated_at: new Date().toISOString() }, { onConflict: 'agency_id,user_id' })
     if (error) alert(error.message); else setReload((n) => n + 1)
   }
+  // every new hire starts as an SDR: when training is done, they move to the SDR role (and its pages)
+  const toSdr = async (user_id: string, name: string) => {
+    if (!confirm(`Move ${name} to the SDR role? They'll get the SDR pages (My Space, My Pay, My Commissions, Work, Chat…) and leave this list.`)) return
+    setBusy('Moving…')
+    try {
+      const { data, error } = await supabase.functions.invoke('staff-admin', { body: { action: 'update', user_id, role: 'sdr' } })
+      if (error || data?.error) throw new Error(data?.error || error?.message)
+      setReload((n) => n + 1)
+    } catch (e) { alert('Could not change the role: ' + String((e as Error)?.message || e)) } finally { setBusy('') }
+  }
   const list = hires.data || []
   const hb = list.filter((h) => h.steps.has(HANDBOOK_STEP)).length, onboarded = list.filter((h) => h.done === h.of).length
   const fuAvg = list.length && list[0].fuTotal ? Math.round((list.reduce((a, h) => a + h.fuDone / h.fuTotal, 0) / list.length) * 100) : 0
   const when = (iso?: string) => (iso ? issuedAt(iso).replace(/^\w+ /, '').replace(':00 ', ' ').replace(/:\d\d (AM|PM)/, ' $1') : '')
   return (
     <>
-      <Panel title="New hires" sub="Admins only · everyone with the New hire role">
+      <Panel title="New hires" sub="Admins only · every new hire starts as an SDR in training · move them to SDR when they’re ready">
         {!hires.data ? <Loading /> : (
           <>
             <Tiles>
@@ -188,7 +209,7 @@ function HandbookAdmin({ handbook, onDone }: { handbook: Handbook | null; onDone
             </Tiles>
             {list.length ? (
               <div className="tbl-wrap"><table className="tbl ob-hires">
-                <thead><tr><th>New hire</th><th>Start date</th><th>Onboarding</th><th>Handbook</th>{ONBOARDING.map((o) => <th key={o.key}>{o.title.replace('Set Up Your ', '').replace(' in Chrome', '')}</th>)}<th>Farmers University</th></tr></thead>
+                <thead><tr><th>New hire</th><th>Start date</th><th>Onboarding</th><th>Handbook</th>{ONBOARDING.map((o) => <th key={o.key}>{o.title.replace('Set Up Your ', '').replace(' in Chrome', '')}</th>)}<th>Farmers University</th><th /></tr></thead>
                 <tbody>{list.map((h) => (
                   <tr key={h.user_id}>
                     <td><div className="strong">{h.display_name}</div><div className="sub">{h.email}</div>
@@ -205,6 +226,7 @@ function HandbookAdmin({ handbook, onDone }: { handbook: Handbook | null; onDone
                     ))}
                     <td style={{ minWidth: 130 }}>{h.fuTotal ? <><b>{h.fuDone} of {h.fuTotal}</b><div className="pay-bar" style={{ height: 6, margin: '6px 0 0' }}><div className="pay-fill" style={{ width: (h.fuDone / h.fuTotal) * 100 + '%' }} /></div>
                       <div className="sub">{h.steps.get(HANDBOOK_STEP) ? 'lessons signed off' : 'locked until the handbook'}</div></> : '—'}</td>
+                    <td className="r"><button className="btn-ghost" disabled={!!busy} onClick={() => toSdr(h.user_id, h.display_name)}>Move to SDR</button></td>
                   </tr>
                 ))}</tbody>
               </table></div>

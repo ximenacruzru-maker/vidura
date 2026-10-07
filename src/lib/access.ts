@@ -31,4 +31,4 @@ export function can(me: StaffAccount | null | undefined, section: string) {
   return section in a ? !!a[section] : !!roleDefaults(me.role)[section]
 }
 
-export const ROLE_LABEL: Record<string, string> = { owner: 'Agency Owner', admin: 'Admin', producer: 'Producer', protege: 'Protégé', sdr: 'SDR', csr: 'CSR', va: 'VA', new_hire: 'New hire' }
+export const ROLE_LABEL: Record<string, string> = { owner: 'Agency Owner', admin: 'Admin', producer: 'Producer', protege: 'Protégé', sdr: 'SDR', csr: 'CSR', va: 'VA', new_hire: 'New hire (SDR)' }

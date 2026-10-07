@@ -47,7 +47,7 @@ export default function Training() {
   }, [reload])
 
   const head = trainee
-    ? <PageHead kicker="New hire" title="Training" sub="Your onboarding first, then Farmers University." />
+    ? <PageHead kicker="New hire · SDR" title="Training" sub="Your onboarding first, then Farmers University. You’ll move to your SDR pages once your training is done." />
     : <PageHead kicker="Team development" title="Training" sub={`Farmers University first, then the ${ag} classroom.`} />
   const tabs = <Tabs tabs={trainee
     ? [{ key: 'onboard' as const, label: 'Onboarding' }, { key: 'fu' as const, label: 'Farmers University' }]

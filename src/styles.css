@@ -939,3 +939,9 @@ html[data-theme="astra"] .xd .mc-btn { border-color: #E5252E; background: #2A101
 .ob-a { background: var(--card); border-radius: 10px; padding: 10px 12px; line-height: 1.55; white-space: pre-wrap; }
 .ob-admin { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
 @media (max-width: 700px) { .ob-count { text-align: left; } .ob-step { padding: 14px; gap: 12px; } }
+.ob-welcome { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 24px; padding: 20px 22px; }
+.ob-welcome p { margin: 6px 0 0; line-height: 1.6; }
+.ob-payrow { display: grid; grid-template-columns: 110px 1fr; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); line-height: 1.5; }
+.ob-payrow:first-of-type { border-top: 0; }
+.ob-payrow b { color: var(--blue); }
+@media (max-width: 800px) { .ob-welcome { grid-template-columns: 1fr; } .ob-payrow { grid-template-columns: 90px 1fr; } }

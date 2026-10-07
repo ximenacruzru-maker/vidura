@@ -17,6 +17,19 @@ export interface OnboardingStep {
 
 export const HANDBOOK_STEP = 'handbook'
 
+/** The welcome at the top of a new hire's onboarding: who we are, and how pay works. */
+export const WELCOME = {
+  who: [
+    'Ironwood Insurance Agency is a Farmers agency in San Jose, California. We protect households and businesses with Farmers and Foremost auto, home, business, umbrella and life coverage, and place brokered business with partner carriers when that’s the better fit.',
+    'Every new hire starts as an SDR: you’re the first voice our prospects hear. You’ll set up conversations, learn our products through Farmers University, and hand qualified customers to our producers.',
+  ],
+  pay: [
+    { when: 'The 5th', what: 'Pays your hours from the 16th through the end of the previous month (the 30th or 31st).' },
+    { when: 'The 20th', what: 'Pays your hours from the 1st through the 15th.' },
+    { when: 'Commissions', what: 'Paid on the 20th, for the commissions you earned in the previous month.' },
+  ],
+}
+
 export const ONBOARDING: OnboardingStep[] = [
   {
     key: 'bookmarks',
