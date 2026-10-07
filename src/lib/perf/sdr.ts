@@ -25,7 +25,7 @@ const q = (v: unknown) => '"' + String(v == null ? '' : v).replace(/"/g, '""') +
 const stage = (r: Json) => (r.stage || '') + (r.status ? ' / ' + r.status : '')
 const HEAD = ['Date', 'Client', 'Lead #', 'Producer', 'Lead source', 'Stage / status', 'Quotes', 'Quoted $', 'Qualified?', 'Qual. bonus', 'Bound?', 'Bound $', 'Bound bonus']
 const csvRow = (r: Json, qb: number, bb: number) => [r.dateTime, r.client, r.leadId, r.producer, r.leadSource || '', stage(r),
-  (r.quotes || []).map((x: Json) => x.product + ' $' + x.premium).join('; '), r.azQuotePremium || 0, r.azQualifies ? 'Yes' : 'No', r.azQualifies ? qb : 0,
+  (r.quotes || []).map((x: Json) => x.product + ' $' + x.premium).join('; '), r.azQuotePremium || 0, r.azQualifies ? 'Yes' : 'No', r.azQualifies && !r.bound ? qb : 0,
   r.bound ? 'Yes' : 'No', r.boundPremium || 0, r.bound ? bb : 0]
 
 export function sdrDownloadCsv(D: PerfData, who: string, month: string) {
@@ -75,7 +75,7 @@ export async function sdrDownloadExcel(D: PerfData, agency: string, month: strin
     const quotes = (r.quotes || []).map((x: Json) => x.product + ' · $' + Number(x.premium || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })).join('; ')
     ;(all ? [r.sdr] : []).concat([r.dateTime, r.client, r.leadId, r.producer, r.leadSource || '', stage(r), quotes, Number(r.azQuotePremium || 0), r.azQualifies ? 'Yes' : 'No', null,
       r.bound ? 'Yes' : 'No', Number(r.boundPremium || 0), null]).forEach((v, j) => { row.getCell(j + 1).value = v })
-    row.getCell(10 + o).value = { formula: 'IF(' + L(9 + o) + n + '="Yes",' + qb + ',0)' }
+    row.getCell(10 + o).value = { formula: 'IF(AND(' + L(9 + o) + n + '="Yes",' + L(11 + o) + n + '<>"Yes"),' + qb + ',0)' }
     row.getCell(13 + o).value = { formula: 'IF(' + L(11 + o) + n + '="Yes",' + bb + ',0)' }
     ;[8, 10, 12, 13].map((c) => c + o).forEach((c) => { row.getCell(c).numFmt = '"$"#,##0.00'; row.getCell(c).alignment = { horizontal: 'right' } })
     if (i % 2 === 1) for (let c = 1; c <= nCols; c++) row.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F4F0' } }

@@ -259,12 +259,13 @@ function applyLiveSdr(D: PerfData, rows: Json[], periods: Json[]) {
     sdr.transfers.filter((t: Json) => t.month === p.month).forEach((t: Json) => {
       const a = (acc[t.sdr || 'Unassigned'] = acc[t.sdr || 'Unassigned'] || { totalLogged: 0, qualifiedTransfers: 0, boundPolicies: 0, boundPremium: 0 })
       a.totalLogged++; if (t.azQualifies) a.qualifiedTransfers++
-      if (t.bound) { a.boundPolicies++; a.boundPremium += Number(t.boundPremium) || 0 }
+      // a bound transfer earns the bound bonus in place of the qualified one ($35 total, not $15 + $35)
+      if (t.bound) { a.boundPolicies++; a.boundPremium += Number(t.boundPremium) || 0 } else if (t.azQualifies) a.qOnly = (a.qOnly || 0) + 1
     })
     Object.entries(acc).forEach(([who, a]) => {
-      out[who] = { totalLogged: a.totalLogged, qualifiedTransfers: a.qualifiedTransfers, qualifiedBonus: a.qualifiedTransfers * meta.qualifiedTransferBonus,
+      out[who] = { totalLogged: a.totalLogged, qualifiedTransfers: a.qualifiedTransfers, qualifiedBonus: (a.qOnly || 0) * meta.qualifiedTransferBonus,
         boundPolicies: a.boundPolicies, boundBonus: a.boundPolicies * meta.boundPolicyBonus, boundPremium: Math.round(100 * a.boundPremium) / 100,
-        totalBonus: a.qualifiedTransfers * meta.qualifiedTransferBonus + a.boundPolicies * meta.boundPolicyBonus }
+        totalBonus: (a.qOnly || 0) * meta.qualifiedTransferBonus + a.boundPolicies * meta.boundPolicyBonus }
     })
     sdr.byMonth[p.month] = out
   })

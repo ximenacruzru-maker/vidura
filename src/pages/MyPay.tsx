@@ -80,7 +80,8 @@ export default function MyPay() {
   const hourlyPay = row?.hourly && row.rate ? Math.round((mins / 60) * row.rate * 100) / 100 : 0
   const c = comm.data?.mine
   const qb = Number(period?.qualified_transfer_bonus) || 0, bb = Number(period?.bound_policy_bonus) || 0
-  const qualified = (sdr.data || []).filter((t) => t.az_qualifies).length, bound = (sdr.data || []).filter((t) => t.bound).length
+  // a bound transfer earns the bound bonus in place of the qualified one ($35 total, not $15 + $35)
+  const qualified = (sdr.data || []).filter((t) => t.az_qualifies && !t.bound).length, bound = (sdr.data || []).filter((t) => t.bound).length
   const bonus = qualified * qb + bound * bb
   const salary = salaried ? salaryCheck(row?.salary_annual) : 0
   const cash = gated ? { amount: gatedBon.data?.amount || 0, min: gatedBon.data?.tier.min || 0 }
