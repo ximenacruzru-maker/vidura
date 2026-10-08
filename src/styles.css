@@ -1073,3 +1073,9 @@ html[data-theme="astra"] .xd .mc-btn { border-color: #E5252E; background: #2A101
   .rp-band-r { text-align: left; align-items: flex-start; } .rp-actions { justify-content: flex-start; }
   .rp-big { font-size: 38px; } .rp-part-v { font-size: 20px; } .rp-card-v { font-size: 22px; }
 }
+.rp-col-btn { border: 0; background: none; padding: 0; cursor: pointer; font: inherit; color: inherit; flex-basis: 34px; }
+.rp-col-btn .rp-col-track { width: 22px; }
+.rp-col-btn.on .rp-col-bar { background: var(--rp-teal); }
+.rp-col-btn.on .rp-col-m { color: var(--ink); }
+.rp-band .rp-btn:disabled { opacity: .45; cursor: default; }
+.rp-card.neutral .rp-card-note { color: var(--muted); }

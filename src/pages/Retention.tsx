@@ -1,8 +1,9 @@
-import { useState, type ReactNode } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth'
 import { useFolio } from '../components/FolioPicker'
 import { Empty, ErrorBox, Loading, PageHead, Tile, Tiles } from '../components/ui'
+import { GoalCard, Section } from '../components/Report'
 import { mdy, money0, todayPacific } from '../lib/format'
 import { supabase } from '../lib/supabase'
 import { agencyName } from '../lib/data'
@@ -240,28 +241,6 @@ export default function Retention() {
 }
 
 const weekday = (day: string) => new Date(day + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' })
-
-/** A report section: a colored marker, the title and a hairline, like the PDF. */
-function Section({ title, sub, right, children }: { title: string; sub?: string; right?: ReactNode; children: ReactNode }) {
-  return (
-    <section className="rp-sec">
-      <div className="rp-sec-h"><div className="rp-sec-t"><h2>{title}</h2>{sub && <span>{sub}</span>}</div>{right}</div>
-      {children}
-    </section>
-  )
-}
-
-/** A goal card: the label, the number against its goal, and a progress bar (or a note). */
-function GoalCard({ label, show, pct, good, limit, note, tone }: { label: string; show: string; pct?: number; good: boolean; limit?: boolean; note?: string; tone?: 'teal' | 'violet' }) {
-  const p = Math.max(0, Math.min(1, pct ?? 0))
-  return (
-    <div className={'rp-card' + (good ? ' good' : '') + (limit && p > 0.8 ? ' warn' : '') + (tone ? ' t-' + tone : '')}>
-      <div className="rp-k">{label}</div>
-      <div className="rp-card-v">{show}</div>
-      {note != null ? <div className="rp-card-note">{note}</div> : <div className="rp-bar"><i style={{ width: p * 100 + '%' }} /></div>}
-    </div>
-  )
-}
 
 /** The log as the PDF's table: day, a colored type pill, client and carrier, premium, notes. */
 function EntryTable({ entries, empty, onRemove }: { entries: RetentionEntry[]; empty: string; onRemove?: (e: RetentionEntry) => void }) {

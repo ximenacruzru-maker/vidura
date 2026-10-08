@@ -25,6 +25,7 @@ const ExecutiveDashboard = lazy(() => import('./pages/executive/ExecutiveDashboa
 const Foresight = lazy(() => import('./pages/foresight/Foresight'))
 const Agencies = lazy(() => import('./pages/Agencies'))
 const SalesKPIs = lazy(() => import('./pages/sales/SalesKPIs'))
+const DailyHuddle = lazy(() => import('./pages/huddle/DailyHuddle'))
 const Reports = lazy(() => import('./pages/reports/Reports'))
 
 function Gate() {
@@ -57,7 +58,8 @@ function Gate() {
           {/* Performance screens not yet rebuilt: the original screens, shown by the layout's LegacyHost */}
           {['/legacy-dashboard', '/legacy-sales', '/huddle', '/legacy-reports', '/year-end', '/legacy-commissions', '/commission-setup', '/legacy-sdr'].map((p) =>
             <Route key={p} path={p} element={can(me, 'performance') ? null : <Navigate to="/today" replace />} />)}
-          {can(me, 'performance') && <Route path="/sales" element={<SalesKPIs />} />}
+          {can(me, 'performance') && <Route path="/sales" element={<DailyHuddle />} />}
+          {can(me, 'performance') && <Route path="/sales-kpis" element={<SalesKPIs />} />}
           {can(me, 'performance') && <Route path="/reports" element={<Reports />} />}
           {can(me, 'performance') && <Route path="/commissions" element={<Reports open="commissions" />} />}
           {can(me, 'performance') && <Route path="/sdr" element={<Reports open="sdr" />} />}

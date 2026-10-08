@@ -1,4 +1,4 @@
-// Parity check for the rebuilt Sales KPIs (npm run test:parity, after npm run build). Opens the new screen (/sales)
+// Parity check for the rebuilt Sales KPIs (npm run test:parity, after npm run build). Opens the new screen (/sales-kpis)
 // and the original (/legacy-sales) against the demo agency's data and, for every period in the Period menu, compares
 // the headline, the four score cards, the producer/line/book bars, the policies table and the chart. Any difference fails.
 import { chromium } from 'playwright'
@@ -31,11 +31,11 @@ await install(page)
 await page.goto(base); await page.waitForSelector('input[type=email]')
 await page.fill('input[type=email]', 'demo@declara.app'); await page.fill('input[type=password]', 'x'); await page.click('button.btn-primary')
 await page.waitForSelector('.shell', { timeout: 20000 })
-await page.evaluate(() => { location.hash = '#/sales' }); await page.waitForSelector('.xd .exhd-s', { timeout: 20000 })
+await page.evaluate(() => { location.hash = '#/sales-kpis' }); await page.waitForSelector('.xd .exhd-s', { timeout: 20000 })
 const periods = await page.evaluate(() => [...document.querySelectorAll('.xd .fbar select.f option')].map((o) => o.value))
 const failures = []
 for (const k of periods) {
-  await page.evaluate(() => { location.hash = '#/sales' }); await page.waitForSelector('.xd .exhd-s')
+  await page.evaluate(() => { location.hash = '#/sales-kpis' }); await page.waitForSelector('.xd .exhd-s')
   await page.selectOption('.xd .fbar select.f', k); await page.waitForTimeout(300)
   const neu = await page.evaluate(read)
   await page.evaluate(() => { location.hash = '#/legacy-sales' }); await page.waitForSelector('.legacy-host iframe'); await page.waitForTimeout(1500)

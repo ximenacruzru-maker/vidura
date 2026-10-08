@@ -88,7 +88,7 @@ async function answer(qRaw: string, me: StaffAccount | null, ctx: { client?: Acc
     return {
       body: <>Today{scope}: <b>{sold.length}</b> polic{sold.length === 1 ? 'y' : 'ies'} sold for <b>{money2(sold.reduce((s, p) => s + p.premium, 0))}</b>; {quotes.length} leads quoted ({money0(quotes.reduce((s, x) => s + x.quoted_premium, 0))}).
         {sold.length > 0 && <L items={sold.map((x) => <><b>{x.client}</b> — {x.line} ({x.carrier}) {money2(x.premium)} · {x.producer}</>)} />}</>,
-      go: c('performance') ? { to: '/sales', label: 'Open Sales KPIs' } : undefined,
+      go: c('performance') ? { to: '/sales-kpis', label: 'Open Sales KPIs' } : undefined,
     }
   }
 

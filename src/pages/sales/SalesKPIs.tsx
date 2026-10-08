@@ -52,10 +52,7 @@ export function Sales({ D }: { D: PerfData }) {
         <a className="psrc" href="#/legacy-sales" style={{ alignSelf: 'center', fontWeight: 700 }}>Compare with the original Sales KPIs ›</a>
       </div>
       <div className="wrap">
-        <div className="svtabs">
-          <button className="svtab on">Sales KPIs</button>
-          <a className="svtab" href="#/huddle">Daily Huddle Report</a>
-        </div>
+        <a className="psrc" href="#/sales" style={{ fontWeight: 700 }}>‹ Daily Huddle Report</a>
         <div className="exhd">
           <div><div className="exhd-s">{x.written.length} policies written &middot; {money0(x.total)} &middot; {x.range.label}</div></div>
           <div className="exhd-u">{ICO.cal}<span>Updated {nowLabel}</span></div>
