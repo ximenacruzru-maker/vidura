@@ -12,7 +12,8 @@ import { useSyncStamp } from '../../lib/syncEvents'
 import { useAsync } from '../../lib/useAsync'
 
 /** Daily Huddle Report: one page with the previous workday's performance for the 10:00 huddle — what was written and
- *  quoted, by producer, the policies and quotes themselves, SDR transfers and client success — with the month and
+ *  quoted, phone activity from Ricochet, by producer, the policies and quotes themselves, SDR transfers and client
+ *  success — with the month and
  *  folio so far. Any earlier day can be picked. Written business is the AgencyZoom sales ledger by sold date; quotes
  *  are AgencyZoom quoted leads by quote day. */
 
@@ -85,6 +86,12 @@ function Huddle({ D }: { D: PerfData }) {
     return { d, l }
   }, [day])
 
+  // phone activity: every call Ricochet reported for the day (ricochet-webhook)
+  const calls = useAsync(async () => {
+    const { data, error } = await supabase.from('ricochet_calls').select('agent, direction, duration_sec, talk_sec, disposition').eq('day', day)
+    return error ? [] : (data as Call[])
+  }, [day])
+
   const agency = agencyName(me)
   return (
     <div className="rp">
@@ -124,6 +131,10 @@ function Huddle({ D }: { D: PerfData }) {
         <GoalCard label={folio ? `Folio to date · ${mdy(folio.start).slice(0, 5)} – ${mdy(folio.end).slice(0, 5)}` : 'Folio to date'} show={ftd ? money0(ftd.p) : '—'} note={ftd ? `${ftd.n} policies` : 'no folio on file'} good={false} neutral />
         <GoalCard label="Quote to sale" show={quotes.length ? Math.round((customers / quotes.length) * 100) + '%' : '—'} note="customers written ÷ leads quoted that day" good={false} neutral />
       </div>
+
+      <Section title="Phone activity" sub={`Ricochet · ${mdy(day)} · a contact is a call with 30+ seconds of talk time`}>
+        {!calls.data ? <Loading what="Loading calls" /> : <PhoneActivity calls={calls.data} day={day} />}
+      </Section>
 
       <Section title="By producer" sub={`${weekday(day)} · and the month to date`}>
         {producers.length ? (
@@ -194,6 +205,35 @@ function Huddle({ D }: { D: PerfData }) {
       <div className="rp-muted" style={{ marginTop: 18 }}><Link to="/sales-kpis">Full Sales KPIs by period ›</Link></div>
     </div>
   )
+}
+
+interface Call { agent: string | null; direction: string | null; duration_sec: number | null; talk_sec: number | null; disposition: string | null }
+const hm = (s: number) => { const h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60); return h ? `${h}h ${String(m).padStart(2, '0')}m` : `${m}m` }
+
+function PhoneActivity({ calls, day }: { calls: Call[]; day: string }) {
+  if (!calls.length) return <div className="rp-empty">No calls from Ricochet on {mdy(day)}. Calls show up here once Ricochet's call webhook is sending them.</div>
+  const by: Record<string, { dials: number; inbound: number; contacts: number; talk: number }> = {}
+  const tot = { dials: 0, inbound: 0, contacts: 0, talk: 0 }
+  calls.forEach((c) => {
+    const r = (by[c.agent || 'Unassigned'] = by[c.agent || 'Unassigned'] || { dials: 0, inbound: 0, contacts: 0, talk: 0 })
+    const talk = Number(c.talk_sec ?? c.duration_sec ?? 0)
+    for (const x of [r, tot]) { if (c.direction === 'inbound') x.inbound++; else x.dials++; if (talk >= 30) x.contacts++; x.talk += talk }
+  })
+  const rows = Object.entries(by).sort((a, b) => b[1].dials + b[1].inbound - (a[1].dials + a[1].inbound))
+  return (<>
+    <div className="rp-cards">
+      <GoalCard label="Dials" show={String(tot.dials)} note="outbound calls" good={false} neutral />
+      <GoalCard label="Inbound calls" show={String(tot.inbound)} note="answered or missed" good={false} neutral />
+      <GoalCard label="Contacts" show={String(tot.contacts)} note={tot.dials + tot.inbound ? Math.round((tot.contacts / (tot.dials + tot.inbound)) * 100) + '% of calls' : ''} good={false} neutral />
+      <GoalCard label="Talk time" show={hm(tot.talk)} note={`${calls.length} calls`} good={false} neutral />
+    </div>
+    <div className="tbl-wrap"><table className="rp-tbl">
+      <thead><tr><th>Agent</th><th className="r">Dials</th><th className="r">Inbound</th><th className="r">Contacts</th><th className="r">Talk time</th></tr></thead>
+      <tbody>{rows.map(([n, r]) => (
+        <tr key={n}><td className="strong">{n}</td><td className="r mono">{r.dials}</td><td className="r mono">{r.inbound}</td><td className="r mono">{r.contacts}</td><td className="r mono">{hm(r.talk)}</td></tr>
+      ))}</tbody>
+    </table></div>
+  </>)
 }
 
 function ClientSuccess({ d, l, day }: { d: RetentionDay[]; l: RetentionEntry[]; day: string }) {
