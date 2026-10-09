@@ -56,6 +56,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     { h: 'Agency Management' },
     { to: '/resources', label: 'Agency Resources', icon: 'service', show: c('resources') || c('passwords') },
     { to: '/books/farmers', label: 'Books of Business', icon: 'book', show: c('books'), also: ['/books'] },
+    { to: '/payments', label: 'Checks & Cash', icon: 'reports', show: c('books') && !trainee },
     { to: '/payroll', label: 'Office Payroll', icon: 'reports', show: c('payroll') },
     { h: 'Team Development' },
     { to: '/training', label: 'Training', icon: 'training', show: c('training') },

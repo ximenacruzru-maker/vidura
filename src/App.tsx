@@ -17,6 +17,7 @@ const Chat = lazy(() => import('./pages/Chat'))
 const Proteges = lazy(() => import('./pages/Proteges'))
 const Licensing = lazy(() => import('./pages/Licensing'))
 const Payroll = lazy(() => import('./pages/Payroll'))
+const Payments = lazy(() => import('./pages/Payments'))
 const Training = lazy(() => import('./pages/Training'))
 const MyPay = lazy(() => import('./pages/MyPay'))
 const Retention = lazy(() => import('./pages/Retention'))
@@ -82,6 +83,7 @@ function Gate() {
           {can(me, 'proteges') && <Route path="/proteges" element={<Proteges />} />}
           {!trainee && <Route path="/hr" element={<Licensing />} />}
           {can(me, 'payroll') && <Route path="/payroll" element={<Payroll />} />}
+          {can(me, 'books') && !trainee && <Route path="/payments" element={<Payments />} />}
           {can(me, 'passwords') && <Route path="/passwords" element={<Navigate to="/resources?tab=passwords" replace />} />}
           {can(me, 'training') && <Route path="/training" element={<Training />} />}
           <Route path="*" element={<Navigate to={home} replace />} />
