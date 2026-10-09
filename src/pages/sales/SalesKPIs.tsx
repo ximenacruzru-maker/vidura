@@ -48,8 +48,6 @@ export function Sales({ D }: { D: PerfData }) {
           <p className="ptitle">Sales KPIs</p>
           <p className="psrc">{x.written.length} policies written · {money0(x.total)} · {x.range.label}</p>
         </div>
-        {/* Temporary, while the rebuilt screen is checked: the original stays one click away to compare figures. */}
-        <a className="psrc" href="#/legacy-sales" style={{ alignSelf: 'center', fontWeight: 700 }}>Compare with the original Sales KPIs ›</a>
       </div>
       <div className="wrap">
         <a className="psrc" href="#/sales" style={{ fontWeight: 700 }}>‹ Daily Huddle Report</a>

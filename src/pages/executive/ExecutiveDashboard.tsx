@@ -80,8 +80,6 @@ export function Dashboard({ D }: { D: PerfData }) {
           <p className="ptitle">Executive Dashboard</p>
           <p className="psrc">{rows.length} policies · {new Set(rows.map((r) => r.book)).size} books · {money0(rows.reduce((s, r) => s + (r.prem || 0), 0))} written premium</p>
         </div>
-        {/* Temporary, for this release: the original dashboard stays reachable to compare figures side by side. */}
-        <a className="psrc" href="#/legacy-dashboard" style={{ alignSelf: 'center', fontWeight: 700 }}>Compare with the original dashboard ›</a>
       </div>
       <div className="wrap">
         <div className="fbar">

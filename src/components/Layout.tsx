@@ -45,19 +45,19 @@ export default function Layout({ children }: { children: ReactNode }) {
     { to: '/today', label: first ? `${first}’s Space` : 'My Space', icon: 'today', show: !trainee },
     { to: '/work', label: 'Work & Tickets', icon: 'tickets', show: c('work') },
     { to: '/chat', label: 'Team Chat', icon: 'chat', show: c('chat') },
-    { to: '/retention', label: 'Retention', icon: 'service', show: c('retention') },
-    { to: '/pay', label: 'My Pay', icon: 'reports', show: me?.role !== 'owner' && !trainee },
+    { to: '/retention', label: 'Retention', icon: 'renew', show: c('retention') },
+    { to: '/pay', label: 'My Pay', icon: 'dollar', show: me?.role !== 'owner' && !trainee },
     { to: '/my-commissions', label: 'My Commissions', icon: 'sales', show: me?.role === 'sdr' || me?.role === 'va' },
     { div: true },
     { h: 'Performance' },
     { to: '/', label: 'Executive Dashboard', icon: 'executive', show: c('performance'), also: ['/legacy-dashboard'] },
-    { to: '/sales', label: 'Daily Huddle Report', icon: 'sales', show: c('performance'), also: ['/huddle', '/legacy-sales', '/sales-kpis'] },
+    { to: '/sales', label: 'Daily Huddle Report', icon: 'pulse', show: c('performance'), also: ['/huddle', '/legacy-sales', '/sales-kpis'] },
     { to: '/reports', label: 'Reports', icon: 'reports', show: c('performance'), also: ['/commissions', '/sdr', '/year-end', '/legacy-reports', '/legacy-commissions', '/commission-setup', '/legacy-sdr'] },
     { h: 'Agency Management' },
     { to: '/resources', label: 'Agency Resources', icon: 'service', show: c('resources') || c('passwords') },
     { to: '/books/farmers', label: 'Books of Business', icon: 'book', show: c('books'), also: ['/books'] },
-    { to: '/payments', label: 'Checks & Cash', icon: 'reports', show: c('books') && !trainee },
-    { to: '/payroll', label: 'Office Payroll', icon: 'reports', show: c('payroll') },
+    { to: '/payments', label: 'Checks & Cash', icon: 'cash', show: c('books') && !trainee },
+    { to: '/payroll', label: 'Office Payroll', icon: 'dollar', show: c('payroll') },
     { h: 'Team Development' },
     { to: '/training', label: 'Training', icon: 'training', show: c('training') },
     { to: '/hr', label: c('hr') ? 'HR / Licensing' : 'Licensing', icon: 'licensing', show: !trainee },
@@ -166,7 +166,7 @@ function GlobalSearch() {
   return (
     <div className="gsearch" ref={box}>
       <span className="gsearch-ico"><Icon name="search" width={1.7} /></span>
-      <input className="gq" type="text" autoComplete="off" spellCheck={false} placeholder="Search policy number or business name…" aria-label="Search the P&C book"
+      <input className="gq" type="text" autoComplete="off" spellCheck={false} placeholder="Search clients…" aria-label="Search the P&C book"
         value={q} onFocus={load}
         onChange={(e) => { setQ(e.target.value); setSel(0); setOpen(true); load() }}
         onKeyDown={(e) => {

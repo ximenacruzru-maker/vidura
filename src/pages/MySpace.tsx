@@ -104,7 +104,7 @@ export default function MySpace() {
         <Tile label="Estimated folio close-out" value={money0(estimate)}
           sub={`${money0(writtenFolio)} written + ${money0(prem(pipe))} pipeline × ${pctTxt(closeRate)}`} tone="good" />
       </Tiles>
-      <Panel title="Any day" sub={owner ? 'What the agency quoted, added to the pipeline and sold on the day you pick.' : 'What you quoted, added to your pipeline and sold on the day you pick.'}
+      <Panel title="Look up a day" sub={owner ? 'What the agency quoted, added to the pipeline and sold on the day you pick.' : 'What you quoted, added to your pipeline and sold on the day you pick.'}
         right={<input type="date" className="fld" value={day} max={today} onChange={(e) => setDay(e.target.value || today)} aria-label="Day" />}>
         <Tiles>
           <Tile label="Quoted" value={money0(dayQuotes.reduce((a, q) => a + q.quoted_premium, 0))} sub={`${dayQuotes.length} quote${dayQuotes.length === 1 ? '' : 's'} on ${mdy(day)}`} />

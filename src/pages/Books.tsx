@@ -60,7 +60,7 @@ export default function Books() {
   }, [data, today])
 
   const shown = q ? rows.filter((r) => r.text.includes(q.toLowerCase())) : rows
-  const head = <PageHead kicker="Books of business" title={meta.label} sub={meta.blurb} />
+  const head = <PageHead kicker="Agency Management" title="Books of Business" sub={meta.blurb} />
   const tabs = <Tabs tabs={BOOKS.map((b) => ({ key: b.key, label: b.short }))} value={key} onChange={(k) => { setQ(''); nav('/books/' + k) }} />
   if (error) return <>{head}{tabs}<ErrorBox error={error} /></>
   if (!data) return <>{head}{tabs}<Loading /></>

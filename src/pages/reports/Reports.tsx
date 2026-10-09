@@ -137,8 +137,6 @@ export function ReportsView({ D, open }: { D: PerfData; open?: string }) {
       <div className="pagehead">
         <div className="hd-titles"><p className="eyebrow">Performance</p><p className="ptitle">Reports</p>
           <p className="psrc">{has ? (R.source || 'AgencyZoom') + ' · pulled ' + R.generatedAt : 'No report loaded'}</p></div>
-        {/* Temporary, while the rebuilt screen is checked: the original stays one click away to compare figures. */}
-        <a className="psrc" href="#/legacy-reports" style={{ alignSelf: 'center', fontWeight: 700, marginLeft: 'auto', marginRight: 14 }}>Compare with the original Reports ›</a>
         <div className="ptabs">
           <button className={'ptab' + (v.mode === 'dash' ? ' on' : '')} onClick={() => set({ mode: 'dash' })}>Dashboard</button>
           <button className={'ptab' + (v.mode === 'details' ? ' on' : '')} onClick={() => set({ mode: 'details' })}>Details</button>

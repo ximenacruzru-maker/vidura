@@ -71,7 +71,7 @@ export default function Retention() {
     return { ...(await folioBonus(name, tiers, folio, today)), tiers: tiers || [], rec }
   }, [name, folio?.start_date, folio?.end_date, reload])
 
-  const head = <PageHead kicker="Client success" title="Retention & book growth" />
+  const head = <PageHead kicker="Workspace" title="Retention" />
   if (people.error || data.error) return <>{head}<ErrorBox error={people.error || data.error} /></>
   if (!name && people.data) return <>{head}<Empty>No one has the retention role yet. Switch on “Retention scorecard” for them under Settings → Team & access.</Empty></>
   if (!data.data) return <>{head}<Loading what="Loading the report" /></>

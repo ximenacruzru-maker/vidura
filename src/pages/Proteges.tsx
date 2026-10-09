@@ -38,7 +38,7 @@ export default function Proteges() {
     return { plan, training, statusRows, people, sales }
   }, [reload])
 
-  const head = <PageHead kicker="People" title="Protégé program" sub={data?.plan ? `Mentor ${data.plan.mentor} · premium from AgencyZoom sales, live` : undefined} />
+  const head = <PageHead kicker="Team Development" title="Proteges" sub={data?.plan ? `Mentor ${data.plan.mentor} · premium from AgencyZoom sales, live` : undefined} />
   if (error) return <>{head}<ErrorBox error={error} /></>
   if (!data) return <>{head}<Loading /></>
   const { plan, training, statusRows, sales } = data
