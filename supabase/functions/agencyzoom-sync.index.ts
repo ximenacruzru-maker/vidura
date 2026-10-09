@@ -3,7 +3,8 @@
 // Keeps the Ironwood dashboard current from AgencyZoom:
 //   sold   - every policy written (from customer policies) -> daily_sales
 //   quotes - leads in Quoted with an actual quote       -> quote_leads
-//   sdr    - leads tagged "Jackeline Transfer" / "Rhon Transfer" -> sdr_transfers
+//   sdr    - leads tagged with an SDR's transfer tag ("Jackeline Transfer", "Rhon Transfer", "Andre Transfer", plus any
+//            set in the agency's SDR settings, reference_data lg:WB_EXTRA sdr.tags) -> sdr_transfers
 //
 // Sales are found by reading customers' policies: customers created in the window, customers behind leads won in the
 // window, and customers whose policy summary (in the customer list) changed since the last run, which is how a
@@ -40,7 +41,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const AZ_BASE = "https://api.agencyzoom.com";
 const PACE_MS = 800;           // ~75 calls/minute; AgencyZoom allows 120/min (spec, Aug 2026)
 const TIME_BUDGET_MS = 125000; // stop starting new AgencyZoom calls after this
-const SDR_TAGS: Record<string, string> = { "Jackeline Transfer": "Jackeline", "Rhon Transfer": "Rhon" };
+// transfer tag -> SDR; the agency's own SDR settings (sdr.tags: { name: tag }) are added at the start of each run
+let SDR_TAGS: Record<string, string> = { "Jackeline Transfer": "Jackeline", "Rhon Transfer": "Rhon", "Andre Transfer": "Andre" };
 const FAMILY_RX = /farmers|foremost/i;
 
 let t0 = Date.now();
@@ -357,6 +359,12 @@ Deno.serve(async (req) => {
   if (agErr || !agency) return new Response(JSON.stringify({ ok: false, error: "No agency is set up for the AgencyZoom sync" }), { status: 500 });
   const A = agency.id as string;
   const cutoff = String(agency.history_cutoff || "0000-00-00");
+  try {
+    const { data: ref } = await supabase.from("reference_data").select("data").eq("agency_id", A).eq("key", "lg:WB_EXTRA").maybeSingle();
+    const tags = { ...SDR_TAGS };
+    for (const [name, tag] of Object.entries((ref?.data?.sdr?.tags || {}) as Record<string, string>)) if (tag) tags[String(tag)] = name;
+    SDR_TAGS = tags;
+  } catch { /* keep the built-in tags */ }
   if (params.sweep) return await sweep(supabase, A, cutoff, today, azUser, azPass);
   if (params.policies) return await fillPolicies(supabase, A, azUser, azPass);
   if (params.pipeline) return await pipeline(supabase, A, azUser, azPass);
@@ -572,7 +580,7 @@ Deno.serve(async (req) => {
           az_in_pipeline: [0, 1, 4].includes(status), az_tagged: true, az_quote_premium: quotePrem,
           quote_count: shaped.length, quotes: shaped, az_qualifies: shaped.length > 0, bound, bound_via_ledger: false,
           bound_premium: shaped.filter((q) => q.sold).reduce((s, q) => s + q.premium, 0),
-          tags: (sdrs.includes("Rhon") ? "R" : "") + (sdrs.includes("Jackeline") ? "J" : ""),
+          tags: (sdrs.includes("Rhon") ? "R" : "") + (sdrs.includes("Jackeline") ? "J" : "") + sdrs.filter((n) => n !== "Rhon" && n !== "Jackeline").map((n) => n[0]).join(""),
           url: `https://app.agencyzoom.com/lead/index?id=${leadId}`, quote_checked_at: new Date().toISOString(),
         }, { onConflict: "agency_id,az_ref" });
         if (error) err(`sdr_transfers ${leadId}: ${error.message}`); else { stats.sdrRows++; readNow.add(leadId); }

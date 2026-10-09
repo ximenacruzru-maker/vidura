@@ -145,7 +145,7 @@ export function computeReportsDash(D: PerfData, win: string, book: string, line:
   attention.push({ title: 'Scorecard pulled ' + (R.generatedAt || ''), sub: (R.period || '') + ' · once-a-day pull of the previous day', action: 'Current', tone: 'good', go: { tab: 'scorecard' } })
   attention.push({ title: 'Commission statements · ' + wbFolioLabel(D, ks[1] || ks[0]), sub: (reconciled ? 'reconciled against the carrier statement' : 'not yet reconciled against eFolio') + ' · Excel and PDF ready',
     action: reconciled ? 'Complete' : 'Reconcile', tone: reconciled ? 'good' : 'warn', go: { tab: 'commissions' } })
-  attention.push({ title: 'SDR transfer pay runs on the 21st', sub: 'Jackeline and Rhon commission sheets for the previous month', action: 'Open', tone: 'warn', go: { tab: 'sdr' } })
+  attention.push({ title: 'SDR transfer pay runs on the 21st', sub: 'SDR commission sheets for the previous month', action: 'Open', tone: 'warn', go: { tab: 'sdr' } })
   const last = Object.keys(D.WB_EXTRA.daily || {}).sort().pop() || ''
   const md = (d: string) => (d ? new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—')
   const register: [string, string, string, string, string][] = [

@@ -3,7 +3,7 @@
 import { excelLib, save } from './commissionFiles'
 import type { Json, PerfData } from './data'
 
-export const SDR_ORDER = ['Jackeline', 'Rhon', 'Akash']
+export const SDR_ORDER = ['Jackeline', 'Rhon', 'Andre', 'Akash']
 export const sdrData = (D: PerfData): Json => D.WB_EXTRA.sdr || { byMonth: {}, transfers: [] }
 
 /** The pay period shown first: the latest month before the current one (bonuses are paid a month in arrears). */
