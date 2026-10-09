@@ -1079,3 +1079,17 @@ html[data-theme="astra"] .xd .mc-btn { border-color: #E5252E; background: #2A101
 .rp-col-btn.on .rp-col-m { color: var(--ink); }
 .rp-band .rp-btn:disabled { opacity: .45; cursor: default; }
 .rp-card.neutral .rp-card-note { color: var(--muted); }
+/* Checks & Cash */
+.pay-tbl tr.pay-void td { opacity: .55; text-decoration: line-through; }
+.pay-tbl tr.pay-void td:nth-child(6), .pay-tbl tr.pay-void td:last-child { text-decoration: none; }
+.pay-tbl tr.pay-open > td { background: var(--card) !important; padding: 0 0 12px; }
+.pay-details { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; }
+.pay-facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px 18px; font-size: 14px; }
+.pay-act { background: var(--rp-soft); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.pay-hist { display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; }
+.pay-ev { display: flex; gap: 10px; flex-wrap: wrap; align-items: baseline; }
+.pay-note { display: flex; gap: 8px; margin-top: 4px; }
+.pay-note .fld { flex: 1; }
+.rp .rp-muted.warn { color: var(--rp-amber); font-weight: 700; }
+.pay-rule { margin-top: 12px; padding: 10px 12px; border-left: 4px solid var(--rp-amber); background: color-mix(in srgb, var(--rp-amber) 10%, var(--card)); border-radius: 6px; font-size: 13.5px; line-height: 1.5; }
+.rp .rp-band .rp-actions .fld { background-color: #2c3e80 !important; color: #fff !important; border-color: rgba(255,255,255,.35) !important; color-scheme: dark; }
