@@ -67,7 +67,7 @@ export default function Chat() {
 
   return (
     <>
-      <PageHead kicker="Team" title="Team chat" sub="Shared with signed-in staff. Messages older than 30 days are hidden." />
+      <PageHead kicker="Workspace" title="Team Chat" sub="Shared with signed-in staff. Messages older than 30 days are hidden." />
       {err ? <ErrorBox error={err} /> : null}
       <div className="chat">
         <aside className="chat-side">

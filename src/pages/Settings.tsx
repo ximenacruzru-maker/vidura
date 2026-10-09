@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react'
 import { useAuth } from '../auth'
 import { Empty, ErrorBox, Loading, PageHead, Panel } from '../components/ui'
-import { availableThemes, FONTS, getLook, onLook, saveLook, THEMES, type Look } from '../lib/theme'
+import { availableThemes, FONTS, getLook, onLook, saveLook, type Look } from '../lib/theme'
 import ChangePassword from './ChangePassword'
 import { useEffect } from 'react'
 import { can, ROLE_LABEL, roleDefaults, SECTIONS } from '../lib/access'
@@ -165,30 +165,17 @@ function EditRow({ s, self, ownerMe, busy, onSave, onReset }: { s: Row; self: bo
 }
 
 
-/** Settings, laid out like the original platform: a band, underlined tabs, then the section. */
+/** Settings: underlined tabs, then the section. */
 export default function Settings() {
   const { me } = useAuth()
   const admin = me?.role === 'owner' || me?.role === 'admin'
   const [tab, setTab] = useState<'appearance' | 'access' | 'password'>('appearance')
   const [look, setLookState] = useState<Look>(getLook())
-  const people = useAsync(async () => {
-    if (!admin) return null
-    const { count } = await supabase.from('staff_accounts').select('*', { count: 'exact', head: true }).eq('active', true)
-    return count ?? 0
-  }, [admin])
   useEffect(() => onLook(setLookState), [])
-  const tabs: [typeof tab, string][] = [['appearance', 'Appearance'], ...(admin ? [['access', 'Producers & access'] as [typeof tab, string]] : []), ['password', 'Password']]
+  const tabs: [typeof tab, string][] = [['appearance', 'Appearance'], ...(admin ? [['access', 'Team & access'] as [typeof tab, string]] : []), ['password', 'Password']]
   return (
     <>
-      <PageHead kicker="Administration" title="Settings" sub={`${THEMES[look.theme]?.name || 'Talavera'} theme${admin && people.data != null ? ` · ${people.data} on the account` : ''}`} />
-      <div className="set-band">
-        <div><div className="eye">Agency configuration</div><h2>Settings</h2></div>
-        <div className="set-stats">
-          <div><small>Theme</small><b>{THEMES[look.theme]?.name}</b></div>
-          <div><small>Typeface</small><b>{FONTS[look.font]?.name.split(' ')[0]}</b></div>
-          {admin && people.data != null && <div><small>People</small><b>{people.data}</b></div>}
-        </div>
-      </div>
+      <PageHead kicker="Settings" title="Settings" sub={admin ? 'Your look, the team’s logins and what each person can see, and your password.' : 'Your look and your password.'} />
       <div className="set-tabs">{tabs.map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>)}</div>
       <div className="set-page">
         {tab === 'appearance' && <Appearance look={look} userId={me?.user_id || ''} />}

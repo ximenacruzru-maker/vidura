@@ -33,7 +33,7 @@ export default function Resources() {
     const logins = pw ? await getLogins().catch(() => [] as Login[]) : []
     return { resources: resources || [], markets: markets || [], bi, kb: kb || [], systems: systems || [], docs, logins }
   }, [pw])
-  const head = <PageHead kicker="Agency" title="Agency Resources" sub={`Forms, the COI generator, carrier markets, the Farmers appetite guide${pw ? ', platforms and the agency passwords' : ' and the platforms the agency works in'}.`} />
+  const head = <PageHead kicker="Agency Management" title="Agency Resources" sub={`Forms, the COI generator, carrier markets, the Farmers appetite guide${pw ? ', platforms and the agency passwords' : ' and the platforms the agency works in'}.`} />
   if (error) return <>{head}<ErrorBox error={error} /></>
   if (!data) return <>{head}<Loading /></>
   return (

@@ -36,7 +36,7 @@ export default function Licensing() {
   const tabs = [{ key: 'licenses' as const, label: 'Licenses' }, ...(admin ? [{ key: 'time' as const, label: 'Timesheets' }, { key: 'staff' as const, label: 'Staff & pay rates' }] : [])]
   return (
     <>
-      <PageHead kicker="People" title={admin ? 'HR & licensing' : 'Licensing'} sub={admin ? 'Licenses for everyone; timesheets and pay rates are visible to admins only.' : undefined} />
+      <PageHead kicker="Team Development" title={admin ? 'HR / Licensing' : 'Licensing'} sub={admin ? 'Licenses for everyone; timesheets and pay rates are visible to admins only.' : undefined} />
       <Tabs tabs={tabs} value={tab} onChange={setTab} />
       {tab === 'licenses' && <Licenses admin={admin} />}
       {tab === 'time' && admin && <Timesheets />}
@@ -92,7 +92,7 @@ function Licenses({ admin }: { admin: boolean }) {
         <div className="row-actions">
           {doc && <button className="linkbtn" onClick={() => openDoc(doc)}>View license</button>}
           {l.verify_url && <a href={l.verify_url} target="_blank" rel="noreferrer">Verify with {l.authority?.replace('California ', 'CA ') || 'state'} ↗</a>}
-          {admin && (l.archived_on ? <button className="linkbtn" onClick={() => restore(l)}>Restore</button> : <button className="linkbtn" onClick={() => archive(l)}>Archive</button>)}
+          {admin && (l.archived_on ? <button className="linkbtn" onClick={() => restore(l)}>Restore</button> : <button className="linkbtn lic-archive" onClick={() => archive(l)} title="For someone who has left the agency">Archive (left the agency)</button>)}
         </div>
       </div>
     )

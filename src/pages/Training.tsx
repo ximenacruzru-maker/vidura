@@ -48,7 +48,7 @@ export default function Training() {
 
   const head = trainee
     ? <PageHead kicker="New hire · SDR" title="Training" sub="Your onboarding first, then Farmers University. You’ll move to your SDR pages once your training is done." />
-    : <PageHead kicker="Team development" title="Training" sub={`Farmers University first, then the ${ag} classroom.`} />
+    : <PageHead kicker="Team Development" title="Training" sub={`Farmers University first, then the ${ag} classroom.`} />
   const tabs = <Tabs tabs={trainee
     ? [{ key: 'onboard' as const, label: 'Onboarding' }, { key: 'fu' as const, label: 'Farmers University' }]
     : [{ key: 'dash' as const, label: 'Dashboard' }, { key: 'fu' as const, label: 'Farmers University' }, { key: 'class' as const, label: `${ag} Classroom` }, ...(isAdmin(me?.role) ? [{ key: 'onboard' as const, label: 'New-hire onboarding' }] : [])]} value={tab} onChange={setTab} />

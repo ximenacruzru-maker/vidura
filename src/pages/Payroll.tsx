@@ -158,7 +158,7 @@ export default function Payroll() {
   const err = hours.error || comm.error || sdr.error || periods.error || agencyPrem.error || gated.error
   return (
     <>
-      <PageHead kicker="Agency" title="Office payroll" sub="Payroll is paid on the 5th and the 21st: the 5th for hours from the 16th to the end of the month, the 21st for hours from the 1st to the 15th, plus commission for last month’s folio and SDR bonuses for last month’s transfers. Download it for the payroll run, then upload the payroll files back here." />
+      <PageHead kicker="Agency Management" title="Office Payroll" sub="Payroll is paid on the 5th and the 21st: the 5th for hours from the 16th to the end of the month, the 21st for hours from the 1st to the 15th, plus commission for last month’s folio and SDR bonuses for last month’s transfers. Download it for the payroll run, then upload the payroll files back here." />
       <Panel title={`Payday ${mdy(pay)}`} sub={check.commission ? `Hours ${hoursLabel} · commission for the folio ${folioLabel || 'closed last month (not set up yet)'} · SDR bonus for ${period?.period_label || 'last month'} transfers` : `Hours ${hoursLabel} · no commission on the 5th (commission is paid on the 21st)`}
         right={<div className="filters">
           <button className="btn-ghost" onClick={() => setPay(stepPay(pay, -1))} aria-label="Previous payday">‹ {shortDate(stepPay(pay, -1))}</button>

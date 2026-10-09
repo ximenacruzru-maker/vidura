@@ -39,7 +39,7 @@ export default function WorkQueue() {
   }, [])
   const data = work
 
-  const head = <PageHead kicker="Operations" title={manager ? 'Work queue' : 'My work'} sub={manager
+  const head = <PageHead kicker="Workspace" title="Work & Tickets" sub={manager
     ? `Service work, follow-ups and admin tasks for the whole team. You see everyone’s list and assign the work; staff see only what’s assigned to them${admin ? '' : ' (and admins see it all)'}.`
     : 'Your to-dos, plus anything you assigned to someone else. You can assign work to anyone on the team.'} />
   if (error) return <>{head}<ErrorBox error={error} /></>
@@ -88,7 +88,7 @@ export default function WorkQueue() {
           <select value={owner} onChange={(e) => setOwner(e.target.value)}><option value="all">Everyone</option>{owners.map((a) => <option key={a}>{a}</option>)}</select>
           <Search value={q} onChange={setQ} />
           <button className="btn-primary" onClick={() => setDraft(draft ? null : { priority: 'Normal', status: 'Not started', owner: me?.display_name?.split(' ')[0] })}>{draft ? 'Cancel' : '+ New item'}</button>
-          <button className="btn-ghost" onClick={() => downloadSheet(`work-queue-${today}.xlsx`, [['Area', 'Item', 'Type', 'Priority', 'Entered', 'Due', 'Owner', 'Status', 'Note'], ...rows.map((w) => [w.area, w.name, w.kind, w.priority, w.entered, w.due, w.owner, w.status, w.note])], { sheet: 'Work queue' })}>Excel</button>
+          <button className="btn-ghost" onClick={() => downloadSheet(`work-queue-${today}.xlsx`, [['Area', 'Item', 'Type', 'Priority', 'Entered', 'Due', 'Owner', 'Status', 'Note'], ...rows.map((w) => [w.area, w.name, w.kind, w.priority, w.entered, w.due, w.owner, w.status, w.note])], { sheet: 'Work queue' })}>Export</button>
         </div>}>
         {draft && (
           <div className="plan">
