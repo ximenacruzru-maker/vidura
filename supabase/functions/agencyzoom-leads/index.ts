@@ -29,7 +29,9 @@ Deno.serve(async (req) => {
     const lb = await lr.json().catch(() => ({}));
     if (!lr.ok) throw new Error(`AgencyZoom login failed (${lr.status}). Check the AgencyZoom username/password saved in Supabase (Edge Functions > Secrets).`);
     const h = { "Content-Type": "application/json", Authorization: `Bearer ${lb.jwt || lb.token}` };
-    const rows: Record<string, unknown>[] = [];
+    // keyed by lead: a lead can appear on two pages when the list shifts while it is read, and one upsert can't
+    // touch the same row twice
+    const byLead = new Map<string, Record<string, unknown>>();
     let complete = false;
     for (let page = 0; page < 150; page++) {
       if (Date.now() - t0 > BUDGET_MS) break;
@@ -42,12 +44,13 @@ Deno.serve(async (req) => {
       stats.pages = page + 1;
       for (const l of leads) {
         if (!l.id) continue;
-        rows.push({ agency_id: A, lead_id: String(l.id), producer: [l.assignToFirstname, l.assignToLastname].filter(Boolean).join(" ").trim() || "Unassigned",
+        byLead.set(String(l.id), { agency_id: A, lead_id: String(l.id), producer: [l.assignToFirstname, l.assignToLastname].filter(Boolean).join(" ").trim() || "Unassigned",
           created_date: iso(l.createDate), quote_date: iso(l.quoteDate), sold_date: iso(l.soldDate), status: Number(l.status ?? 0),
           lead_source: l.leadSourceName || "", seen_at: new Date().toISOString() });
       }
       if (leads.length < 100) { complete = true; break; }
     }
+    const rows = [...byLead.values()] as { quote_date: string | null; status: number }[];
     for (let i = 0; i < rows.length; i += 500) {
       const { error } = await supabase.from("az_lead_history").upsert(rows.slice(i, i + 500), { onConflict: "agency_id,lead_id" });
       if (error) throw new Error(`az_lead_history: ${error.message}`);
