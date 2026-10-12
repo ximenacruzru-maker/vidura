@@ -64,6 +64,8 @@ function Forms({ resources, docs }: { resources: any[]; docs: any[] }) {
               {r.note && <div className="card-s">{r.note}</div>}
               {r.fillable && <span className="pill pill-good" style={{ alignSelf: 'flex-start' }}>Fillable PDF</span>}
               {d && <div className="row-actions"><button className="linkbtn" onClick={() => openDoc(d)}>Open</button><button className="linkbtn" onClick={() => openDoc(d, true)}>Download</button></div>}
+              {/* a blank form served with the app (public/forms) rather than from the agency's documents */}
+              {!d && r.url && <div className="row-actions"><a className="linkbtn" href={r.url} target="_blank" rel="noreferrer">Open</a><a className="linkbtn" href={r.url} download>Download</a></div>}
             </div>
           )
         })}
