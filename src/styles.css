@@ -1095,3 +1095,7 @@ html[data-theme="astra"] .xd .mc-btn { border-color: #E5252E; background: #2A101
 .rp .rp-band .rp-actions .fld { background-color: #2c3e80 !important; color: #fff !important; border-color: rgba(255,255,255,.35) !important; color-scheme: dark; }
 .linkbtn.lic-archive { font-size: 12.5px; font-weight: 600; color: var(--muted); }
 .linkbtn.lic-archive:hover { color: var(--bad, var(--ink)); }
+/* the huddle's month-by-day bars share the width instead of overflowing it on a phone */
+.rp-col-btn { flex: 1 1 0; min-width: 0; }
+.rp-col-btn .rp-col-track { width: 70%; max-width: 22px; }
+@media (max-width: 640px) { .rp-col-btn .rp-col-v { display: none; } .rp-col-btn .rp-col-m { font-size: 10px; } .rp-chart { gap: 4px; padding: 12px 10px 8px; } }
