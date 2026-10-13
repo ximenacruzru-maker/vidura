@@ -81,16 +81,18 @@ function TeamAccess() {
 function Switches({ role, access, onChange }: { role: Role; access: Record<string, boolean>; onChange: (a: Record<string, boolean>) => void }) {
   const full = role === 'owner' || role === 'admin'
   const d = roleDefaults(role)
-  const adminOnly = (k: string) => k === 'performance'
+  const adminOnly = (k: string) => k === 'performance' || (k === 'commissions_only' && full)
   return (
     <div className="access-grid">
       {SECTIONS.map((x) => {
-        const on = full ? true : adminOnly(x.key) ? false : x.key in access ? access[x.key] : d[x.key]
+        const on = x.key === 'commissions_only' && full ? false : full ? true : adminOnly(x.key) ? false : x.key in access ? access[x.key] : d[x.key]
         return (
           <label key={x.key} className={'access-item' + (full || adminOnly(x.key) ? ' locked' : '')}>
             <input type="checkbox" checked={on} disabled={full || adminOnly(x.key)} onChange={(e) => {
               const next = { ...access }
               if (e.target.checked === d[x.key]) delete next[x.key]; else next[x.key] = e.target.checked
+              // commissions-only switches every other section off (and they stay off in the database too)
+              if (x.key === 'commissions_only' && e.target.checked) for (const y of SECTIONS) if (y.key !== x.key && d[y.key]) next[y.key] = false
               onChange(next)
             }} />
             <span><b>{x.label}</b><small>{x.note}</small></span>

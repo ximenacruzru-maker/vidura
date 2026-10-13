@@ -4,7 +4,7 @@ import { FolioProvider } from './components/FolioPicker'
 import Layout from './components/Layout'
 import { Loading } from './components/ui'
 import ChangePassword from './pages/ChangePassword'
-import { can } from './lib/access'
+import { can, commissionsOnly } from './lib/access'
 import { lazy, Suspense, useState } from 'react'
 
 // Each page is its own file, downloaded the first time it's opened, so the first load stays small.
@@ -50,6 +50,22 @@ function Gate() {
   // a new hire has only the training (and settings): it is their home and the rest isn't routed
   const trainee = me.role === 'new_hire'
   const home = trainee ? '/training' : can(me, 'performance') ? '/' : '/today'
+  // "My Commissions only": that page (and changing their password) is all that is routed
+  if (commissionsOnly(me)) {
+    return (
+      <FolioProvider>
+        <Layout>
+          <Suspense fallback={<div className="center"><Loading what="Loading" /></div>}>
+          <Routes>
+            <Route path="/my-commissions" element={<MyCommissions />} />
+            <Route path="/password" element={<ChangePassword />} />
+            <Route path="*" element={<Navigate to="/my-commissions" replace />} />
+          </Routes>
+          </Suspense>
+        </Layout>
+      </FolioProvider>
+    )
+  }
   return (
     <FolioProvider>
       <Layout>

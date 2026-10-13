@@ -12,12 +12,13 @@ export const SECTIONS: { key: string; label: string; note: string }[] = [
   { key: 'passwords', label: 'Agency passwords', note: 'View and copy the saved logins — on for everyone by default; only admins can add or change them' },
   { key: 'hr', label: 'HR (timesheets & pay rates)', note: 'Everyone’s hours and hourly rates' },
   { key: 'retention', label: 'Retention scorecard', note: 'Owns client success and retention: the daily huddle scorecard, saves, losses and cross-sell, Net Book Movement; My Space shows retention instead of the sales pipeline' },
+  { key: 'commissions_only', label: 'My Commissions only', note: 'For an SDR who should see nothing but their own commissions: every other page is hidden (they can still change their password). Turning it on switches the other sections off' },
   { key: 'work_manager', label: 'Runs the work queue', note: 'Sees every work item and assigns them to anyone; everyone else sees only the work assigned to them (admins see all)' },
 ]
 
 const BASE = ['books', 'resources', 'work', 'chat', 'training', 'passwords']
 export function roleDefaults(role: Role): Record<string, boolean> {
-  const on = role === 'owner' || role === 'admin' ? SECTIONS.map((s) => s.key) : role === 'protege' ? [...BASE, 'proteges'] : role === 'new_hire' ? ['training'] : BASE
+  const on = role === 'owner' || role === 'admin' ? SECTIONS.map((s) => s.key).filter((k) => k !== 'commissions_only') : role === 'protege' ? [...BASE, 'proteges'] : role === 'new_hire' ? ['training'] : BASE
   return Object.fromEntries(SECTIONS.map((s) => [s.key, on.includes(s.key)]))
 }
 
@@ -28,7 +29,13 @@ export function can(me: StaffAccount | null | undefined, section: string) {
   // everyone's numbers and everyone's pay (Office payroll) are for the owner and admins only
   if (section === 'performance' || section === 'payroll') return false
   const a = me.access || {}
+  if (a.commissions_only) return section === 'commissions_only'
   return section in a ? !!a[section] : !!roleDefaults(me.role)[section]
+}
+
+/** Someone switched to "My Commissions only": the app is just their My Commissions page. Never applies to admins. */
+export function commissionsOnly(me: StaffAccount | null | undefined) {
+  return !!me && me.role !== 'owner' && me.role !== 'admin' && !!(me.access || {}).commissions_only
 }
 
 export const ROLE_LABEL: Record<string, string> = { owner: 'Agency Owner', admin: 'Admin', producer: 'Producer', protege: 'Protégé', sdr: 'SDR', csr: 'CSR', va: 'VA', new_hire: 'New hire (SDR)' }
