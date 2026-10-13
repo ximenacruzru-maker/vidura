@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth'
-import { can, ROLE_LABEL } from '../lib/access'
+import { can, commissionsOnly, ROLE_LABEL } from '../lib/access'
 import { agencyName } from '../lib/data'
 import { bookLabel, getAccounts, getBookPolicies, type Account, type BookPolicy } from '../lib/books'
 import { money0 } from '../lib/format'
@@ -40,7 +40,9 @@ export default function Layout({ children }: { children: ReactNode }) {
   const first = (me?.display_name || '').split(' ')[0]
   // a new hire sees only the training (and their settings) until their role is changed
   const trainee = me?.role === 'new_hire'
-  const nav: Item[] = [
+  // "My Commissions only": that page is the whole app
+  const only = commissionsOnly(me)
+  const full: Item[] = [
     { h: 'Workspace' },
     { to: '/today', label: first ? `${first}’s Space` : 'My Space', icon: 'today', show: !trainee },
     { to: '/work', label: 'Work & Tickets', icon: 'tickets', show: c('work') },
@@ -66,6 +68,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     { to: '/settings', label: 'Settings', icon: 'settings', show: true },
     { to: '/agencies', label: 'Agencies', icon: 'book', show: !!me?.platform_admin },
   ]
+  const nav: Item[] = only ? [{ h: 'Workspace' }, { to: '/my-commissions', label: 'My Commissions', icon: 'sales', show: true }, { div: true }, { to: '/settings', label: 'Settings', icon: 'settings', show: true }] : full
   const visible = nav.filter((n, i) => {
     if ('to' in n) return n.show
     if ('div' in n) return true
@@ -107,7 +110,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           {c('books') ? <GlobalSearch /> : <div className="gsearch-none" />}
           <div className="hd-right">
           {c('performance') && <SyncControl />}
-          <DeclaraAI />
+          {!only && <DeclaraAI />}
           {c('performance') && <ForesightAI />}
           <div className="hd-user">
             <span className="hd-av" role="button" tabIndex={0} aria-label="Account menu" onClick={() => setMenu(!menu)} onKeyDown={(e) => e.key === 'Enter' && setMenu(!menu)}>{initials}</span>
