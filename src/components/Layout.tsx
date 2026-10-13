@@ -68,7 +68,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     { to: '/settings', label: 'Settings', icon: 'settings', show: true },
     { to: '/agencies', label: 'Agencies', icon: 'book', show: !!me?.platform_admin },
   ]
-  const nav: Item[] = only ? [{ h: 'Workspace' }, { to: '/my-commissions', label: 'My Commissions', icon: 'sales', show: true }] : full
+  const nav: Item[] = only ? [{ h: 'Workspace' }, { to: '/my-commissions', label: 'My Commissions', icon: 'sales', show: true }, { div: true }, { to: '/settings', label: 'Settings', icon: 'settings', show: true }] : full
   const visible = nav.filter((n, i) => {
     if ('to' in n) return n.show
     if ('div' in n) return true
@@ -118,7 +118,7 @@ export default function Layout({ children }: { children: ReactNode }) {
             <button className="hd-chev" aria-label="Account menu" onClick={() => setMenu(!menu)}><Icon name="chev" width={2} /></button>
             {menu && (
               <div className="hd-menu" onMouseLeave={() => setMenu(false)}>
-                {!only && <button onClick={() => go('/settings')}>Settings &amp; appearance</button>}
+                <button onClick={() => go('/settings')}>Settings &amp; appearance</button>
                 <button onClick={() => go('/password')}>Change password</button>
                 <button onClick={signOut}>Sign out</button>
               </div>
