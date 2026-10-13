@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react'
 import { useAuth } from '../auth'
 import { GoalCard, Section } from '../components/Report'
-import { ErrorBox, Loading } from '../components/ui'
+import { ErrorBox, Loading, Tabs } from '../components/ui'
+import { can } from '../lib/access'
+import BrokerCommissions from './BrokerCommissions'
 import { agencyName } from '../lib/data'
 import { mdy, money2, todayPacific } from '../lib/format'
 import { supabase } from '../lib/supabase'
@@ -42,6 +44,9 @@ export default function Payments() {
   const bump = () => setReload((n) => n + 1)
   const [adding, setAdding] = useState(false)
   const [open, setOpen] = useState<number | null>(null)
+  // second tab: commissions brokers pay the agency (agency revenue: Office Payroll access)
+  const brokerTab = can(me, 'payroll')
+  const [tab, setTab] = useState<'payments' | 'broker'>('payments')
 
   const data = useAsync(async () => {
     const from = month + '-01', [y, m] = month.split('-').map(Number), to = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10)
@@ -84,17 +89,19 @@ export default function Payments() {
         <div className="rp-band-l">
           <div className="rp-kick">Agency Management</div>
           <h1>Checks &amp; Cash</h1>
-          <div className="rp-who">Every payment received, who accepted it, and whether it was mailed, deposited or applied · records are permanent</div>
+          <div className="rp-who">{tab === 'broker' ? 'Commission payments brokers and brokered carriers pay the agency · records are permanent' : 'Every payment received, who accepted it, and whether it was mailed, deposited or applied · records are permanent'}</div>
         </div>
         <div className="rp-band-r">
           <div className="rp-agency">{agencyName(me)}</div>
-          <div className="rp-actions">
+          {tab === 'payments' && <div className="rp-actions">
             <select className="fld" value={month} onChange={(e) => setMonth(e.target.value)} aria-label="Month">{months.map((m) => <option key={m} value={m}>{monthLabel(m)}</option>)}</select>
             <button className="rp-btn" onClick={csv}>Download month (CSV)</button>
             <button className="rp-btn" onClick={() => setAdding(!adding)}>{adding ? 'Close' : '+ Log a payment'}</button>
-          </div>
+          </div>}
         </div>
       </header>
+      {brokerTab && <Tabs tabs={[{ key: 'payments' as const, label: 'Client payments (checks & cash)' }, { key: 'broker' as const, label: 'Broker commissions' }]} value={tab} onChange={setTab} />}
+      {tab === 'broker' ? <BrokerCommissions month={month} setMonth={setMonth} months={months} /> : <>
 
       {adding && <LogForm today={today} who={who} onSaved={(m) => { setAdding(false); setMonth(m); bump() }} />}
 
@@ -116,6 +123,7 @@ export default function Payments() {
           : <div className="rp-empty">Nothing logged for {monthLabel(month)}.</div>}
       </Section>
       <div className="rp-muted" style={{ marginTop: 14 }}>Payment records can’t be deleted or edited — not by anyone. If something was logged wrong, void it with the reason and log it again; both stay on file.</div>
+      </>}
     </div>
   )
 }
@@ -135,7 +143,7 @@ function RowGroup({ r, today, open, toggle, who, onChange, showAge }: { r: Recei
     <tr className={r.status === 'void' ? 'pay-void' : undefined}>
       <td className="mono">{mdy(r.received_on)}<div className="rp-muted">accepted by {r.received_by}</div>{showAge && <div className={'rp-muted' + (age > 1 ? ' warn' : '')}>{age === 0 ? 'today' : `${age} day${age === 1 ? '' : 's'} ago`}</div>}</td>
       <td>{METHOD[r.method]}{r.check_number && <div className="rp-muted">#{r.check_number}</div>}</td>
-      <td><div className="strong">{r.payer}</div>{r.insured && r.insured !== r.payer && <div className="rp-muted">{r.insured}</div>}</td>
+      <td><div className="strong">{r.payer}</div>{r.insured && r.insured !== r.payer && <div className="rp-muted">{r.insured}</div>}{r.note && <div className="rp-muted pay-note-line">Note: {r.note}</div>}</td>
       <td className="mono">{r.account_number || '—'}{r.carrier && <div className="rp-muted">{r.carrier}</div>}</td>
       <td className="r mono strong">{amt(r.amount)}</td>
       <td><span className={'rp-pill ' + STATUS[r.status].kind}>{STATUS[r.status].label}</span>
