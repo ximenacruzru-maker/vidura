@@ -8,15 +8,17 @@ import { supabase } from '../lib/supabase'
 import { useAsync } from '../lib/useAsync'
 
 /** Checks & Cash: every check, money order and cash payment that comes into the office, and what happened to it —
- *  mailed to the carrier with the remittance coupon (Farmers checks can't be applied in the office any more) and/or
- *  applied to the client's account — by month, with everything still waiting (from any month) up top. Records are
+ *  a check mailed to the carrier with the remittance coupon (Farmers checks can't be applied in the office any more),
+ *  cash deposited to the agency trust account — and applied to the client's account. Who accepted the money is picked
+ *  when it's logged — by month, with everything still waiting (from any month) up top. Records are
  *  permanent: the database refuses deletes and changes to what was received; a mistake is voided with a reason and
  *  logged again, and every step is kept in the payment's history. */
 
 export interface Receipt {
   id: number; received_on: string; method: Method; amount: number; payer: string; insured: string | null; account_number: string | null
   carrier: string | null; check_number: string | null; check_date: string | null; amount_due: number | null; note: string | null
-  received_by: string; status: 'received' | 'mailed' | 'applied' | 'returned' | 'void'; mailed_on: string | null; mailed_by: string | null; mailed_note: string | null; applied_on: string | null; applied_by: string | null
+  received_by: string; status: 'received' | 'mailed' | 'deposited' | 'applied' | 'returned' | 'void'; mailed_on: string | null; mailed_by: string | null; mailed_note: string | null;
+  deposited_on: string | null; deposited_by: string | null; deposited_ref: string | null; applied_on: string | null; applied_by: string | null
   applied_ref: string | null; applied_note: string | null; closed_reason: string | null; closed_by: string | null; closed_at: string | null
   scan_path: string | null; created_at: string
 }
@@ -24,7 +26,7 @@ interface Event { id: number; receipt_id: number; at: string; by_name: string | 
 type Method = 'check' | 'cash' | 'money_order' | 'cashiers_check' | 'other'
 const METHOD: Record<Method, string> = { check: 'Check', cash: 'Cash', money_order: 'Money order', cashiers_check: 'Cashier’s check', other: 'Other' }
 const STATUS: Record<Receipt['status'], { label: string; kind: string }> = {
-  received: { label: 'Not sent yet', kind: 'k-warn' }, mailed: { label: 'Mailed', kind: 'k-cross_sell' }, applied: { label: 'Applied', kind: 'k-save' },
+  received: { label: 'Waiting', kind: 'k-warn' }, mailed: { label: 'Mailed', kind: 'k-cross_sell' }, deposited: { label: 'Deposited to trust', kind: 'k-cross_sell' }, applied: { label: 'Applied', kind: 'k-save' },
   returned: { label: 'Returned', kind: 'k-loss' }, void: { label: 'Void', kind: 'k-review' },
 }
 const BUCKET = 'payment-records'
@@ -63,15 +65,15 @@ export default function Payments() {
   const { inMonth, waiting } = data.data
   const live = inMonth.filter((r) => r.status !== 'void')
   const sum = (l: Receipt[]) => l.reduce((a, r) => a + Number(r.amount), 0)
-  const applied = live.filter((r) => r.status === 'applied' || r.status === 'mailed'), returned = live.filter((r) => r.status === 'returned')
+  const applied = live.filter((r) => r.status === 'applied' || r.status === 'mailed' || r.status === 'deposited'), returned = live.filter((r) => r.status === 'returned')
   const oldest = waiting[0] ? daysSince(waiting[0].received_on, today) : 0
   const who = me?.display_name || 'Staff'
 
   const csv = () => {
     const q = (v: unknown) => '"' + String(v ?? '').replace(/"/g, '""') + '"'
-    const head = ['Received', 'Method', 'Amount', 'Payer', 'Insured', 'Account / policy #', 'Carrier', 'Check #', 'Check date', 'Amount due', 'Received by', 'Status', 'Mailed on', 'Mailed by', 'Mailing note', 'Applied on', 'Applied by', 'Confirmation #', 'Applied note', 'Returned/void reason', 'Note']
+    const head = ['Received', 'Method', 'Amount', 'Payer', 'Insured', 'Account / policy #', 'Carrier', 'Check #', 'Check date', 'Amount due', 'Accepted by', 'Status', 'Mailed on', 'Mailed by', 'Mailing note', 'Deposited to trust on', 'Deposited by', 'Deposit ref', 'Applied on', 'Applied by', 'Confirmation #', 'Applied note', 'Returned/void reason', 'Note']
     const rows = inMonth.map((r) => [mdy(r.received_on), METHOD[r.method], Number(r.amount).toFixed(2), r.payer, r.insured, r.account_number, r.carrier, r.check_number, r.check_date ? mdy(r.check_date) : '',
-      r.amount_due ?? '', r.received_by, STATUS[r.status].label, r.mailed_on ? mdy(r.mailed_on) : '', r.mailed_by, r.mailed_note, r.applied_on ? mdy(r.applied_on) : '', r.applied_by, r.applied_ref, r.applied_note, r.closed_reason, r.note])
+      r.amount_due ?? '', r.received_by, STATUS[r.status].label, r.mailed_on ? mdy(r.mailed_on) : '', r.mailed_by, r.mailed_note, r.deposited_on ? mdy(r.deposited_on) : '', r.deposited_by, r.deposited_ref, r.applied_on ? mdy(r.applied_on) : '', r.applied_by, r.applied_ref, r.applied_note, r.closed_reason, r.note])
     const blob = new Blob([[head, ...rows].map((l) => l.map(q).join(',')).join('\n')], { type: 'text/csv' })
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Checks_and_Cash_${month}.csv`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 500)
   }
@@ -82,7 +84,7 @@ export default function Payments() {
         <div className="rp-band-l">
           <div className="rp-kick">Agency Management</div>
           <h1>Checks &amp; Cash</h1>
-          <div className="rp-who">Every payment received, and whether it was mailed or applied · records are permanent</div>
+          <div className="rp-who">Every payment received, who accepted it, and whether it was mailed, deposited or applied · records are permanent</div>
         </div>
         <div className="rp-band-r">
           <div className="rp-agency">{agencyName(me)}</div>
@@ -98,13 +100,13 @@ export default function Payments() {
 
       <div className="rp-cards">
         <GoalCard label={`Received · ${monthLabel(month)}`} show={amt(sum(live))} note={`${live.length} payment${live.length === 1 ? '' : 's'}`} good={false} neutral />
-        <GoalCard label={`Mailed or applied · ${monthLabel(month)}`} show={amt(sum(applied))} note={`${applied.length} of ${live.length}`} pct={live.length ? applied.length / live.length : 0} good={live.length > 0 && applied.length === live.length - returned.length} />
-        <GoalCard label="Not sent yet · any month" show={amt(sum(waiting))} note={waiting.length ? `${waiting.length} waiting · oldest ${oldest} day${oldest === 1 ? '' : 's'}` : 'all caught up'} good={!waiting.length} />
+        <GoalCard label={`Mailed, deposited or applied · ${monthLabel(month)}`} show={amt(sum(applied))} note={`${applied.length} of ${live.length}`} pct={live.length ? applied.length / live.length : 0} good={live.length > 0 && applied.length === live.length - returned.length} />
+        <GoalCard label="Waiting · any month" show={amt(sum(waiting))} note={waiting.length ? `${waiting.length} waiting · oldest ${oldest} day${oldest === 1 ? '' : 's'}` : 'all caught up'} good={!waiting.length} />
         <GoalCard label={`Returned · ${monthLabel(month)}`} show={amt(sum(returned))} note={`${returned.length} bounced or sent back`} good={!returned.length} neutral={!returned.length} />
       </div>
 
       {waiting.length > 0 && (
-        <Section title="Waiting to go out" sub="every month · mail or apply these the same day they come in">
+        <Section title="Waiting to go out" sub="every month · mail checks and deposit cash the same day they come in">
           <Table rows={waiting} today={today} open={open} setOpen={setOpen} who={who} onChange={bump} showAge />
         </Section>
       )}
@@ -131,15 +133,16 @@ function RowGroup({ r, today, open, toggle, who, onChange, showAge }: { r: Recei
   const age = daysSince(r.received_on, today)
   return (<>
     <tr className={r.status === 'void' ? 'pay-void' : undefined}>
-      <td className="mono">{mdy(r.received_on)}{showAge && <div className={'rp-muted' + (age > 1 ? ' warn' : '')}>{age === 0 ? 'today' : `${age} day${age === 1 ? '' : 's'} ago`}</div>}</td>
+      <td className="mono">{mdy(r.received_on)}<div className="rp-muted">accepted by {r.received_by}</div>{showAge && <div className={'rp-muted' + (age > 1 ? ' warn' : '')}>{age === 0 ? 'today' : `${age} day${age === 1 ? '' : 's'} ago`}</div>}</td>
       <td>{METHOD[r.method]}{r.check_number && <div className="rp-muted">#{r.check_number}</div>}</td>
       <td><div className="strong">{r.payer}</div>{r.insured && r.insured !== r.payer && <div className="rp-muted">{r.insured}</div>}</td>
       <td className="mono">{r.account_number || '—'}{r.carrier && <div className="rp-muted">{r.carrier}</div>}</td>
       <td className="r mono strong">{amt(r.amount)}</td>
       <td><span className={'rp-pill ' + STATUS[r.status].kind}>{STATUS[r.status].label}</span>
         {r.status === 'applied' && <div className="rp-muted">{mdy(r.applied_on!)} · {r.applied_by}</div>}
-        {r.status === 'mailed' && <div className="rp-muted">{mdy(r.mailed_on!)} · {r.mailed_by}</div>}</td>
-      <td className="r"><button className="linkbtn" onClick={toggle}>{open ? 'Close' : r.status === 'received' ? 'Mail / apply' : 'Details'}</button></td>
+        {r.status === 'mailed' && <div className="rp-muted">{mdy(r.mailed_on!)} · {r.mailed_by}</div>}
+        {r.status === 'deposited' && <div className="rp-muted">{mdy(r.deposited_on!)} · {r.deposited_by}</div>}</td>
+      <td className="r"><button className="linkbtn" onClick={toggle}>{open ? 'Close' : r.status === 'received' ? (r.method === 'cash' ? 'Deposit / apply' : 'Mail / apply') : 'Details'}</button></td>
     </tr>
     {open && <tr className="pay-open"><td colSpan={7}><Details r={r} today={today} who={who} onChange={onChange} /></td></tr>}
   </>)
@@ -153,6 +156,7 @@ function Details({ r, today, who, onChange }: { r: Receipt; today: string; who: 
   }, [r.id, r.status, r.scan_path])
   const [ap, setAp] = useState({ on: today, ref: '', note: '' })
   const [ml, setMl] = useState({ on: today, note: 'Mailed with the remittance coupon to the address on the coupon' })
+  const [dp, setDp] = useState({ on: today, ref: '' })
   const [close, setClose] = useState<{ to: 'returned' | 'void'; why: string } | null>(null)
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
@@ -168,9 +172,10 @@ function Details({ r, today, who, onChange }: { r: Receipt; today: string; who: 
   return (
     <div className="pay-details">
       <div className="pay-facts">
-        {([['Received', `${mdy(r.received_on)} by ${r.received_by}`], ['Method', METHOD[r.method] + (r.check_number ? ` #${r.check_number}` : '')], ['Check date', r.check_date ? mdy(r.check_date) : ''],
+        {([['Received', mdy(r.received_on)], ['Accepted by', r.received_by], ['Method', METHOD[r.method] + (r.check_number ? ` #${r.check_number}` : '')], ['Check date', r.check_date ? mdy(r.check_date) : ''],
           ['Amount', amt(r.amount)], ['Amount due', r.amount_due != null ? amt(r.amount_due) : ''], ['Payer', r.payer], ['Insured', r.insured || ''], ['Account / policy #', r.account_number || ''],
-          ['Carrier', r.carrier || ''], ['Note', r.note || ''], ['Mailed', r.mailed_on ? `${mdy(r.mailed_on)} by ${r.mailed_by}${r.mailed_note ? ' · ' + r.mailed_note : ''}` : ''], ['Applied', r.applied_on ? `${mdy(r.applied_on)} by ${r.applied_by}${r.applied_ref ? ' · confirmation ' + r.applied_ref : ''}${r.applied_note ? ' · ' + r.applied_note : ''}` : ''],
+          ['Carrier', r.carrier || ''], ['Note', r.note || ''], ['Mailed', r.mailed_on ? `${mdy(r.mailed_on)} by ${r.mailed_by}${r.mailed_note ? ' · ' + r.mailed_note : ''}` : ''],
+          ['Deposited to trust', r.deposited_on ? `${mdy(r.deposited_on)} by ${r.deposited_by}${r.deposited_ref ? ' · ' + r.deposited_ref : ''}` : ''], ['Applied', r.applied_on ? `${mdy(r.applied_on)} by ${r.applied_by}${r.applied_ref ? ' · confirmation ' + r.applied_ref : ''}${r.applied_note ? ' · ' + r.applied_note : ''}` : ''],
           [r.status === 'void' ? 'Voided' : 'Returned', r.closed_reason ? `${r.closed_reason} · ${r.closed_by}` : '']] as [string, string][]).filter(([, v]) => v).map(([k, v]) => (
           <div key={k}><span className="rp-k">{k}</span><div>{v}</div></div>
         ))}
@@ -190,9 +195,21 @@ function Details({ r, today, who, onChange }: { r: Receipt; today: string; who: 
           </div>
         </div>
       )}
-      {(r.status === 'received' || r.status === 'mailed') && (
+      {r.status === 'received' && r.method === 'cash' && (
         <div className="pay-act">
-          <div className="strong">{r.status === 'mailed' ? 'Confirm it posted to the account' : 'Mark it applied'} <span className="rp-muted">— {r.status === 'mailed' ? 'once the payment shows on the policy' : 'for carriers that let the office apply it'}</span></div>
+          <div className="strong">Mark it deposited <span className="rp-muted">— cash isn’t mailed; it goes into the agency trust account</span></div>
+          <div className="form-grid">
+            <label>Deposited on<input className="fld" type="date" max={today} min={r.received_on} value={dp.on} onChange={(e) => setDp({ ...dp, on: e.target.value })} /></label>
+            <label style={{ gridColumn: 'span 2' }}>Deposit slip / reference #<input className="fld" value={dp.ref} onChange={(e) => setDp({ ...dp, ref: e.target.value })} /></label>
+          </div>
+          <div className="row-actions" style={{ marginTop: 10 }}>
+            <button className="btn-primary" disabled={busy || !dp.on} onClick={() => run(async () => supabase.from('payment_receipts').update({ status: 'deposited', deposited_on: dp.on, deposited_by: who, deposited_ref: dp.ref.trim() || null }).eq('id', r.id))}>Mark deposited to trust</button>
+          </div>
+        </div>
+      )}
+      {(r.status === 'received' || r.status === 'mailed' || r.status === 'deposited') && (
+        <div className="pay-act">
+          <div className="strong">{r.status === 'mailed' ? 'Confirm it posted to the account' : 'Mark it applied'} <span className="rp-muted">— {r.status === 'mailed' ? 'once the payment shows on the policy' : r.method === 'cash' ? 'once it’s applied to the policy from the trust account' : 'for carriers that let the office apply it'}</span></div>
           <div className="form-grid">
             <label>Applied on<input className="fld" type="date" max={today} min={r.received_on} value={ap.on} onChange={(e) => setAp({ ...ap, on: e.target.value })} /></label>
             <label>Confirmation # <span className="rp-muted">(from the carrier)</span><input className="fld" value={ap.ref} onChange={(e) => setAp({ ...ap, ref: e.target.value })} /></label>
@@ -233,7 +250,12 @@ function Details({ r, today, who, onChange }: { r: Receipt; today: string; who: 
 }
 
 function LogForm({ today, who, onSaved }: { today: string; who: string; onSaved: (month: string) => void }) {
-  const blank = { method: 'check' as Method, received_on: today, amount: '', payer: '', insured: '', account_number: '', carrier: 'Farmers', check_number: '', check_date: '', amount_due: '', note: '' }
+  // who took the money (the person logging it may not be who accepted it)
+  const staff = useAsync(async () => {
+    const { data } = await supabase.from('staff_directory').select('display_name')
+    return [...new Set(((data || []) as { display_name: string | null }[]).map((p) => p.display_name).filter(Boolean) as string[])].sort()
+  }, [])
+  const blank = { method: 'check' as Method, received_on: today, accepted_by: who, amount: '', payer: '', insured: '', account_number: '', carrier: 'Farmers', check_number: '', check_date: '', amount_due: '', note: '' }
   const [d, setD] = useState(blank)
   const [file, setFile] = useState<File | null>(null)
   const [busy, setBusy] = useState(false)
@@ -241,12 +263,13 @@ function LogForm({ today, who, onSaved }: { today: string; who: string; onSaved:
   const save = async () => {
     if (!(Number(d.amount) > 0)) return alert('Enter the amount.')
     if (!d.payer.trim()) return alert('Who paid? Enter the name on the check (or the person who paid cash).')
-    if (!confirm(`Log ${METHOD[d.method].toLowerCase()} of ${money2(Number(d.amount))} from ${d.payer.trim()}, received ${mdy(d.received_on)}?\n\nThis can't be edited or deleted afterwards.`)) return
+    if (!d.accepted_by.trim()) return alert('Who accepted the money?')
+    if (!confirm(`Log ${METHOD[d.method].toLowerCase()} of ${money2(Number(d.amount))} from ${d.payer.trim()}, received ${mdy(d.received_on)}, accepted by ${d.accepted_by.trim()}?\n\nThis can't be edited or deleted afterwards.`)) return
     setBusy(true)
     const { data, error } = await supabase.from('payment_receipts').insert({
       received_on: d.received_on, method: d.method, amount: Number(d.amount), payer: d.payer.trim(), insured: d.insured.trim() || null, account_number: d.account_number.trim() || null,
       carrier: d.carrier.trim() || null, check_number: d.method === 'cash' ? null : d.check_number.trim() || null, check_date: d.check_date || null,
-      amount_due: d.amount_due ? Number(d.amount_due) : null, note: d.note.trim() || null, received_by: who,
+      amount_due: d.amount_due ? Number(d.amount_due) : null, note: d.note.trim() || null, received_by: d.accepted_by.trim(),
     }).select('id').single()
     if (!error && file && data) {
       const agency = (await supabase.rpc('current_agency_id')).data as string
@@ -267,6 +290,9 @@ function LogForm({ today, who, onSaved }: { today: string; who: string; onSaved:
         <div className="form-grid">
           <label>Received on<input className="fld" type="date" max={today} value={d.received_on} onChange={(e) => set('received_on', e.target.value || today)} /></label>
           <label>Amount<input className="fld" type="number" min={0} step="0.01" value={d.amount} onChange={(e) => set('amount', e.target.value)} /></label>
+          <label>Accepted by <span className="rp-muted">(who took the money)</span><select className="fld" value={d.accepted_by} onChange={(e) => set('accepted_by', e.target.value)}>
+            {[...new Set([who, ...(staff.data || [])])].map((n) => <option key={n} value={n}>{n}</option>)}
+          </select></label>
           <label>Payer <span className="rp-muted">(name on the check)</span><input className="fld" value={d.payer} onChange={(e) => set('payer', e.target.value)} /></label>
           <label>Insured <span className="rp-muted">(if different)</span><input className="fld" value={d.insured} onChange={(e) => set('insured', e.target.value)} /></label>
           <label>Account / policy #<input className="fld" value={d.account_number} onChange={(e) => set('account_number', e.target.value)} /></label>
@@ -280,6 +306,7 @@ function LogForm({ today, who, onSaved }: { today: string; who: string; onSaved:
         <div className="row-actions" style={{ marginTop: 12 }}><button className="btn-primary" disabled={busy} onClick={save}>{busy ? 'Saving…' : 'Log payment'}</button></div>
         <div className="pay-rule">
           <b>Farmers checks can’t be applied in the office.</b> Mail the check with the remittance coupon to the address on the coupon (or have the customer mail it), then mark it mailed here.
+          <b> Cash is never mailed</b> — it goes into the agency trust account; mark it deposited, then applied.
           Need a same-day payment? Use <a href="https://agencynews.farmers.com/content/dam/apex/documents/non-srn/training-nonsrn/SMS_Secure_Pay_Job_Aid.pdf" target="_blank" rel="noreferrer">SMS SecurePay</a>,
           a <a href="https://farmerssrm.my.site.com/AgencyCommunityPortal/apex/KM_CommunityViewPage?id=kAD1L000000fzVnWAI&persona=EA" target="_blank" rel="noreferrer">one-time payment on Farmers.com</a>, or a
           {' '}<a href="https://farmerssrm.my.site.com/AgencyCommunityPortal/articles/Knowledge/Payment-Authorization-Form-Collection" target="_blank" rel="noreferrer">one-time bank withdrawal / automatic payments</a>.
