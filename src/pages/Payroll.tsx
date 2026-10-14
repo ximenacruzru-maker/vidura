@@ -3,7 +3,7 @@ import { useAuth } from '../auth'
 import { useFolio } from '../components/FolioPicker'
 import { Empty, ErrorBox, Loading, PageHead, Panel, Tile, Tiles } from '../components/ui'
 import { openDoc, type Doc } from '../lib/books'
-import { getSdrPeriods, getSdrTransfers } from '../lib/data'
+import { getSdrPeriods, getSdrQuoteNumbers, getSdrTransfers } from '../lib/data'
 import { downloadSheet } from '../lib/excelExport'
 import { mdy, money2, shortDate, todayPacific } from '../lib/format'
 import { supabase } from '../lib/supabase'
@@ -58,6 +58,8 @@ export default function Payroll() {
     return (data.results || []) as Comm[]
   }, [folio?.start_date])
   const sdr = useAsync(async () => (period ? getSdrTransfers(period.month) : []), [period?.month])
+  // the Apex quote # each SDR entered per transfer, for reconciling the SDR bonus
+  const apex = useAsync(async () => (period ? getSdrQuoteNumbers(period.month) : new Map()), [period?.month])
   // the agency's premium for the folio paid on the 21st: salaried staff's cash bonuses ride on it
   const agencyPrem = useAsync(async () => {
     if (!folio) return null
@@ -139,8 +141,15 @@ export default function Payroll() {
         ['Producer', 'Total premium', 'Policies', 'Qualifies', 'Tier rate', 'Commission'],
         ...(comm.data || []).map((c) => [c.producer, r2(c.totalPremium), c.policies, c.qualifies ? 'Yes' : 'No', Math.round(c.tierRate * 1000) / 10 + '%', r2(c.total)]),
         [], [`SDR bonus · ${period?.period_label || '—'} transfers · $${qb} per qualified, $${bb} per bound (in place of the $${qb})`],
-        ['SDR', 'Transfers', 'Qualified', 'Bound', 'SDR bonus'],
-        ...[...lines.sdrs].map(([n, o]) => [n, o.logged, o.qualified, o.bound, r2(o.qOnly * qb + o.bound * bb)]),
+        ['SDR', 'Transfers', 'Qualified', 'Bound', 'SDR bonus', 'Missing Apex quote #'],
+        ...[...lines.sdrs].map(([n, o]) => [n, o.logged, o.qualified, o.bound, r2(o.qOnly * qb + o.bound * bb), (sdr.data || []).filter((t) => t.sdr === n && !apex.data?.get(t.lead_id)).length]),
+        [], [`SDR transfers to reconcile · ${period?.period_label || '—'} · match each Apex quote # to the bonus it earns`],
+        ['SDR', 'Transferred', 'Client', 'Producer', 'AgencyZoom lead #', 'Apex quote #', 'Quoted premium', 'Qualified', 'Bound', 'Bonus', 'Quote # entered by', 'Entered'],
+        ...[...(sdr.data || [])].sort((a, b) => a.sdr.localeCompare(b.sdr) || String(a.date_time).localeCompare(String(b.date_time))).map((t) => {
+          const q = apex.data?.get(t.lead_id)
+          return [t.sdr, String(t.date_time).slice(0, 10), t.client, t.producer, t.lead_id, q?.quote_number || 'MISSING', r2(Number(t.az_quote_premium) || 0),
+            t.az_qualifies ? 'Yes' : 'No', t.bound ? 'Yes' : 'No', r2(t.bound ? bb : t.az_qualifies ? qb : 0), q?.entered_by || '', q ? String(q.updated_at).slice(0, 10) : '']
+        }),
         ...(lines.salaried.length ? [
           [], [`Agency bonus · folio ${folioLabel || 'not found'} · agency premium ${r2(agencyPrem.data || 0)}`],
           ['Name', 'Annual salary', 'Bonus tiers', 'Agency bonus', 'Measured on', 'Gates'],
@@ -155,7 +164,7 @@ export default function Payroll() {
     ], { sheet: `Payroll ${pay}` })
   }
 
-  const err = hours.error || comm.error || sdr.error || periods.error || agencyPrem.error || gated.error
+  const err = hours.error || comm.error || sdr.error || apex.error || periods.error || agencyPrem.error || gated.error
   return (
     <>
       <PageHead kicker="Agency Management" title="Office Payroll" sub="Payroll is paid on the 5th and the 21st: the 5th for hours from the 16th to the end of the month, the 21st for hours from the 1st to the 15th, plus commission for last month’s folio and SDR bonuses for last month’s transfers. Download it for the payroll run, then upload the payroll files back here." />
@@ -163,7 +172,7 @@ export default function Payroll() {
         right={<div className="filters">
           <button className="btn-ghost" onClick={() => setPay(stepPay(pay, -1))} aria-label="Previous payday">‹ {shortDate(stepPay(pay, -1))}</button>
           <button className="btn-ghost" onClick={() => setPay(stepPay(pay, 1))} aria-label="Next payday">{shortDate(stepPay(pay, 1))} ›</button>
-          <button className="btn-primary" onClick={download} disabled={!lines || !!err}>Download Excel</button>
+          <button className="btn-primary" onClick={download} disabled={!lines || !!err || (check.commission && !apex.data)}>Download Excel</button>
         </div>}>
         {err ? <ErrorBox error={err} /> : !lines ? <Loading what="Adding up payroll" /> : (
           <>

@@ -1,11 +1,12 @@
 import { supabase } from './supabase'
 
-export type BookKey = 'farmers' | 'commercial' | 'brokered_commercial' | 'brokered_personal'
+export type BookKey = 'farmers' | 'commercial' | 'brokered_commercial' | 'brokered_personal' | 'fair_plan'
 
 export const BOOKS: { key: BookKey; label: string; short: string; blurb: string; includes: BookKey[] }[] = [
   { key: 'farmers', label: 'Farmers Commercial', short: 'Farmers Commercial', blurb: 'Farmers commercial and transferred households, by client.', includes: ['farmers'] },
   { key: 'brokered_commercial', label: 'Brokered Commercial', short: 'Brokered Commercial', blurb: 'Binders placed through wholesale brokers and the multi-location owner accounts.', includes: ['brokered_commercial', 'commercial'] },
   { key: 'brokered_personal', label: 'P&C Brokered', short: 'P&C Brokered', blurb: 'Bamboo, Aegis and other brokered personal lines.', includes: ['brokered_personal'] },
+  { key: 'fair_plan', label: 'CA FAIR Plan', short: 'CA FAIR Plan', blurb: 'California FAIR Plan dwelling fire policies: status, payment plan and when the next payment is due.', includes: ['fair_plan'] },
 ]
 /** Which tab a stored book belongs to (the owner accounts sit under Brokered commercial). */
 export const bookTab = (k: string) => (BOOKS.find((b) => b.includes.includes(k as BookKey))?.key || 'farmers') as BookKey

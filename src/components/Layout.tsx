@@ -68,7 +68,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     { to: '/settings', label: 'Settings', icon: 'settings', show: true },
     { to: '/agencies', label: 'Agencies', icon: 'book', show: !!me?.platform_admin },
   ]
-  const nav: Item[] = only ? [{ h: 'Workspace' }, { to: '/my-commissions', label: 'My Commissions', icon: 'sales', show: true }, { div: true }, { to: '/settings', label: 'Settings', icon: 'settings', show: true }] : full
+  const nav: Item[] = only ? [{ h: 'Workspace' }, { to: '/my-commissions', label: 'My Commissions', icon: 'sales', show: true }, { to: '/training', label: 'Farmers University', icon: 'training', show: true }, { div: true }, { to: '/settings', label: 'Settings', icon: 'settings', show: true }] : full
   const visible = nav.filter((n, i) => {
     if ('to' in n) return n.show
     if ('div' in n) return true

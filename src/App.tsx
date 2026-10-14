@@ -5,7 +5,8 @@ import Layout from './components/Layout'
 import { Loading } from './components/ui'
 import ChangePassword from './pages/ChangePassword'
 import { can, commissionsOnly } from './lib/access'
-import { lazy, Suspense, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
+import { getClientFile } from './lib/client'
 
 // Each page is its own file, downloaded the first time it's opened, so the first load stays small.
 const Settings = lazy(() => import('./pages/Settings'))
@@ -28,29 +29,21 @@ const Agencies = lazy(() => import('./pages/Agencies'))
 const SalesKPIs = lazy(() => import('./pages/sales/SalesKPIs'))
 const DailyHuddle = lazy(() => import('./pages/huddle/DailyHuddle'))
 const Reports = lazy(() => import('./pages/reports/Reports'))
+const ClientPortal = lazy(() => import('./pages/client/ClientPortal'))
+const ClientPreview = lazy(() => import('./pages/client/ClientPreview'))
 
 function Gate() {
   const { session, me, loading, signOut } = useAuth()
   const [pwDone, setPwDone] = useState(false)
   if (!session) return <LoginScreen />
   if (loading) return <div className="center"><Loading what="Signing in" /></div>
-  if (!me) {
-    return (
-      <div className="center">
-        <div className="panel narrow">
-          <div className="panel-b">
-            <p>You’re signed in, but this login isn’t set up as a staff account yet. Ask an admin to add you.</p>
-            <button className="btn-ghost" onClick={signOut}>Sign out</button>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  // not on staff: a client portal login sees only their own file (ClientGate shows the old message for anyone else)
+  if (!me) return <ClientGate onSignOut={signOut} />
   if ((me.must_change_password || sessionStorage.getItem('vx_recovery')) && !pwDone) return <ChangePassword forced onDone={() => { sessionStorage.removeItem('vx_recovery'); setPwDone(true) }} />
   // a new hire has only the training (and settings): it is their home and the rest isn't routed
   const trainee = me.role === 'new_hire'
   const home = trainee ? '/training' : can(me, 'performance') ? '/' : '/today'
-  // "My Commissions only": that page, their settings and changing their password are all that is routed
+  // "My Commissions only": that page, Farmers University, their settings and changing their password are all that is routed
   if (commissionsOnly(me)) {
     return (
       <FolioProvider>
@@ -58,6 +51,7 @@ function Gate() {
           <Suspense fallback={<div className="center"><Loading what="Loading" /></div>}>
           <Routes>
             <Route path="/my-commissions" element={<MyCommissions />} />
+            <Route path="/training" element={<Training />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/password" element={<ChangePassword />} />
             <Route path="*" element={<Navigate to="/my-commissions" replace />} />
@@ -103,12 +97,41 @@ function Gate() {
           {can(me, 'books') && !trainee && <Route path="/payments" element={<Payments />} />}
           {can(me, 'passwords') && <Route path="/passwords" element={<Navigate to="/resources?tab=passwords" replace />} />}
           {can(me, 'training') && <Route path="/training" element={<Training />} />}
+          {can(me, 'books') && <Route path="/client-view/:account" element={<ClientPreview />} />}
           <Route path="*" element={<Navigate to={home} replace />} />
         </Routes>
         </Suspense>
       </Layout>
     </FolioProvider>
   )
+}
+
+/** A login that isn't on staff: if it's a client portal login, their own file (after choosing a password); otherwise
+ *  the "not set up yet" message. The database decides: client_portal() returns nothing for anyone but a client. */
+function ClientGate({ onSignOut }: { onSignOut: () => Promise<void> }) {
+  const [state, setState] = useState<'loading' | 'client' | 'none'>('loading')
+  const [mustChange, setMustChange] = useState(false)
+  const [pw, setPw] = useState(false)
+  useEffect(() => {
+    let alive = true
+    getClientFile().then((f) => { if (!alive) return; setMustChange(!!f?.viewer.must_change_password); setState(f ? 'client' : 'none') }).catch(() => alive && setState('none'))
+    return () => { alive = false }
+  }, [])
+  if (state === 'loading') return <div className="center"><Loading what="Signing in" /></div>
+  if (state === 'none') {
+    return (
+      <div className="center">
+        <div className="panel narrow">
+          <div className="panel-b">
+            <p>You’re signed in, but this login isn’t set up yet. Please contact the agency.</p>
+            <button className="btn-ghost" onClick={onSignOut}>Sign out</button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+  if (mustChange || pw) return <ChangePassword forced onDone={() => { setMustChange(false); setPw(false) }} />
+  return <Suspense fallback={<div className="center"><Loading what="Opening your file" /></div>}><ClientPortal onSignOut={onSignOut} onChangePassword={() => setPw(true)} /></Suspense>
 }
 
 export default function App() {
