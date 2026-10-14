@@ -9,6 +9,7 @@ import { useAuth } from '../auth'
 import { isAdmin } from '../lib/data'
 import DocUpload from '../components/DocUpload'
 import RenewalAlert from './RenewalAlert'
+import ClientPortalPanel from './client/ClientPortalPanel'
 
 export function RenewPill({ days }: { days: number | null }) {
   if (days == null) return <span className="pill pill-muted">no date</span>
@@ -165,6 +166,8 @@ export function AccountDrawer({ account, policies, docs, onClose }: { account: A
       </Panel>
 
       <CertificatesIssued docs={docs.filter((x) => x.category === 'coi')} />
+
+      <ClientPortalPanel account={account} />
 
       <Panel title="Documents">
         <DocList docs={docs} empty="No documents filed for this account yet." />

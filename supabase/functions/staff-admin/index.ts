@@ -1,6 +1,7 @@
 // Team & access: lets an owner/admin add staff logins, change roles and section access, turn
 // people off, and set a temporary password, all from buttons in the app.
 // Body: { action: "list" | "create" | "update" | "reset_password", ... }
+// Client portal logins (a client sees only their own file): "client_list" | "client_create" | "client_update" | "client_reset_password".
 // Everything is limited to the caller's own agency: this runs with the service role, which skips
 // row-level security, so every staff_accounts read and write names the agency.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -12,7 +13,7 @@ const cors = {
 };
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...cors, "Content-Type": "application/json" } });
 const ROLES = ["owner", "admin", "producer", "protege", "sdr", "csr", "va", "new_hire"];
-const SECTIONS = ["performance", "books", "resources", "work", "chat", "training", "proteges", "passwords", "hr", "work_manager", "retention"];
+const SECTIONS = ["performance", "books", "resources", "work", "chat", "training", "proteges", "passwords", "hr", "work_manager", "retention", "commissions_only"];
 
 function cleanAccess(a: unknown) {
   const out: Record<string, boolean> = {};
@@ -100,6 +101,76 @@ Deno.serve(async (req) => {
         if (error) throw error;
       }
       const { error } = await db.from("staff_accounts").update(patch).eq("agency_id", A).eq("user_id", id);
+      if (error) throw error;
+      return json({ ok: true });
+    }
+
+    // ---- client portal logins: a client signs in and sees only the accounts listed on their login ----
+    const accountsOk = async (ids: unknown) => {
+      const list = Array.isArray(ids) ? [...new Set(ids.map((x) => String(x)).filter(Boolean))] : [];
+      if (!list.length) return null;
+      const { data } = await db.from("book_accounts").select("id").eq("agency_id", A).in("id", list);
+      return (data || []).length === list.length ? list : null;
+    };
+    const lastSeen = async (ids: Set<string>) => {
+      const seen: Record<string, string | null> = {};
+      for (let page = 1; page < 20; page++) {
+        const { data } = await db.auth.admin.listUsers({ page, perPage: 200 });
+        for (const x of data?.users || []) if (ids.has(x.id)) seen[x.id] = x.last_sign_in_at || null;
+        if (!data || data.users.length < 200) break;
+      }
+      return seen;
+    };
+
+    if (body.action === "client_list") {
+      let q = db.from("client_logins").select("*").eq("agency_id", A).order("display_name");
+      if (body.account_id) q = q.contains("account_ids", [String(body.account_id)]);
+      const { data: logins, error } = await q;
+      if (error) throw error;
+      const seen = await lastSeen(new Set((logins || []).map((c) => c.user_id)));
+      return json({ clients: (logins || []).map((c) => ({ ...c, last_sign_in_at: seen[c.user_id] ?? null })) });
+    }
+
+    if (body.action === "client_create") {
+      const email = String(body.email || "").trim().toLowerCase();
+      const name = String(body.display_name || "").trim();
+      const password = String(body.password || "");
+      const ids = await accountsOk(body.account_ids);
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "Enter a valid email." }, 400);
+      if (!name) return json({ error: "Enter the client's name." }, 400);
+      if (!ids) return json({ error: "Pick the client's account." }, 400);
+      if (password.length < 8) return json({ error: "The temporary password needs at least 8 characters." }, 400);
+      const { data: made, error } = await db.auth.admin.createUser({ email, password, email_confirm: true });
+      if (error) return json({ error: /already/i.test(error.message) ? "That email already has a login." : error.message }, 400);
+      const { data: by } = await db.from("staff_accounts").select("display_name").eq("user_id", u.user.id).maybeSingle();
+      const { error: e2 } = await db.from("client_logins").insert({
+        user_id: made.user!.id, agency_id: A, account_ids: ids, display_name: name, email, active: true, must_change_password: true, created_by: by?.display_name || null,
+      });
+      if (e2) { await db.auth.admin.deleteUser(made.user!.id); throw e2; }
+      return json({ ok: true, user_id: made.user!.id });
+    }
+
+    if (body.action === "client_update" || body.action === "client_reset_password") {
+      const id = String(body.user_id || "");
+      const { data: target } = await db.from("client_logins").select("*").eq("agency_id", A).eq("user_id", id).maybeSingle();
+      if (!target) return json({ error: "That client login isn't on file." }, 404);
+      if (body.action === "client_reset_password") {
+        const password = String(body.password || "");
+        if (password.length < 8) return json({ error: "The temporary password needs at least 8 characters." }, 400);
+        const { error } = await db.auth.admin.updateUserById(id, { password });
+        if (error) throw error;
+        await db.from("client_logins").update({ must_change_password: true }).eq("agency_id", A).eq("user_id", id);
+        return json({ ok: true });
+      }
+      const patch: Record<string, unknown> = {};
+      if (typeof body.display_name === "string" && body.display_name.trim()) patch.display_name = body.display_name.trim();
+      if ("account_ids" in body) { const ids = await accountsOk(body.account_ids); if (!ids) return json({ error: "Pick the client's account." }, 400); patch.account_ids = ids; }
+      if (typeof body.active === "boolean") {
+        patch.active = body.active;
+        const { error } = await db.auth.admin.updateUserById(id, { ban_duration: body.active ? "none" : "876000h" });
+        if (error) throw error;
+      }
+      const { error } = await db.from("client_logins").update(patch).eq("agency_id", A).eq("user_id", id);
       if (error) throw error;
       return json({ ok: true });
     }
