@@ -1237,3 +1237,6 @@ html[data-theme="astra"] .xd .mc-btn { border-color: #E5252E; background: #2A101
   .cp-adm-item { grid-template-columns: auto minmax(0, 1fr); }
   .cp-adm-btns { grid-column: 1 / -1; justify-content: flex-start; }
 }
+.copy-note { font-size: 11px; color: var(--muted); text-align: center; opacity: .85; }
+.side-copy { margin-top: 8px; color: inherit; opacity: .7; font-size: 10px; line-height: 1.3; }
+.cpx-foot small { margin-top: 4px; }

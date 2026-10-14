@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth'
 import { can, commissionsOnly, ROLE_LABEL } from '../lib/access'
 import { agencyName } from '../lib/data'
+import { COPYRIGHT } from '../lib/format'
 import { bookLabel, getAccounts, getBookPolicies, type Account, type BookPolicy } from '../lib/books'
 import { money0 } from '../lib/format'
 import logo from '../assets/logo.jpg'
@@ -100,6 +101,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         </nav>
         <div className="side-foot">
           <button className="logout" onClick={signOut} title="Sign out"><Icon name="logout" width={1.5} /><span>Sign Out</span></button>
+          <div className="copy-note side-copy">{COPYRIGHT}</div>
         </div>
       </aside>
 

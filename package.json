@@ -1,6 +1,8 @@
 {
   "name": "declara-app",
   "private": true,
+  "license": "SEE LICENSE IN LICENSE",
+  "author": "Ximena Cruz",
   "version": "0.0.0",
   "type": "module",
   "scripts": {

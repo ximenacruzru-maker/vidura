@@ -8,5 +8,9 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   base: './',
-  build: { outDir: 'dist', assetsDir: '', chunkSizeWarningLimit: 1200, sourcemap: false, minify: true },
+  build: {
+    outDir: 'dist', assetsDir: '', chunkSizeWarningLimit: 1200, sourcemap: false, minify: true,
+    // every published script starts with the ownership notice
+    rolldownOptions: { output: { postBanner: '/*! Declara © 2026 Ximena Cruz. All rights reserved. Proprietary and confidential — no copying, reverse engineering or reuse without written permission. */' } },
+  },
 })
