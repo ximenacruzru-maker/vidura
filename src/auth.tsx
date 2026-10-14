@@ -5,6 +5,7 @@ import { getMe, type StaffAccount } from './lib/data'
 import { loadLook } from './lib/theme'
 import { clearBrowserData, endDeviceSync, startDeviceSync } from './lib/deviceSync'
 import logo from './assets/login-logo.jpg'
+import { COPYRIGHT } from './lib/format'
 
 interface AuthState {
   session: Session | null
@@ -94,13 +95,14 @@ export function LoginScreen() {
     <div className="login">
       <form className="login-card" onSubmit={submit}>
         <img src={logo} alt="Declara" className="login-logo" />
-        <div className="login-sub">Agency staff sign-in</div>
+        <div className="login-sub">Sign in</div>
         <label>Email<input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required /></label>
         <label>Password<input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required /></label>
         <button className="btn-primary" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
         <button type="button" className="linkbtn" style={{ alignSelf: 'center' }} onClick={forgot} disabled={busy}>Forgot password?</button>
         {err && <div className="login-err">{err}</div>}
         {msg && <div className="note" style={{ textAlign: 'center', margin: 0 }}>{msg}</div>}
+        <div className="copy-note">{COPYRIGHT}</div>
       </form>
     </div>
   )

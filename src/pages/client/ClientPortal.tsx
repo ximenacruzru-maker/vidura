@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { getClientFile, openClientDoc, type ClientDoc, type ClientFile, type ClientItem, type ClientPolicy, type PortalGroup } from '../../lib/client'
 import { daysUntil } from '../../lib/books'
-import { mdy, money2, timeAgo, todayPacific } from '../../lib/format'
+import { COPYRIGHT, mdy, money2, timeAgo, todayPacific } from '../../lib/format'
 
 /** The client portal: a client's own file, live, laid out by location. The main page has the alerts, carrier totals,
  *  next renewals and a card per location (its coverages, premium, next renewal and documents); a location opens to what
@@ -256,7 +256,7 @@ export default function ClientPortal({ previewAccount, onSignOut, onChangePasswo
           )}
         </> : <LocationView l={open} today={today} alerts={view.alerts.filter((a) => a.loc === open.name)} dismissed={dismissed} dismiss={dismiss} docsFor={view.docsFor} onBack={() => setLoc(null)} />}
 
-        <footer className="cpx-foot">Questions about your coverage? Contact {agency}. This page updates on its own.</footer>
+        <footer className="cpx-foot">Questions about your coverage? Contact {agency}. This page updates on its own.<small>{COPYRIGHT}</small></footer>
       </div>
     </div>
   )

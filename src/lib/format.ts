@@ -51,3 +51,6 @@ export function issuedAt(iso: string | null | undefined) {
   const time = d.toLocaleTimeString('en-US', { timeZone: 'America/Los_Angeles', hour: 'numeric', minute: '2-digit', second: '2-digit' })
   return `${day} at ${time} PT`
 }
+
+/** The ownership notice shown on the sign-in screen, the sidebar and the client portal. */
+export const COPYRIGHT = `Declara © ${new Date().getFullYear() > 2026 ? `2026–${new Date().getFullYear()}` : '2026'} Ximena Cruz. All rights reserved.`
