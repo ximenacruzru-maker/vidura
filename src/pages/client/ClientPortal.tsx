@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { getClientFile, openClientDoc, type ClientDoc, type ClientFile, type ClientItem, type ClientPolicy, type PortalGroup } from '../../lib/client'
 import { daysUntil } from '../../lib/books'
-import { COPYRIGHT, mdy, money2, timeAgo, todayPacific } from '../../lib/format'
+import { COPYRIGHT, mdy, money0, money2, timeAgo, todayPacific } from '../../lib/format'
+import { PageHead, Panel, Tabs, Tile, Tiles } from '../../components/ui'
+import { Icon } from '../../components/icons'
+import { getLook, onLook } from '../../lib/theme'
+import logo from '../../assets/logo.jpg'
+import logoHalloween from '../../assets/logo-halloween.jpg'
 
 /** The client portal: a client's own file, live, laid out by location. The main page has the alerts, carrier totals,
  *  next renewals and a card per location (its coverages, premium, next renewal and documents); a location opens to what
@@ -126,14 +131,21 @@ function groupFor(p: ClientPolicy, groups?: PortalGroup[]) {
   return { label: p.carrier || 'Other', producer: null }
 }
 
+type Sec = 'dash' | 'locs' | 'pols' | 'docs'
+const SECS: { key: Sec; label: string; icon: string }[] = [
+  { key: 'dash', label: 'Dashboard', icon: 'executive' }, { key: 'locs', label: 'Locations', icon: 'book' },
+  { key: 'pols', label: 'Policies', icon: 'reports' }, { key: 'docs', label: 'Documents', icon: 'service' },
+]
+
 export default function ClientPortal({ previewAccount, onSignOut, onChangePassword }: { previewAccount?: string; onSignOut?: () => void; onChangePassword?: () => void }) {
   const { file, error, checked, changed } = useLiveFile(previewAccount)
+  const [sec, setSec] = useState<Sec>('dash')
   const [loc, setLoc] = useState<string | null>(null)
   const [q, setQ] = useState('')
   const [dismissed, dismiss] = useDismissed()
   const [, tick] = useState(0)
   useEffect(() => { const t = setInterval(() => tick((n) => n + 1), 5000); return () => clearInterval(t) }, [])
-  useEffect(() => { window.scrollTo?.(0, 0) }, [loc])
+  useEffect(() => { window.scrollTo?.(0, 0) }, [loc, sec])
   const today = todayPacific()
 
   const view = useMemo(() => {
@@ -152,74 +164,90 @@ export default function ClientPortal({ previewAccount, onSignOut, onChangePasswo
         docs: ps.flatMap((p) => docsFor(p).map((d) => ({ d, p }))),
       }
     }).filter((l) => l.ps.length)
-    const groups = new Map<string, { label: string; producer: string | null; total: number }>()
-    for (const p of file.policies) { const g = groupFor(p, acct?.portal?.groups); const o = groups.get(g.label) || { ...g, total: 0 }; o.total += p.premium || 0; groups.set(g.label, o) }
-    const upcoming = file.policies.filter((p) => p.expiration && p.expiration >= today).sort((a, b) => a.expiration!.localeCompare(b.expiration!)).slice(0, 5)
+    const groups = new Map<string, { label: string; producer: string | null; total: number; count: number }>()
+    for (const p of file.policies) { const g = groupFor(p, acct?.portal?.groups); const o = groups.get(g.label) || { ...g, total: 0, count: 0 }; o.total += p.premium || 0; o.count++; groups.set(g.label, o) }
+    const byLine = new Map<string, { label: string; total: number; count: number }>()
+    for (const p of file.policies) { const k = paying(p); const o = byLine.get(k) || { label: k, total: 0, count: 0 }; o.total += p.premium || 0; o.count++; byLine.set(k, o) }
+    const upcoming = file.policies.filter((p) => p.expiration && p.expiration >= today).sort((a, b) => a.expiration!.localeCompare(b.expiration!))
     const matched = new Set(file.policies.flatMap((p) => docsFor(p).map((d) => d.id)))
-    return { acct, locs, docsFor, groups: [...groups.values()].sort((a, b) => b.total - a.total), upcoming, alerts: alertsFor(file, today),
-      updates: file.items.filter((i) => i.kind === 'update' || i.status === 'done').sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, 5),
-      loose: file.documents.filter((d) => !matched.has(d.id)) }
+    return {
+      acct, locs, docsFor, groups: [...groups.values()].sort((a, b) => b.total - a.total), byLine: [...byLine.values()].sort((a, b) => b.total - a.total),
+      upcoming, alerts: alertsFor(file, today), total: file.policies.reduce((s, p) => s + (p.premium || 0), 0),
+      inForce: file.policies.filter((p) => tone(p, today) !== 'bad' || /action/i.test(p.status || '')).length,
+      pending: file.items.filter((i) => i.kind === 'pending' && i.status === 'open'),
+      updates: file.items.filter((i) => i.kind === 'update' || i.status === 'done').sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, 6),
+      loose: file.documents.filter((d) => !matched.has(d.id)),
+    }
   }, [file, today])
 
-  if (error && !file) return <div className="cpx"><div className="cpx-wrap"><div className="cpx-card cpx-pad">We couldn’t load your file just now. Please refresh, or contact your agent.</div></div></div>
-  if (file === undefined) return <div className="cpx"><div className="cpx-wrap"><div className="cpx-card cpx-pad">Opening your file…</div></div></div>
-  if (!file || !view) return <div className="cpx"><div className="cpx-wrap"><div className="cpx-card cpx-pad">No client file is set up for this login yet. Please contact your agent.</div></div></div>
+  const box = (msg: string) => <div className="cpx cpx-solo"><div className="cpx-wrap"><div className="cpx-card cpx-pad">{msg}</div></div></div>
+  if (error && !file) return box('We couldn’t load your file just now. Please refresh, or contact your agent.')
+  if (file === undefined) return box('Opening your file…')
+  if (!file || !view) return box('No client file is set up for this login yet. Please contact your agent.')
 
   const agency = file.agency?.name || 'Your agency'
-  const fresh = changed && Date.now() - Date.parse(changed) < 60000
-  const open = loc ? view.locs.find((l) => l.name === loc) : null
+  const fresh = !!changed && Date.now() - Date.parse(changed) < 60000
+  const openLoc = (name: string) => { setSec('locs'); setLoc(name) }
+  const goSec = (k: Sec) => { setSec(k); setLoc(null) }
+  const open = sec === 'locs' && loc ? view.locs.find((l) => l.name === loc) : null
   const ql = q.trim().toLowerCase()
   const shown = ql ? view.locs.filter((l) => `${l.name} ${l.address} ${l.ps.map((p) => `${p.policy_number} ${p.carrier} ${p.product}`).join(' ')}`.toLowerCase().includes(ql)) : view.locs
+  const live = (
+    <span className={'cpx-live' + (fresh ? ' cpx-live-new' : '')} role="status" aria-live="polite" title={checked ? `Checked ${timeAgo(checked)}` : ''}>
+      <span className="cpx-dot" />{fresh ? 'Just updated' : 'Live'}{file.updated_at && <small> · updated {timeAgo(file.updated_at)}</small>}
+    </span>
+  )
+  const name = view.acct?.dba || view.acct?.name || ''
+  const first = (file.viewer.display_name || view.acct?.contact || '').split(' ')[0]
 
-  return (
-    <div className={'cpx' + (previewAccount ? ' cpx-preview' : '')}>
+  const body = (
+    <div className="cpx cpx-themed">
       <div className="cpx-wrap">
-        {previewAccount
-          ? <div className="cpx-band">Preview — exactly what <b>{file.viewer.display_name || view.acct?.name}</b> sees in the client portal. Your internal notes never appear here.</div>
-          : (
-            <header className="cpx-top">
-              <div><b>{view.acct?.dba || view.acct?.name}</b><small>{agency} · client portal</small></div>
-              <div className="cpx-top-r">
-                <span className="cpx-who">{file.viewer.display_name}</span>
-                {onChangePassword && <button className="cpx-btn-l" onClick={onChangePassword}>Password</button>}
-                {onSignOut && <button className="cpx-btn-l" onClick={onSignOut}>Sign out</button>}
-              </div>
-            </header>
-          )}
-        <div className={'cpx-live' + (fresh ? ' cpx-live-new' : '')} role="status" aria-live="polite">
-          <span className="cpx-dot" />{fresh ? 'Just updated' : 'Live'} <small>· checked {checked ? timeAgo(checked) : '…'}{file.updated_at ? ` · your file last changed ${timeAgo(file.updated_at)}` : ''}</small>
-        </div>
-
-        {!open ? <>
+        {sec === 'dash' && <>
+          <PageHead kicker={name} title={first ? `Welcome, ${first}` : 'Your insurance'} sub={`Every policy, location and renewal you have with ${agency} — updated live as your agent works on it.`} right={live} />
           <Alerts list={view.alerts} dismissed={dismissed} dismiss={dismiss} />
-
+          <Tiles>
+            <Tile label="Annual premium" value={money0(view.total)} sub={`${file.policies.length} policies on file`} />
+            <Tile label="Locations" value={view.locs.length} sub={`${view.locs.filter((l) => l.bad).length || 'none'} need${view.locs.filter((l) => l.bad).length === 1 ? 's' : ''} attention`} tone={view.locs.some((l) => l.bad) ? 'warn' : 'good'} />
+            <Tile label="Next renewal" value={view.upcoming[0] ? `${daysUntil(view.upcoming[0].expiration, today)} days` : '—'} sub={view.upcoming[0] ? `${locKey(view.upcoming[0])} · ${mdy(view.upcoming[0].expiration!)}` : ''} />
+            <Tile label="Pending items" value={view.pending.length} sub={view.pending.length ? 'see alerts above' : 'nothing waiting on you'} tone={view.pending.length ? 'warn' : 'good'} />
+          </Tiles>
           <div className="cpx-two">
-            <section className="cpx-card">
-              <div className="cpx-h">{I.trend}Carrier totals</div>
+            <Panel title="Carrier totals" sub="Annual premium by carrier, with your producer">
               {view.groups.map((g) => (
                 <div key={g.label} className="cpx-ct">
-                  <div><b>{g.label}</b>{g.producer && <small>Producer: <span>{g.producer}</span></small>}</div>
+                  <div><b>{g.label}</b><small>{g.producer ? <>Producer: <span>{g.producer}</span> · </> : null}{g.count} polic{g.count === 1 ? 'y' : 'ies'}</small></div>
                   <b className="cpx-amt">{money2(g.total)}</b>
                 </div>
               ))}
-            </section>
-            <section className="cpx-card">
-              <div className="cpx-h">{I.clock}Next renewals</div>
-              {view.upcoming.length ? view.upcoming.map((p) => (
-                <button key={p.id} className="cpx-nr" onClick={() => setLoc(locKey(p))} title={`${p.product} · ${mdy(p.expiration!)}`}>
-                  <span>{locKey(p)}</span><b>{daysUntil(p.expiration, today)}d</b>
+            </Panel>
+            <Panel title="Next renewals" sub="Coming up first">
+              {view.upcoming.length ? view.upcoming.slice(0, 6).map((p) => (
+                <button key={p.id} className="cpx-nr" onClick={() => openLoc(locKey(p))} title={`${p.product} · ${mdy(p.expiration!)}`}>
+                  <span>{locKey(p)}<small>{p.product} · {mdy(p.expiration!)}</small></span><b>{daysUntil(p.expiration, today)}d</b>
                 </button>
               )) : <div className="cpx-muted">Nothing renewing soon.</div>}
-            </section>
+            </Panel>
           </div>
-
-          {view.updates.length > 0 && (
-            <section className="cpx-card cpx-upd">
-              <div className="cpx-h">Updates from your agent</div>
+          <div className="cpx-two cpx-two-even">
+            <Panel title="Spend by location" sub={`Annual premium · ${money0(view.total)} across ${view.locs.length} locations`}>
+              <Bars rows={[...view.locs].sort((a, b) => b.premium - a.premium).map((l) => ({ key: l.name, label: l.name, value: l.premium, note: `${l.ps.length} polic${l.ps.length === 1 ? 'y' : 'ies'}`, onClick: () => openLoc(l.name), bad: l.bad }))} total={view.total} />
+            </Panel>
+            <Panel title="Spend by coverage" sub="What you pay for, across every location">
+              <Bars rows={view.byLine.map((g) => ({ key: g.label, label: g.label, value: g.total, note: `${g.count} polic${g.count === 1 ? 'y' : 'ies'}` }))} total={view.total} />
+            </Panel>
+          </div>
+          {(view.pending.length > 0 || view.updates.length > 0) && (
+            <Panel title="From your agent" sub="Things pending and recent updates on your file">
+              {view.pending.map((i) => <Update key={i.id} i={i} />)}
               {view.updates.map((i) => <Update key={i.id} i={i} />)}
-            </section>
+            </Panel>
           )}
+        </>}
 
+        {sec === 'locs' && !open && <>
+          <PageHead kicker={name} title="Locations" sub="Every location with its coverages, premium and next renewal. Click one for its policies and documents." right={live} />
+          <Alerts list={view.alerts} dismissed={dismissed} dismiss={dismiss} />
           <div className="cpx-lh">
             <h2>Locations ({view.locs.length})</h2>
             <label className="cpx-search">{I.search}<input placeholder="Search location, policy #, carrier…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search locations" /></label>
@@ -247,18 +275,117 @@ export default function ClientPortal({ previewAccount, onSignOut, onChangePasswo
             })}
             {!shown.length && <div className="cpx-muted">No locations match.</div>}
           </div>
+        </>}
+        {open && <LocationView l={open} today={today} alerts={view.alerts.filter((a) => a.loc === open.name)} dismissed={dismissed} dismiss={dismiss} docsFor={view.docsFor} onBack={() => setLoc(null)} />}
 
-          {view.loose.length > 0 && (
-            <section className="cpx-card cpx-upd">
-              <div className="cpx-h">Other documents</div>
-              {view.loose.map((d) => <button key={d.id} className="cpx-dl cpx-dl-row" onClick={() => openClientDoc(d, true)}>{I.down}{d.title}</button>)}
-            </section>
-          )}
-        </> : <LocationView l={open} today={today} alerts={view.alerts.filter((a) => a.loc === open.name)} dismissed={dismissed} dismiss={dismiss} docsFor={view.docsFor} onBack={() => setLoc(null)} />}
+        {sec === 'pols' && <>
+          <PageHead kicker={name} title="Policies" sub="Every policy on file. Click one to open its location." right={live} />
+          <Panel title={`All policies (${file.policies.length})`} sub={`${money0(view.total)} annual premium`}>
+            <div className="tbl-wrap"><table className="tbl">
+              <thead><tr><th>Location</th><th>Coverage</th><th>Carrier</th><th>Policy #</th><th>Term</th><th className="r">Premium</th><th>Status</th></tr></thead>
+              <tbody>{[...file.policies].sort((a, b) => locKey(a).localeCompare(locKey(b)) || (a.product || '').localeCompare(b.product || '')).map((p) => (
+                <tr key={p.id} className="clickable" onClick={() => openLoc(locKey(p))}>
+                  <td><b>{locKey(p)}</b></td><td>{p.product}</td><td className="sub">{p.carrier}</td><td className="mono">{p.policy_number}</td>
+                  <td className="sub">{p.effective ? mdy(p.effective) : '—'} – {p.expiration ? mdy(p.expiration) : '—'}</td>
+                  <td className="r mono">{p.premium != null ? money2(p.premium) : '—'}</td>
+                  <td><span className={'cpx-st cpx-st-' + tone(p, today)}><i />{statusLabel(p, today)}</span></td>
+                </tr>
+              ))}</tbody>
+            </table></div>
+          </Panel>
+        </>}
 
-        <footer className="cpx-foot">Questions about your coverage? Contact {agency}. This page updates on its own.<small>{COPYRIGHT}</small></footer>
+        {sec === 'docs' && <>
+          <PageHead kicker={name} title="Documents" sub="Declarations pages, binders, WC info pages and certificates your agent has filed." right={live} />
+          <Panel title={`Documents (${file.documents.length})`} sub="Open or download any of them">
+            {file.documents.length ? view.locs.filter((l) => l.docs.length).map((l) => (
+              <div key={l.name} className="cpx-doc-g"><div className="cpx-h cpx-h-sm">{l.name}</div>
+                {l.docs.map(({ d, p }) => <button key={d.id} className="cpx-dl cpx-dl-row" onClick={() => openClientDoc(d, true)}>{I.down}{p.product} · {docWord(d, p)}<small>{mdy(d.created_at.slice(0, 10))}</small></button>)}
+              </div>
+            )).concat(view.loose.length ? [<div key="_other" className="cpx-doc-g"><div className="cpx-h cpx-h-sm">Other documents</div>{view.loose.map((d) => <button key={d.id} className="cpx-dl cpx-dl-row" onClick={() => openClientDoc(d, true)}>{I.down}{d.title}</button>)}</div>] : [])
+              : <div className="cpx-muted">No documents filed yet — they’ll appear here as soon as your agent adds them.</div>}
+          </Panel>
+        </>}
+        <footer className="cpx-foot">Questions about your coverage? Contact {agency}.<small>{COPYRIGHT}</small></footer>
       </div>
     </div>
+  )
+
+  if (previewAccount) {
+    return <>
+      <div className="cpx-band">Preview — exactly what <b>{file.viewer.display_name || view.acct?.name}</b> sees when they sign in (inside their own Declara screen). Your internal notes never appear here.</div>
+      <Tabs tabs={SECS.map((x) => ({ key: x.key, label: x.label }))} value={sec} onChange={goSec} />
+      {body}
+    </>
+  }
+  return <ClientShell name={name} who={file.viewer.display_name || ''} sec={sec} onSec={goSec} onSignOut={onSignOut} onChangePassword={onChangePassword}>{body}</ClientShell>
+}
+
+/** The client's own Declara screen: the same sidebar and top bar as the staff app, with only their sections. */
+function ClientShell({ name, who, sec, onSec, onSignOut, onChangePassword, children }: { name: string; who: string; sec: Sec; onSec: (k: Sec) => void; onSignOut?: () => void; onChangePassword?: () => void; children: ReactNode }) {
+  const [drawer, setDrawer] = useState(false)
+  const [menu, setMenu] = useState(false)
+  const [theme, setTheme] = useState(getLook().theme)
+  useEffect(() => onLook((l) => setTheme(l.theme)), [])
+  const initials = who.split(' ').map((x) => x[0]).join('').slice(0, 2).toUpperCase() || '?'
+  const go = (k: Sec) => { onSec(k); setDrawer(false) }
+  const img = theme === 'halloween' ? logoHalloween : logo
+  return (
+    <div className="shell">
+      {drawer && <div className="side-scrim" onClick={() => setDrawer(false)} aria-hidden="true" />}
+      <aside className={'side' + (drawer ? ' open' : '')} id="side-nav">
+        <div className="side-brand">
+          <div className="brand-tile"><img className="brand-logo" src={img} alt="Declara" /></div>
+          <p className="side-for">For</p>
+          <p className="side-sub">{name}</p>
+        </div>
+        <nav className="nav">
+          <div className="nav-h">Your insurance</div>
+          {SECS.map((x) => <button key={x.key} className={sec === x.key ? 'active' : ''} onClick={() => go(x.key)}><Icon name={x.icon} /><span>{x.label}</span></button>)}
+        </nav>
+        <div className="side-foot">
+          {onSignOut && <button className="logout" onClick={onSignOut} title="Sign out"><Icon name="logout" width={1.5} /><span>Sign Out</span></button>}
+          <div className="copy-note side-copy">{COPYRIGHT}</div>
+        </div>
+      </aside>
+      <div className="workspace">
+        <header className="topbar">
+          <button className="hd-burger" aria-label="Menu" aria-controls="side-nav" aria-expanded={drawer} onClick={() => setDrawer(!drawer)}><span /><span /><span /></button>
+          <img className="hd-logo" src={img} alt="Declara" />
+          <div className="gsearch-none" />
+          <div className="hd-right">
+            <div className="hd-user">
+              <span className="hd-av" role="button" tabIndex={0} aria-label="Account menu" onClick={() => setMenu(!menu)} onKeyDown={(e) => e.key === 'Enter' && setMenu(!menu)}>{initials}</span>
+              <span className="hd-un"><b>{who || 'Signed in'}</b><em>Client</em></span>
+              <button className="hd-chev" aria-label="Account menu" onClick={() => setMenu(!menu)}><Icon name="chev" width={2} /></button>
+              {menu && (
+                <div className="hd-menu" onMouseLeave={() => setMenu(false)}>
+                  {onChangePassword && <button onClick={() => { setMenu(false); onChangePassword() }}>Change password</button>}
+                  {onSignOut && <button onClick={onSignOut}>Sign out</button>}
+                </div>
+              )}
+            </div>
+          </div>
+        </header>
+        <main className="page">{children}</main>
+      </div>
+    </div>
+  )
+}
+
+/** A labelled bar per row, longest first: one measure (annual premium), so one color; amounts and shares are text. */
+function Bars({ rows, total }: { rows: { key: string; label: string; value: number; note?: string; onClick?: () => void; bad?: boolean }[]; total: number }) {
+  const max = Math.max(...rows.map((r) => r.value), 1)
+  return (
+    <div className="cpx-bars">{rows.map((r) => {
+      const inner = <>
+        <span className="cpx-bar-l"><b>{r.label}{r.bad && <span className="cpx-warn cpx-warn-sm" title="Needs attention">{I.warn}</span>}</b>{r.note && <small>{r.note}</small>}</span>
+        <span className="cpx-bar-t"><i style={{ width: `${Math.max(2, (r.value / max) * 100)}%` }} /></span>
+        <span className="cpx-bar-v"><b>{money0(r.value)}</b><small>{total ? Math.round((r.value / total) * 100) : 0}%</small></span>
+      </>
+      const tip = `${r.label}: ${money2(r.value)} · ${total ? Math.round((r.value / total) * 100) : 0}% of your premium`
+      return r.onClick ? <button key={r.key} className="cpx-bar cpx-bar-btn" title={tip} onClick={r.onClick}>{inner}</button> : <div key={r.key} className="cpx-bar" title={tip}>{inner}</div>
+    })}</div>
   )
 }
 
