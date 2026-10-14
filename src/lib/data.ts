@@ -130,6 +130,17 @@ export async function getSdrTransfers(month: string): Promise<SdrTransfer[]> {
   return rows.map((r) => ({ ...r, az_quote_premium: num(r.az_quote_premium), bound_premium: num(r.bound_premium) }))
 }
 
+/** Apex quote numbers the SDRs entered for their transfers (one per AgencyZoom lead), keyed by lead id. */
+export interface SdrQuoteNumber { lead_id: string; quote_number: string; sdr: string; month: string; client: string; entered_by: string; updated_at: string }
+export async function getSdrQuoteNumbers(month: string): Promise<Map<string, SdrQuoteNumber>> {
+  const rows = await all<SdrQuoteNumber>('sdr_quote_numbers', (q) => q.eq('month', month))
+  return new Map(rows.map((r) => [r.lead_id, r]))
+}
+export async function saveSdrQuoteNumber(lead_id: string, quote_number: string) {
+  const { error } = await supabase.from('sdr_quote_numbers').upsert({ lead_id, quote_number: quote_number.trim() }, { onConflict: 'agency_id,lead_id' })
+  if (error) throw error
+}
+
 export async function getLastSync(): Promise<{ finished_at: string | null; status: string; error?: string | null; last_ok?: string | null } | null> {
   const [last, ok] = await Promise.all([
     supabase.from('sync_log').select('finished_at,status,details').eq('source', 'agencyzoom').not('finished_at', 'is', null)

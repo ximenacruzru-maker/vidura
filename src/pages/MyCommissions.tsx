@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useAuth } from '../auth'
 import { Empty, ErrorBox, Loading, PageHead, Panel, Tile, Tiles } from '../components/ui'
-import { getSdrPeriods, getSdrTransfers, type SdrPeriod } from '../lib/data'
+import { getSdrPeriods, getSdrQuoteNumbers, getSdrTransfers, saveSdrQuoteNumber, type SdrPeriod, type SdrQuoteNumber, type SdrTransfer } from '../lib/data'
 import { mdy, money0, money2, todayPacific } from '../lib/format'
 import { useAsync } from '../lib/useAsync'
 import { useSyncStamp } from '../lib/syncEvents'
@@ -32,6 +32,8 @@ export default function MyCommissions() {
   }, [periods.data, thisMonth])
   const period = months.find((p) => p.month === month)
   const transfers = useAsync(async () => (await getSdrTransfers(month)).filter((t) => names.has(String(t.sdr || '').trim().toLowerCase())), [month, names, synced])
+  const [saved, setSaved] = useState(0)
+  const quotes = useAsync(() => getSdrQuoteNumbers(month), [month, saved])
 
   const qb = Number(period?.qualified_transfer_bonus) || 0, bb = Number(period?.bound_policy_bonus) || 0
   const rows = transfers.data || []
@@ -65,6 +67,9 @@ export default function MyCommissions() {
         )}
       </Panel>
 
+      {transfers.data && quotes.data && <ApexQuotes rows={rows} quotes={quotes.data} closed={!!period?.closed} onSaved={() => setSaved((n) => n + 1)} />}
+      {quotes.error && <ErrorBox error={quotes.error} />}
+
       {/* bound policies, front and center: each one earns the bound bonus */}
       {transfers.data && (
         <section className="panel sdr-bound">
@@ -93,9 +98,10 @@ export default function MyCommissions() {
           {rows.length ? (
             <div className="tbl-wrap">
               <table className="tbl">
-                <thead><tr><th>Transferred</th><th>Client</th><th>Producer</th><th>Status</th><th className="r">Quoted</th><th>Qualifies</th><th>Bound</th><th className="r">Earned</th></tr></thead>
+                <thead><tr><th>Transferred</th><th>Client</th><th>Producer</th><th>Status</th><th>Apex quote #</th><th className="r">Quoted</th><th>Qualifies</th><th>Bound</th><th className="r">Earned</th></tr></thead>
                 <tbody>{rows.map((t) => (
                   <tr key={t.lead_id} className={t.bound ? 'row-bound' : undefined}><td>{mdy(String(t.date_time).slice(0, 10))}</td><td>{t.client}</td><td>{t.producer}</td><td>{t.status}</td>
+                    <td className="mono">{quotes.data?.get(t.lead_id)?.quote_number || <span className="pill pill-warn">Needed</span>}</td>
                     <td className="r mono">{t.az_quote_premium ? money2(t.az_quote_premium) : '—'}</td>
                     <td><span className={'pill ' + (t.az_qualifies ? 'pill-good' : 'pill-muted')}>{t.az_qualifies ? 'Yes' : 'Not yet'}</span></td>
                     <td>{t.bound ? <span className="pill pill-good">Bound · {money0(bb)} earned</span> : ''}</td>
@@ -107,5 +113,41 @@ export default function MyCommissions() {
         </Panel>
       )}
     </>
+  )
+}
+
+/** Apex quote numbers: required for every transfer, so admins can match each bonus to its quote when they reconcile
+ *  payroll. The SDR types the number next to each transfer; once the month is closed only an admin can change it. */
+function ApexQuotes({ rows, quotes, closed, onSaved }: { rows: SdrTransfer[]; quotes: Map<string, SdrQuoteNumber>; closed: boolean; onSaved: () => void }) {
+  const missing = rows.filter((t) => !quotes.get(t.lead_id)).length
+  return (
+    <Panel title="Apex quote numbers" sub="Required — you’re responsible for adding the Apex quote # for every transfer you send. Admins match each one to your bonus on the payroll sheet, so a missing number holds up the reconciliation."
+      right={rows.length ? <span className={'pill ' + (missing ? 'pill-warn' : 'pill-good')}>{missing ? `${missing} of ${rows.length} still needed` : 'All entered'}</span> : undefined}>
+      {rows.length ? (
+        <div className="apex-list">{rows.map((t) => <ApexRow key={t.lead_id} t={t} q={quotes.get(t.lead_id)} closed={closed} onSaved={onSaved} />)}</div>
+      ) : <Empty>No transfers yet this month.</Empty>}
+    </Panel>
+  )
+}
+
+function ApexRow({ t, q, closed, onSaved }: { t: SdrTransfer; q?: SdrQuoteNumber; closed: boolean; onSaved: () => void }) {
+  const [v, setV] = useState(q?.quote_number || '')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const dirty = v.trim() !== (q?.quote_number || '')
+  const save = async () => {
+    if (!v.trim()) return setErr('Enter the Apex quote #.')
+    setBusy(true); setErr('')
+    try { await saveSdrQuoteNumber(t.lead_id, v); onSaved() } catch (e) { setErr(e instanceof Error ? e.message : String(e)) } finally { setBusy(false) }
+  }
+  return (
+    <div className={'apex-row' + (q ? '' : ' apex-missing')}>
+      <div className="apex-c"><div className="strong">{t.client}</div><div className="sub">{mdy(String(t.date_time).slice(0, 10))}{t.producer ? ` · ${t.producer}` : ''}</div></div>
+      <form className="apex-f" onSubmit={(e) => { e.preventDefault(); save() }}>
+        <input className="fld mono" value={v} onChange={(e) => setV(e.target.value)} placeholder="Apex quote #" aria-label={`Apex quote # for ${t.client}`} maxLength={40} disabled={closed || busy} required />
+        {!closed && <button className="btn-primary" disabled={busy || !dirty}>{busy ? 'Saving…' : q ? 'Update' : 'Save'}</button>}
+      </form>
+      <div className="apex-s">{err ? <span className="apex-err">{err}</span> : q ? <span className="pill pill-good">Saved</span> : <span className="pill pill-warn">Needed</span>}</div>
+    </div>
   )
 }
