@@ -50,7 +50,7 @@ function Gate() {
   // a new hire has only the training (and settings): it is their home and the rest isn't routed
   const trainee = me.role === 'new_hire'
   const home = trainee ? '/training' : can(me, 'performance') ? '/' : '/today'
-  // "My Commissions only": that page, their settings and changing their password are all that is routed
+  // "My Commissions only": that page, Farmers University, their settings and changing their password are all that is routed
   if (commissionsOnly(me)) {
     return (
       <FolioProvider>
@@ -58,6 +58,7 @@ function Gate() {
           <Suspense fallback={<div className="center"><Loading what="Loading" /></div>}>
           <Routes>
             <Route path="/my-commissions" element={<MyCommissions />} />
+            <Route path="/training" element={<Training />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/password" element={<ChangePassword />} />
             <Route path="*" element={<Navigate to="/my-commissions" replace />} />

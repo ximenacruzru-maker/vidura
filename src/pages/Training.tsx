@@ -5,6 +5,7 @@ import { getReference } from '../lib/books'
 import { supabase } from '../lib/supabase'
 import { useAsync } from '../lib/useAsync'
 import { agencyShort, isAdmin } from '../lib/data'
+import { commissionsOnly } from '../lib/access'
 import { HANDBOOK_STEP, getProgress } from '../lib/onboarding'
 import Onboarding from './Onboarding'
 
@@ -34,22 +35,26 @@ export default function Training() {
   const ag = agencyShort(me)
   // a new hire gets their onboarding and Farmers University only; Farmers University opens once the handbook is downloaded
   const trainee = me?.role === 'new_hire'
-  const [tab, setTab] = useState<'dash' | 'fu' | 'class' | 'onboard'>(trainee ? 'onboard' : 'dash')
+  // "My Commissions only" (a new SDR): Farmers University is the only training they see
+  const fuOnly = commissionsOnly(me)
+  const [tab, setTab] = useState<'dash' | 'fu' | 'class' | 'onboard'>(trainee ? 'onboard' : fuOnly ? 'fu' : 'dash')
   const [reload, setReload] = useState(0)
   const { data, error } = useAsync(async () => {
     const [fu, cls, prog, onboard] = await Promise.all([
       getReference<FuModule[]>('fu_modules'),
-      trainee ? Promise.resolve([] as ClassModule[]) : classroomModules().catch(() => []),
+      trainee || fuOnly ? Promise.resolve([] as ClassModule[]) : classroomModules().catch(() => []),
       supabase.from('training_progress').select('course,status').eq('user_id', session!.user.id).then((r) => { if (r.error) throw r.error; return r.data as { course: string; status: Status }[] }),
       trainee ? getProgress(session!.user.id) : Promise.resolve([]),
     ])
     return { fu: fu || [], cls, st: new Map(prog.map((p) => [p.course, p.status])), handbookDone: onboard.some((p) => p.step === HANDBOOK_STEP) }
   }, [reload])
 
-  const head = trainee
+  const head = fuOnly
+    ? <PageHead kicker="Training" title="Farmers University" sub="Modules are taken in order; each lesson opens once the one before it is signed off." />
+    : trainee
     ? <PageHead kicker="New hire · SDR" title="Training" sub="Your onboarding first, then Farmers University. You’ll move to your SDR pages once your training is done." />
     : <PageHead kicker="Team Development" title="Training" sub={`Farmers University first, then the ${ag} classroom.`} />
-  const tabs = <Tabs tabs={trainee
+  const tabs = fuOnly ? null : <Tabs tabs={trainee
     ? [{ key: 'onboard' as const, label: 'Onboarding' }, { key: 'fu' as const, label: 'Farmers University' }]
     : [{ key: 'dash' as const, label: 'Dashboard' }, { key: 'fu' as const, label: 'Farmers University' }, { key: 'class' as const, label: `${ag} Classroom` }, ...(isAdmin(me?.role) ? [{ key: 'onboard' as const, label: 'New-hire onboarding' }] : [])]} value={tab} onChange={setTab} />
   // the onboarding loads its own data, so it shows even while the course list loads
@@ -175,7 +180,7 @@ export default function Training() {
               </Panel>
             )
           }) : <Empty>The Farmers University course list isn’t loaded.</Empty>}
-          {!trainee && <Panel title={`${ag} brokered training`} sub="Our own courses for the brokered book — written in house, added here as they are ready">
+          {!trainee && !fuOnly && <Panel title={`${ag} brokered training`} sub="Our own courses for the brokered book — written in house, added here as they are ready">
             <Empty>Nothing published yet. Farmers covers the Farmers book; these will cover Kraft Lake, Burns &amp; Wilcox, KW Specialty, AU Gold and the surplus lines paperwork.</Empty>
           </Panel>}
         </>
