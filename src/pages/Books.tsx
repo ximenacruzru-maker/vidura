@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Drawer, Empty, ErrorBox, KV, Loading, PageHead, Panel, Search, Tabs, Tile, Tiles } from '../components/ui'
 import { BOOKS, bookTab, daysUntil, fmtBytes, getAccounts, getBookPolicies, getDocs, openDoc, type Account, type BookPolicy, type Doc } from '../lib/books'
@@ -69,10 +69,15 @@ export default function Books() {
   const pols = data.policies
   const due60 = pols.filter((p) => { const d = daysUntil(p.expiration, today); return d != null && d >= 0 && d <= 60 })
   const expired = pols.filter((p) => { const d = daysUntil(p.expiration, today); return d != null && d < 0 })
+  // CA FAIR Plan: payments are billed straight to the client, so what's due soon and what's pending cancellation is what to watch
+  const fair = key === 'fair_plan'
+  const payDue30 = pols.filter((p) => { const d = daysUntil(p.data?.paymentDue, today); return d != null && d >= 0 && d <= 30 })
+  const cancelPending = pols.filter((p) => /cancel/i.test(p.status || ''))
 
   const exportCsv = () => downloadSheet(`${key}-book-${today}.xlsx`, [
-    ['Account', 'DBA', 'Policy #', 'Insured', 'Carrier', 'Line', 'Effective', 'Expiration', 'Premium', 'Status', 'Location'],
-    ...shown.flatMap((r) => r.pols.map((p) => [r.a.name, r.a.dba, p.policy_number, p.insured, p.carrier, p.product, p.effective, p.expiration, p.premium, p.status, p.location])),
+    ['Account', 'DBA', 'Policy #', 'Insured', 'Carrier', 'Line', 'Effective', 'Expiration', 'Premium', 'Status', 'Location', ...(fair ? ['Payment plan', 'Payment method', 'Next payment due', 'Broker'] : [])],
+    ...shown.flatMap((r) => r.pols.map((p) => [r.a.name, r.a.dba, p.policy_number, p.insured, p.carrier, p.product, p.effective, p.expiration, p.premium, p.status, p.location,
+      ...(fair ? [p.data?.paymentPlan, p.data?.paymentMethod, p.data?.paymentDue, p.data?.broker] : [])])),
   ], { sheet: 'Book' })
 
   return (
@@ -84,7 +89,10 @@ export default function Books() {
         <Tile label="Accounts" value={rows.length} sub={`${pols.length} policies`} />
         <Tile label="Annual premium" value={money0(total)} sub={rows.length ? money0(total / rows.length) + ' per account' : ''} />
         <Tile label="Renewing in 60 days" value={due60.length} sub={money0(due60.reduce((s, p) => s + (p.premium || 0), 0)) + ' premium'} tone={due60.length ? 'warn' : undefined} />
-        <Tile label="Past expiration" value={expired.length} sub={expired.length ? 'confirm renewed or lapsed' : 'none'} />
+        {fair ? <>
+          <Tile label="Payments due in 30 days" value={payDue30.length} sub={money0(payDue30.reduce((s, p) => s + (p.premium || 0), 0)) + ' premium on those policies'} tone={payDue30.length ? 'warn' : undefined} />
+          <Tile label="Cancel pending" value={cancelPending.length} sub={cancelPending.length ? cancelPending.map((p) => p.insured).join(', ') : 'none'} tone={cancelPending.length ? 'warn' : undefined} />
+        </> : <Tile label="Past expiration" value={expired.length} sub={expired.length ? 'confirm renewed or lapsed' : 'none'} />}
       </Tiles>
       <Panel title="Accounts" sub={`${shown.length} of ${rows.length} · click an account for policies, notes and documents`}
         right={<div className="filters"><Search value={q} onChange={setQ} placeholder="Name, policy #, carrier, address" /><button className="btn-ghost" onClick={exportCsv}>Export Excel</button>{isAdmin(me?.role) && <DocUpload onDone={() => setReload((n) => n + 1)} />}</div>}>
@@ -113,7 +121,7 @@ export default function Books() {
   )
 }
 
-const HIDE = new Set(['id', 'insured', 'policyNumber', 'policyNumberFormatted', 'annualPremium', 'inception', 'renewal', 'productType', 'carrier',
+const HIDE = new Set(['paymentDue', 'paymentPlan', 'paymentMethod', 'id', 'insured', 'policyNumber', 'policyNumberFormatted', 'annualPremium', 'inception', 'renewal', 'productType', 'carrier',
   'effective', 'expiration', 'kind', 'coverageType', 'premium', 'termFrom', 'termTo', 'policy', 'start', 'named', 'address', 'locationId', 'locationName', 'locationAddress', 'status'])
 
 function label(k: string) { return k.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase()) }
@@ -144,7 +152,7 @@ export function AccountDrawer({ account, policies, docs, onClose }: { account: A
                 <div><b>{p.product || 'Policy'}</b> · {p.carrier} {p.policy_number && <span className="sub">#{p.policy_number}</span>}</div>
                 <div><b className="mono">{p.premium != null ? money2(p.premium) : '—'}</b> {p.status && <span className="pill pill-muted">{p.status}</span>}</div>
               </div>
-              <KV rows={[['Insured', p.insured], ['Location', p.location], ['Effective', p.effective ? mdy(p.effective) : ''],
+              <KV rows={[['Insured', p.insured], ['Location', p.location], ...(p.data?.paymentDue ? [['Next payment due', <>{mdy(p.data.paymentDue)} <RenewPill days={daysUntil(p.data.paymentDue, today)} /></>], ['Payment plan', [p.data.paymentPlan, p.data.paymentMethod].filter(Boolean).join(' · ')]] as [string, ReactNode][] : []), ['Effective', p.effective ? mdy(p.effective) : ''],
                 ['Expiration', p.expiration ? <>{mdy(p.expiration)} <RenewPill days={daysUntil(p.expiration, today)} /></> : '']]} />
               {extra.length > 0 && (
                 <details><summary className="linkbtn">More detail ({extra.length})</summary>
