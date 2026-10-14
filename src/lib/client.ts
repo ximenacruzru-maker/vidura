@@ -6,10 +6,13 @@ export interface ClientPolicy {
   effective: string | null; expiration: string | null; premium: number | null; status: string | null; location: string | null
   location_id: string | null; location_name: string | null; location_address: string | null; coverage: string | null
   amount_due_now: number | null; financed: boolean; payment_due: string | null; payment_plan: string | null; payment_method: string | null; updated_at: string
+  invoice_number?: string | null; payment_status?: string | null
 }
 export interface ClientDoc { id: string; category: string; account_id: string; policy_number: string | null; title: string; file_name: string; mime: string; storage_path: string; size_bytes: number | null; created_at: string }
 export interface ClientItem { id: number; account_id: string; kind: 'pending' | 'update'; title: string; detail: string | null; due_on: string | null; status: 'open' | 'done'; created_at: string; updated_at: string; done_at: string | null; created_by?: string | null }
-export interface ClientAccount { id: string; name: string; dba: string | null; contact: string | null; phone: string | null; address: string | null; locations: { id: string; name: string; address: string }[] }
+/** Optional, set by the agency for the portal: how carrier totals are grouped and who the producer is for each group. */
+export interface PortalGroup { label: string; carriers: string[]; producer?: string | null }
+export interface ClientAccount { id: string; name: string; dba: string | null; contact: string | null; phone: string | null; address: string | null; locations: { id: string; name: string; address: string }[]; portal?: { groups?: PortalGroup[] } | null }
 export interface ClientFile {
   viewer: { preview: boolean; display_name: string | null; email?: string; must_change_password: boolean }
   agency: { name: string; short_name: string | null } | null
