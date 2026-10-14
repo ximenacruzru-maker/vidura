@@ -1240,3 +1240,47 @@ html[data-theme="astra"] .xd .mc-btn { border-color: #E5252E; background: #2A101
 .copy-note { font-size: 11px; color: var(--muted); text-align: center; opacity: .85; }
 .side-copy { margin-top: 8px; color: inherit; opacity: .7; font-size: 10px; line-height: 1.3; }
 .cpx-foot small { margin-top: 4px; }
+
+/* Client portal inside the client's own Declara screen: the portal widgets take the chosen theme's colours */
+.cpx.cpx-themed { --x-bg: transparent; --x-card: var(--card); --x-line: var(--line); --x-ink: var(--ink); --x-navy: var(--navy); --x-mut: var(--muted); --x-link: var(--blue);
+  --x-red: var(--bad); --x-red-bg: var(--bad-bg); --x-red-line: color-mix(in srgb, var(--bad) 40%, var(--card)); --x-grn: var(--good);
+  --x-amb: var(--warn); --x-amb-bg: var(--warn-bg); --x-amb-line: color-mix(in srgb, var(--warn) 45%, var(--card)); --x-btn: var(--blue);
+  color-scheme: normal; background: none; min-height: 0; font-family: inherit; font-size: inherit; }
+.cpx-themed .cpx-wrap { max-width: none; padding: 0; gap: 16px; }
+.cpx-themed .cpx-card { border-radius: var(--radius, 12px); box-shadow: var(--shadow); }
+.cpx-themed .cpx-loc { border-radius: var(--radius, 12px); box-shadow: var(--shadow); }
+.cpx-themed .cpx-chip { background: var(--soft); border-color: var(--line); color: var(--ink); }
+.cpx-themed .cpx-chip-wc, .cpx-themed .cpx-ic-dark { background: var(--blue-2, var(--blue)); border-color: var(--blue-2, var(--blue)); color: #fff; }
+.cpx-themed .cpx-ic { background: var(--tint); color: var(--blue); }
+.cpx-themed .cpx-pc-h { background: var(--soft); }
+.cpx-themed .cpx-al { color: var(--ink); }
+.cpx-themed .cpx-al b { color: var(--bad); }
+.cpx-themed .cpx-al-warn b { color: var(--warn); }
+.cpx-themed .cpx-dl, .cpx-themed .cpx-ib { background: var(--blue); }
+.cpx-themed .cpx-dl:hover { background: var(--blue-2, var(--blue)); }
+.cpx-themed .cpx-lh h2, .cpx-themed .cpx-lv-h h1 { color: var(--ink); font-family: var(--serif, inherit); }
+.cpx-themed .page-head { margin-bottom: 0; }
+.cpx-themed .panel { margin: 0; }
+.cpx-solo { min-height: 100vh; }
+.cpx-two-even { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.cpx-nr span small { display: block; }
+.cpx-nr { padding: 7px 0; border-bottom: 1px solid var(--x-line); align-items: center; }
+.cpx-nr:last-child { border-bottom: 0; }
+.cpx-bars { display: flex; flex-direction: column; gap: 10px; }
+.cpx-bar { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) auto; gap: 12px; align-items: center; width: 100%; text-align: left; }
+.cpx-bar-btn { background: none; border: 0; padding: 0; cursor: pointer; }
+.cpx-bar-btn:hover .cpx-bar-l b { color: var(--x-link); }
+.cpx-bar-l { min-width: 0; }
+.cpx-bar-l b { display: flex; align-items: center; gap: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cpx-bar-t { height: 10px; background: var(--track, var(--x-line)); border-radius: 4px; overflow: hidden; }
+.cpx-bar-t i { display: block; height: 100%; background: var(--x-link); border-radius: 0 4px 4px 0; }
+.cpx-bar-v { text-align: right; min-width: 72px; }
+.cpx-warn-sm svg { width: 13px; height: 13px; }
+.cpx-doc-g + .cpx-doc-g { margin-top: 14px; }
+.cpx-dl-row small { display: inline; margin-left: auto; color: inherit; opacity: .8; }
+.cpx-band { margin-bottom: 10px; }
+@media (max-width: 640px) {
+  .cpx-two-even { grid-template-columns: minmax(0, 1fr); }
+  .cpx-bar { grid-template-columns: minmax(0, 1fr) auto; }
+  .cpx-bar-t { grid-column: 1 / -1; grid-row: 2; }
+}
