@@ -13,6 +13,7 @@ import { Icon } from './icons'
 import LegacyHost, { LEGACY_ROUTES } from './LegacyHost'
 import SyncControl from './SyncControl'
 import DeclaraAI from './DeclaraAI'
+import { ViewAsBanner, ViewAsSwitcher } from './ViewAs'
 import ForesightAI from './ForesightAI'
 
 type Item = { h: string } | { div: true } | { to: string; label: string; icon: string; show: boolean; also?: string[] }
@@ -114,6 +115,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           {c('performance') && <SyncControl />}
           {!only && <DeclaraAI />}
           {c('performance') && <ForesightAI />}
+          <ViewAsSwitcher />
           <div className="hd-user">
             <span className="hd-av" role="button" tabIndex={0} aria-label="Account menu" onClick={() => setMenu(!menu)} onKeyDown={(e) => e.key === 'Enter' && setMenu(!menu)}>{initials}</span>
             <span className="hd-un"><b>{me?.display_name || 'Signed in'}</b><em>{ROLE_LABEL[me?.role || ''] || ''}</em></span>
@@ -128,6 +130,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           </div>
           </div>
         </header>
+        <ViewAsBanner />
         {/* The original performance screens stay loaded once opened, so switching back is instant. */}
         {c('performance') && (legacy || visited) && <LegacyHost path={pathname} />}
         {!legacy && <main className="page">{children}</main>}

@@ -46,7 +46,7 @@ function Gate() {
   // "My Commissions only": that page, Farmers University, their settings and changing their password are all that is routed
   if (commissionsOnly(me)) {
     return (
-      <FolioProvider>
+      <FolioProvider key={me.user_id}>
         <Layout>
           <Suspense fallback={<div className="center"><Loading what="Loading" /></div>}>
           <Routes>
@@ -62,7 +62,7 @@ function Gate() {
     )
   }
   return (
-    <FolioProvider>
+    <FolioProvider key={me.user_id}>
       <Layout>
         <Suspense fallback={<div className="center"><Loading what="Loading" /></div>}>
         <Routes>
