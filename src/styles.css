@@ -1287,9 +1287,10 @@ html[data-theme="astra"] .xd .mc-btn { border-color: #E5252E; background: #2A101
 
 /* App owners: "View as" switcher (top right) and the banner while viewing as someone */
 .va { position: relative; }
-.va-btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.va-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 9px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
 .va-btn svg { width: 15px; height: 15px; }
-.va-btn.on { background: var(--warn-bg); border-color: var(--warn); color: var(--warn); }
+.va-btn.on { background: var(--warn-bg); border-color: var(--warn); color: var(--warn); padding: 7px 11px; }
+.va-btn span { max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
 .va-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 60; width: 300px; max-height: 70vh; overflow: auto; background: var(--card); color: var(--ink); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); padding: 8px; display: flex; flex-direction: column; gap: 2px; }
 .va-menu .fld { margin-bottom: 6px; }
 .va-menu button { display: block; width: 100%; text-align: left; background: none; border: 0; border-radius: 8px; padding: 7px 10px; font: inherit; color: inherit; cursor: pointer; }

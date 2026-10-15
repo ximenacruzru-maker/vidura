@@ -38,8 +38,8 @@ export function ViewAsSwitcher() {
   const pick = async (id: string | null) => { setOpen(false); setQ(''); await viewAs(id) }
   return (
     <div className="va" ref={box}>
-      <button className={'va-btn' + (viewing ? ' on' : '')} onClick={() => setOpen(!open)} aria-haspopup="menu" aria-expanded={open} title="See Declara as someone else">
-        <Icon name="proteges" /><span>{viewing ? `Viewing as ${me!.display_name.split(' ')[0]}` : 'View as'}</span><Icon name="chev" width={2} />
+      <button className={'va-btn' + (viewing ? ' on' : '')} onClick={() => setOpen(!open)} aria-haspopup="menu" aria-expanded={open} title="View as — see Declara as someone on the team" aria-label="View as someone else">
+        <Icon name="proteges" />{viewing && <span>Viewing as {me!.display_name.split(' ')[0]}</span>}
       </button>
       {open && (
         <div className="va-menu" role="menu">
