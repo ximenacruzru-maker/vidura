@@ -169,20 +169,23 @@ function EditRow({ s, self, ownerMe, busy, onSave, onReset }: { s: Row; self: bo
 
 /** Settings: underlined tabs, then the section. */
 export default function Settings() {
-  const { me } = useAuth()
+  const { me, realMe } = useAuth()
+  // while an app owner views as someone, Settings is still the owner's own: their look and their password
+  const viewing = !!realMe && !!me && realMe.user_id !== me.user_id
   const admin = me?.role === 'owner' || me?.role === 'admin'
   const [tab, setTab] = useState<'appearance' | 'access' | 'password'>('appearance')
   const [look, setLookState] = useState<Look>(getLook())
   useEffect(() => onLook(setLookState), [])
-  const tabs: [typeof tab, string][] = [['appearance', 'Appearance'], ...(admin ? [['access', 'Team & access'] as [typeof tab, string]] : []), ['password', 'Password']]
+  const tabs: [typeof tab, string][] = [['appearance', 'Appearance'], ...(admin ? [['access', 'Team & access'] as [typeof tab, string]] : []), ...(viewing ? [] : [['password', 'Password'] as [typeof tab, string]])]
   return (
     <>
       <PageHead kicker="Settings" title="Settings" sub={admin ? 'Your look, the team’s logins and what each person can see, and your password.' : 'Your look and your password.'} />
+      {viewing && <div className="note-box" style={{ marginBottom: 12 }}>You’re viewing as {me!.display_name}, but the theme here is <b>yours</b> — changing it doesn’t change theirs. Their password can only be reset from Team &amp; access in your own view.</div>}
       <div className="set-tabs">{tabs.map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>)}</div>
       <div className="set-page">
-        {tab === 'appearance' && <Appearance look={look} userId={me?.user_id || ''} />}
+        {tab === 'appearance' && <Appearance look={look} userId={realMe?.user_id || me?.user_id || ''} />}
         {tab === 'access' && admin && <TeamAccess />}
-        {tab === 'password' && <ChangePassword embedded />}
+        {tab === 'password' && !viewing && <ChangePassword embedded />}
       </div>
     </>
   )
