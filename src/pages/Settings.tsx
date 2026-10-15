@@ -13,7 +13,7 @@ import { useAsync } from '../lib/useAsync'
 type Row = StaffAccount & { last_sign_in_at: string | null }
 const ROLES: Role[] = ['owner', 'admin', 'producer', 'protege', 'sdr', 'csr', 'va', 'new_hire']
 
-async function call(body: Record<string, unknown>) {
+export async function call(body: Record<string, unknown>) {
   const { data, error } = await supabase.functions.invoke('staff-admin', { body })
   if (error) {
     let msg = error.message
@@ -78,7 +78,7 @@ function TeamAccess() {
   )
 }
 
-function Switches({ role, access, onChange }: { role: Role; access: Record<string, boolean>; onChange: (a: Record<string, boolean>) => void }) {
+export function Switches({ role, access, onChange }: { role: Role; access: Record<string, boolean>; onChange: (a: Record<string, boolean>) => void }) {
   const full = role === 'owner' || role === 'admin'
   const d = roleDefaults(role)
   const adminOnly = (k: string) => k === 'performance' || (k === 'commissions_only' && full)

@@ -1284,3 +1284,25 @@ html[data-theme="astra"] .xd .mc-btn { border-color: #E5252E; background: #2A101
   .cpx-bar { grid-template-columns: minmax(0, 1fr) auto; }
   .cpx-bar-t { grid-column: 1 / -1; grid-row: 2; }
 }
+
+/* App owners: "View as" switcher (top right) and the banner while viewing as someone */
+.va { position: relative; }
+.va-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 9px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.va-btn svg { width: 15px; height: 15px; }
+.va-btn.on { background: var(--warn-bg); border-color: var(--warn); color: var(--warn); padding: 7px 11px; }
+.va-btn span { max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
+.va-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 60; width: 300px; max-height: 70vh; overflow: auto; background: var(--card); color: var(--ink); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); padding: 8px; display: flex; flex-direction: column; gap: 2px; }
+.va-menu .fld { margin-bottom: 6px; }
+.va-menu button { display: block; width: 100%; text-align: left; background: none; border: 0; border-radius: 8px; padding: 7px 10px; font: inherit; color: inherit; cursor: pointer; }
+.va-menu button:hover, .va-menu button.cur { background: var(--tint); }
+.va-menu button b { display: block; font-size: 14px; }
+.va-menu button small { color: var(--muted); font-size: 12px; }
+.va-h { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 8px 10px 2px; }
+.va-empty { color: var(--muted); font-size: 13px; padding: 6px 10px; }
+.va-band { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin: 12px 24px 0; padding: 10px 14px; border-radius: 12px; background: var(--warn-bg); border: 1px solid var(--warn); color: var(--ink); font-size: 14px; }
+.va-band-b { display: flex; gap: 8px; flex-wrap: wrap; }
+@media (max-width: 760px) {
+  .va-btn span { display: none; }
+  .va-band { margin: 10px 12px 0; }
+  .va-menu { position: fixed; left: 12px; right: 12px; top: 64px; width: auto; }
+}

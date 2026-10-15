@@ -105,6 +105,18 @@ export async function getMe(): Promise<StaffAccount | null> {
   return data ? ({ ...data, platform_admin: !!pa } as StaffAccount) : null
 }
 
+/** One team member's account (admins can read everyone's in their agency) — for an app owner's "view as". */
+export async function getStaffMember(userId: string): Promise<StaffAccount | null> {
+  const { data, error } = await supabase.from('staff_accounts').select('*').eq('user_id', userId).maybeSingle()
+  if (error) throw error
+  return (data as StaffAccount) || null
+}
+export async function getTeam(): Promise<StaffAccount[]> {
+  const { data, error } = await supabase.from('staff_accounts').select('*').eq('active', true).order('display_name')
+  if (error) throw error
+  return (data || []) as StaffAccount[]
+}
+
 export async function getFolios(): Promise<Folio[]> {
   const rows = await all<Folio>('folios', (q) => q.order('start_date', { ascending: false }))
   return rows
