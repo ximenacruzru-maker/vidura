@@ -9,7 +9,7 @@ import { supabase } from '../lib/supabase'
 import { useAsync } from '../lib/useAsync'
 import { RenewPill } from './Books'
 
-interface License { id: number; name: string; role: string | null; state: string | null; authority: string | null; license_type: string | null; number: string | null; effective: string | null; expires: string | null; quals: { q: string; eff: string }[]; verify_url: string | null; document_id: string | null; archived_on: string | null; archived_reason: string | null }
+interface License { id: number; name: string; role: string | null; state: string | null; authority: string | null; license_type: string | null; number: string | null; effective: string | null; expires: string | null; quals: { q: string; eff: string }[]; verify_url: string | null; document_id: string | null; archived_on: string | null; archived_reason: string | null; kind?: 'person' | 'agency' | 'eo' }
 interface Staff { name: string; role: string | null; hourly: boolean; rate: number | null; active: boolean; hired_on: string | null; left_on: string | null; leave_reason: string | null; salary_annual?: number | null }
 interface Punch { id: number; name: string; work_date: string; start_time: string | null; end_time: string | null; breaks: [string, string][]; edited: boolean }
 
@@ -55,6 +55,7 @@ function askLeaving(name: string) {
 }
 
 function Licenses({ admin }: { admin: boolean }) {
+  const { me } = useAuth()
   const today = todayPacific()
   const [reload, setReload] = useState(0)
   const { data, error } = useAsync(async () => {
@@ -67,8 +68,25 @@ function Licenses({ admin }: { admin: boolean }) {
   if (error) return <ErrorBox error={error} />
   if (!data) return <Loading />
   // archived licenses (people who left) are kept, but out of the active list and the renewal count
-  const active = data.lic.filter((l) => !l.archived_on), archived = data.lic.filter((l) => l.archived_on).sort((a, b) => (b.archived_on! < a.archived_on! ? -1 : 1))
-  const soon = active.filter((l) => { const d = daysUntil(l.expires, today); return d != null && d <= 90 })
+  // the agency's own license and its E&O have their own section; people's licenses are the cards below
+  const agencyItems = data.lic.filter((l) => l.kind === 'agency' || l.kind === 'eo').sort((a, b) => (a.kind === 'agency' ? -1 : 1) - (b.kind === 'agency' ? -1 : 1))
+  const people = data.lic.filter((l) => !l.kind || l.kind === 'person')
+  const active = people.filter((l) => !l.archived_on), archived = people.filter((l) => l.archived_on).sort((a, b) => (b.archived_on! < a.archived_on! ? -1 : 1))
+  const soon = [...agencyItems, ...active].filter((l) => { const d = daysUntil(l.expires, today); return d != null && d <= 90 })
+  const short = (l: License) => (l.kind === 'eo' ? 'E&O' : l.kind === 'agency' ? 'Agency license' : l.name.split(' ')[0])
+  const attach = async (l: License, f: File | undefined) => {
+    if (!f || !me) return
+    const ext = (f.name.match(/\.([a-z0-9]+)$/i) || [])[1]?.toLowerCase() || 'pdf'
+    const id = `lic-${l.id}-${Date.now()}`
+    const path = `${me.agency_id}/license/${id}.${ext}`
+    const up = await supabase.storage.from('documents').upload(path, f, { upsert: true, contentType: f.type || 'application/pdf' })
+    if (up.error) return alert('Could not upload: ' + up.error.message)
+    const doc = await supabase.from('documents').insert({ id, category: 'license', title: l.kind === 'eo' ? `E&O certificate — ${l.number}` : `License — ${l.name}`, file_name: f.name,
+      mime: f.type || 'application/pdf', storage_path: path, size_bytes: f.size, admin_only: false, uploaded: true })
+    if (doc.error) return alert('Could not save the document: ' + doc.error.message)
+    const { error } = await supabase.from('licenses').update({ document_id: id }).eq('id', l.id)
+    if (error) alert(error.message); else setReload((n) => n + 1)
+  }
   const archive = async (l: License) => {
     const a = askLeaving(l.name); if (!a) return
     const { error } = await supabase.from('licenses').update({ archived_on: a.day, archived_reason: a.why ? `${a.why} — last day ${mdy(a.day)}` : `Last day ${mdy(a.day)}` }).eq('id', l.id)
@@ -85,14 +103,16 @@ function Licenses({ admin }: { admin: boolean }) {
       <div key={l.id} className="card">
         <div className="card-t">{l.name}</div>
         <div className="sub">{l.role} · {l.state} {l.license_type}</div>
-        <div><b className="mono">#{l.number}</b></div>
-        <div className="card-s">Effective {l.effective ? mdy(l.effective) : '—'} · expires {l.expires ? mdy(l.expires) : '—'} {!l.archived_on && <RenewPill days={daysUntil(l.expires, today)} />}</div>
+        <div><b className="mono">{l.kind === 'eo' ? 'Policy ' : ''}#{l.number}</b></div>
+        {l.kind === 'eo' && l.authority && <div className="card-s">{l.authority}</div>}
+        <div className="card-s">{l.kind === 'eo' ? 'Policy term' : 'Effective'} {l.effective ? mdy(l.effective) : '—'} · {l.kind === 'eo' ? 'renews' : 'expires'} {l.expires ? mdy(l.expires) : '—'} {!l.archived_on && <RenewPill days={daysUntil(l.expires, today)} />}</div>
         {l.quals?.length > 0 && <div className="card-s">{l.quals.map((q) => q.q + (q.eff ? ` (${q.eff})` : '')).join(' · ')}</div>}
         {l.archived_on && <div className="card-s"><span className="pill pill-muted">Archived {mdy(l.archived_on)}</span> {l.archived_reason}</div>}
         <div className="row-actions">
-          {doc && <button className="linkbtn" onClick={() => openDoc(doc)}>View license</button>}
+          {doc && <button className="linkbtn" onClick={() => openDoc(doc)}>{l.kind === 'eo' ? 'View E&O certificate' : 'View license'}</button>}
           {l.verify_url && <a href={l.verify_url} target="_blank" rel="noreferrer">Verify with {l.authority?.replace('California ', 'CA ') || 'state'} ↗</a>}
-          {admin && (l.archived_on ? <button className="linkbtn" onClick={() => restore(l)}>Restore</button> : <button className="linkbtn lic-archive" onClick={() => archive(l)} title="For someone who has left the agency">Archive (left the agency)</button>)}
+          {admin && <label className="linkbtn" style={{ cursor: 'pointer' }}>{doc ? 'Replace document' : 'Attach document'}<input type="file" accept=".pdf,image/*" hidden onChange={(e) => { attach(l, e.target.files?.[0]); e.target.value = '' }} /></label>}
+          {admin && (!l.kind || l.kind === 'person') && (l.archived_on ? <button className="linkbtn" onClick={() => restore(l)}>Restore</button> : <button className="linkbtn lic-archive" onClick={() => archive(l)} title="For someone who has left the agency">Archive (left the agency)</button>)}
         </div>
       </div>
     )
@@ -101,9 +121,14 @@ function Licenses({ admin }: { admin: boolean }) {
     <>
       <Tiles>
         <Tile label="Licensed staff" value={active.length} sub={archived.length ? `${archived.length} archived` : undefined} />
-        <Tile label="Renewing within 90 days" value={soon.length} sub={soon.map((l) => l.name.split(' ')[0]).join(', ') || 'none'} tone={soon.length ? 'warn' : 'good'} />
+        <Tile label="Renewing within 90 days" value={soon.length} sub={soon.map(short).join(', ') || 'none'} tone={soon.length ? 'warn' : 'good'} />
       </Tiles>
-      <div className="cards">{active.map(card)}</div>
+      {agencyItems.length > 0 && (
+        <Panel title="Agency license & E&O" sub="The agency’s own license and its errors & omissions coverage">
+          <div className="cards">{agencyItems.map(card)}</div>
+        </Panel>
+      )}
+      <Panel title="Staff licenses" sub={`${active.length} licensed`}><div className="cards">{active.map(card)}</div></Panel>
       {archived.length > 0 && (
         <Panel title={`Archived licenses (${archived.length})`} sub="People who have left the agency. Kept for the record; not counted for renewals.">
           <div className="cards">{archived.map(card)}</div>
