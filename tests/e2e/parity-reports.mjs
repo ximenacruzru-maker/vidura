@@ -29,10 +29,13 @@ const read = (sel) => {
     const t = document.createElement('span'); t.textContent = '[' + (s.selectedOptions[0]?.textContent || '') + ' of ' + s.options.length + ']'
     s.after(t); const d = s.style.display; s.style.display = 'none'; return () => { t.remove(); s.style.display = d }
   })
+  // sections the rebuild adds that the original never had (marked data-parity="new") are left out of the comparison
+  const extra = [...w.querySelectorAll('[data-parity="new"]')].map((e) => { const d = e.style.display; e.style.display = 'none'; return () => { e.style.display = d } })
   const text = w.innerText.replace(/[\s\u00a0]+/g, ' ').trim()
   swaps.forEach((undo) => undo())
   const geo = [...w.querySelectorAll('.rp-f, .dbar, .dmix-b i, .dspark i, .dbarv-t i, circle[stroke-dasharray], .ddots i')]
     .map((e) => e.style.cssText || e.getAttribute('stroke-dasharray') || e.className.baseVal || e.className).join('|')
+  extra.forEach((undo) => undo())
   return { text, geo }
 }
 

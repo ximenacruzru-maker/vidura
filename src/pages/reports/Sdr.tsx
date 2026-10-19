@@ -155,7 +155,7 @@ function CloseRates({ transfers, month, label }: { transfers: Json[]; month: str
   const best = bestOf(sets[0].mo), bestAll = bestOf(sets[0].all)
   const tone = (p: number) => ({ fontWeight: 700, color: p >= 20 ? '#1F7A4D' : p >= 10 ? '#B7791F' : 'var(--muted)' })
   return (
-    <div className="panel">
+    <div className="panel" data-parity="new">
       <div className="panel-h"><div><div className="panel-t">SDR transfers → sold</div><div className="panel-s">Only SDR transfers count — not a producer’s other sales · {label} and all periods on file · sold rate = SDR transfers sold ÷ SDR transfers · needs at least 3 transfers to rank</div></div></div>
       <div className="panel-b">
         <div className="scgrid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', marginBottom: 14 }}>
