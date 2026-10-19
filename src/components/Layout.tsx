@@ -62,6 +62,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     { to: '/books/farmers', label: 'Books of Business', icon: 'book', show: c('books'), also: ['/books'] },
     { to: '/payments', label: 'Checks & Cash', icon: 'cash', show: c('books') && !trainee },
     { to: '/payroll', label: 'Office Payroll', icon: 'dollar', show: c('payroll') },
+    { to: '/commission-sheet', label: 'Commissions', icon: 'sales', show: c('commission_sheet') },
     { h: 'Team Development' },
     { to: '/training', label: 'Training', icon: 'training', show: c('training') },
     { to: '/hr', label: c('hr') ? 'HR / Licensing' : 'Licensing', icon: 'licensing', show: !trainee },
