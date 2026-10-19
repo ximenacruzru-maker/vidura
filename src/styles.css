@@ -1306,3 +1306,7 @@ html[data-theme="astra"] .xd .mc-btn { border-color: #E5252E; background: #2A101
   .va-band { margin: 10px 12px 0; }
   .va-menu { position: fixed; left: 12px; right: 12px; top: 64px; width: auto; }
 }
+.cs-close { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; }
+.cs-close-h { font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+.cs-sub { display: block; color: var(--muted); font-size: 11px; }
+@media (max-width: 1680px) { .cs-close { grid-template-columns: minmax(0, 1fr); } }
