@@ -1104,6 +1104,7 @@ html[data-theme="astra"] .xd .mc-btn { border-color: #E5252E; background: #2A101
 .pay-note-line { font-style: italic; }
 
 /* My Commissions: Apex quote numbers (required per transfer) */
+.apex-warn { margin: 0 0 16px; padding: 18px 22px; border: 2px solid #dc2626; border-radius: 12px; background: rgba(220, 38, 38, .08); color: #dc2626; font-size: clamp(20px, 2.4vw, 30px); font-weight: 800; line-height: 1.25; text-transform: uppercase; letter-spacing: .01em; overflow-wrap: anywhere; }
 .apex-list { display: flex; flex-direction: column; gap: 8px; }
 .apex-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 300px) auto; gap: 12px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; }
 .apex-row.apex-missing { border-color: var(--warn); background: var(--warn-bg); }
@@ -1306,6 +1307,10 @@ html[data-theme="astra"] .xd .mc-btn { border-color: #E5252E; background: #2A101
   .va-band { margin: 10px 12px 0; }
   .va-menu { position: fixed; left: 12px; right: 12px; top: 64px; width: auto; }
 }
+.cs-best { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; margin: 0 0 14px; padding: 14px 18px; border-radius: 12px; background: var(--good-bg); border: 1px solid var(--good); }
+.cs-best-k { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--good); }
+.cs-best b { font-size: 24px; }
+.cs-best-pill { margin-left: 8px; }
 .cs-close { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; }
 .cs-close-h { font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
 .cs-sub { display: block; color: var(--muted); font-size: 11px; }

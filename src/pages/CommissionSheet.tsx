@@ -71,6 +71,8 @@ export default function CommissionSheet() {
     return { producers: by((t) => t.producer), sdrs: by((t) => t.sdr), pairs: by((t) => `${t.sdr} → ${t.producer || 'Unassigned'}`) }
   }, [sdr.data])
   const pctOf = (a: number, b: number) => (b ? Math.round((a / b) * 1000) / 10 : 0)
+  // the best closer: highest close rate on SDR transfers, among producers with at least 3 (so 1 of 1 doesn't win)
+  const best = close.producers.find((r) => r.name !== 'Unassigned' && r.transfers >= 3 && r.sold > 0)
   const prodTotal = (comm.data || []).reduce((s, c) => s + c.total, 0)
   const sdrTotal = sdrs.reduce((s, x) => s + x.bonus, 0)
   const err = comm.error || sdr.error || periods.error || apex.error
@@ -187,8 +189,9 @@ export default function CommissionSheet() {
         </Panel>
         {owner && (
           <Panel title="SDR transfers → sales: close rate" sub={`${period?.period_label || 'Last month'} transfers · close rate = sold ÷ transfers · owners and admins only`}>
+            {best && <div className="cs-best"><span className="cs-best-k">Best closer</span><b>{best.name}</b><span>{pctOf(best.sold, best.transfers)}% · {best.sold} sold of {best.transfers} transfers · {money2(best.premium)}</span></div>}
             {(sdr.data || []).length ? <div className="cs-close">
-              <CloseTable title="By producer — transfers received" who="Producer" rows={close.producers} pct={pctOf} />
+              <CloseTable title="By producer — transfers received" who="Producer" rows={close.producers} pct={pctOf} best={best?.name} />
               <CloseTable title="By SDR — transfers sent" who="SDR" rows={close.sdrs} pct={pctOf} />
             </div> : <Empty>No SDR transfers for this payday.</Empty>}
           </Panel>
@@ -198,7 +201,7 @@ export default function CommissionSheet() {
   )
 }
 
-function CloseTable({ title, who, rows, pct }: { title: string; who: string; rows: { name: string; transfers: number; quoted: number; sold: number; premium: number }[]; pct: (a: number, b: number) => number }) {
+function CloseTable({ title, who, rows, pct, best }: { title: string; who: string; rows: { name: string; transfers: number; quoted: number; sold: number; premium: number }[]; pct: (a: number, b: number) => number; best?: string }) {
   return (
     <div>
       <div className="cs-close-h">{title}</div>
@@ -207,7 +210,7 @@ function CloseTable({ title, who, rows, pct }: { title: string; who: string; row
         <tbody>{rows.map((r) => {
           const p = pct(r.sold, r.transfers)
           return (
-            <tr key={r.name}><td><b>{r.name}</b></td><td className="r">{r.transfers}</td><td className="r">{r.quoted}</td><td className="r">{r.sold}</td>
+            <tr key={r.name}><td><b>{r.name}</b>{r.name === best && <span className="pill pill-good cs-best-pill">Best closer</span>}</td><td className="r">{r.transfers}</td><td className="r">{r.quoted}</td><td className="r">{r.sold}</td>
               <td className="r"><span className={'pill ' + (p >= 20 ? 'pill-good' : p >= 10 ? 'pill-warn' : 'pill-muted')}>{p}%</span><small className="cs-sub"> {pct(r.sold, r.quoted)}% of quoted</small></td>
               <td className="r mono">{money2(r.premium)}</td></tr>
           )
