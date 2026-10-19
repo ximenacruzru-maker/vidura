@@ -68,6 +68,7 @@ export function Sdr({ D, month, setMonth, agency }: { D: PerfData; month: string
         </table>
       </div>
     </div>
+    <CloseRates transfers={sd.transfers} month={m} label={meta.periodLabel || m} />
     {off.length > 0 && (
       <div className="panel">
         <div className="panel-h"><div><div className="panel-t">Reference only</div><div className="panel-s">Not an active SDR this period — shown for continuity, not included in the totals above</div></div></div>
@@ -126,4 +127,59 @@ export function Sdr({ D, month, setMonth, agency }: { D: PerfData; month: string
       </div>
     </div>
   </>
+}
+
+type Close = { name: string; transfers: number; quoted: number; sold: number; premium: number }
+const pct = (a: number, b: number) => (b ? Math.round((a / b) * 1000) / 10 : 0)
+function closeBy(list: Json[], key: (t: Json) => string): Close[] {
+  const m = new Map<string, Close>()
+  for (const t of list) {
+    const k = key(t) || 'Unassigned'
+    const o = m.get(k) || { name: k, transfers: 0, quoted: 0, sold: 0, premium: 0 }
+    o.transfers++; if (t.azQualifies) o.quoted++; if (t.bound) { o.sold++; o.premium += Number(t.boundPremium) || 0 }
+    m.set(k, o)
+  }
+  return [...m.values()].sort((a, b) => b.sold / (b.transfers || 1) - a.sold / (a.transfers || 1) || b.transfers - a.transfers)
+}
+// best closer: highest close rate among those with at least 3 transfers (so 1 of 1 doesn't win)
+const bestOf = (rows: Close[]) => rows.find((r) => r.name !== 'Unassigned' && r.transfers >= 3 && r.sold > 0)
+
+/** SDR transfers → sold (only SDR transfers, never a producer's other sales): of the transfers each producer received (and each SDR sent), how many were sold —
+ *  for the pay period picked above and for every period on file. Shows who closes SDR transfers best. */
+function CloseRates({ transfers, month, label }: { transfers: Json[]; month: string; label: string }) {
+  const mine = transfers.filter((t) => t.month === month)
+  const sets = [
+    { title: 'By producer — SDR transfers received', who: 'Producer', mo: closeBy(mine, (t) => t.producer), all: closeBy(transfers, (t) => t.producer) },
+    { title: 'By SDR — transfers sent', who: 'SDR', mo: closeBy(mine, (t) => t.sdr), all: closeBy(transfers, (t) => t.sdr) },
+  ]
+  const best = bestOf(sets[0].mo), bestAll = bestOf(sets[0].all)
+  const tone = (p: number) => ({ fontWeight: 700, color: p >= 20 ? '#1F7A4D' : p >= 10 ? '#B7791F' : 'var(--muted)' })
+  return (
+    <div className="panel" data-parity="new">
+      <div className="panel-h"><div><div className="panel-t">SDR transfers → sold</div><div className="panel-s">Only SDR transfers count — not a producer’s other sales · {label} and all periods on file · sold rate = SDR transfers sold ÷ SDR transfers · needs at least 3 transfers to rank</div></div></div>
+      <div className="panel-b">
+        <div className="scgrid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', marginBottom: 14 }}>
+          <div className="sccard"><div className="sccard-l">Best at closing SDR transfers · {label}</div><div className="sccard-v">{best ? best.name : '—'}</div><div className="sccard-s">{best ? `${pct(best.sold, best.transfers)}% · ${best.sold} sold of ${best.transfers} SDR transfers` : 'not enough transfers yet'}</div></div>
+          <div className="sccard"><div className="sccard-l">Best at closing SDR transfers · all periods</div><div className="sccard-v">{bestAll ? bestAll.name : '—'}</div><div className="sccard-s">{bestAll ? `${pct(bestAll.sold, bestAll.transfers)}% · ${bestAll.sold} sold of ${bestAll.transfers} SDR transfers` : 'not enough transfers yet'}</div></div>
+        </div>
+        {sets.map((x) => (
+          <div key={x.who} style={{ overflowX: 'auto', marginBottom: 14 }}>
+            <div style={{ fontWeight: 700, color: 'var(--bistre)', margin: '4px 0 6px' }}>{x.title}</div>
+            <table className="dect"><thead><tr><th>{x.who}</th><th className="tr">SDR transfers</th><th className="tr">Quoted</th><th className="tr">Sold</th><th className="tr">Transfer → sold</th><th className="tr">Sold premium</th><th className="tr">All periods: SDR transfers</th><th className="tr">sold</th><th className="tr">transfer → sold</th></tr></thead>
+              <tbody>{x.all.map((a) => {
+                const r = x.mo.find((y) => y.name === a.name) || { name: a.name, transfers: 0, quoted: 0, sold: 0, premium: 0 }
+                const p = pct(r.sold, r.transfers), pa = pct(a.sold, a.transfers)
+                return (
+                  <tr key={a.name}><td style={{ fontWeight: 600, color: 'var(--bistre)' }}>{a.name}{x.who === 'Producer' && best?.name === a.name ? ' ★' : ''}</td>
+                    <td className="tr mono">{r.transfers}</td><td className="tr mono">{r.quoted}</td><td className="tr mono">{r.sold}</td>
+                    <td className="tr mono" style={r.transfers ? tone(p) : undefined}>{r.transfers ? p + '%' : '—'}</td><td className="tr mono">{money0(r.premium)}</td>
+                    <td className="tr mono">{a.transfers}</td><td className="tr mono">{a.sold}</td><td className="tr mono" style={tone(pa)}>{pa}%</td></tr>
+                )
+              })}</tbody>
+            </table>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
 }
