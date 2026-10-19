@@ -4,6 +4,7 @@
 // agency's comp plan stored in comp_plans (the plan in force on the folio's
 // start date), and returns only what the signed-in person is allowed to see:
 //   owner / admin      -> every producer (Office payroll is theirs alone)
+//   commission sheet   -> every producer, for staff an admin switched "Commission sheet" on for (whoever runs payroll)
 //   producer / protege -> only their own line
 //   anyone else        -> nothing
 // Doing this server-side is what keeps producers from seeing each other's pay.
@@ -108,7 +109,7 @@ Deno.serve(async (req) => {
   const { data: me } = await admin.from("staff_accounts").select("role, producer_name, active, agency_id, access").eq("user_id", u.user.id).maybeSingle();
   if (!me || !me.active) return json({ error: "Your login isn't set up as a staff account yet." }, 403);
   const body = await req.json().catch(() => ({}));
-  const seesAll = me.role === "owner" || me.role === "admin";
+  const seesAll = me.role === "owner" || me.role === "admin" || (me.access && (me.access as Record<string, unknown>).commission_sheet === true);
   if (!seesAll && !["producer", "protege"].includes(me.role)) return json({ error: "Commissions aren't part of your role." }, 403);
 
   // The service role skips row-level security, so every read below is limited to the caller's agency.

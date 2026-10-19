@@ -1,0 +1,130 @@
+import { useMemo, useState } from 'react'
+import { useFolio, folioName } from '../components/FolioPicker'
+import { Empty, ErrorBox, Loading, PageHead, Panel, Tile, Tiles } from '../components/ui'
+import { getSdrPeriods, getSdrQuoteNumbers, getSdrTransfers } from '../lib/data'
+import { downloadSheet } from '../lib/excelExport'
+import { mdy, money2, todayPacific } from '../lib/format'
+import { folioFor } from '../lib/payday'
+import { supabase } from '../lib/supabase'
+import { useAsync } from '../lib/useAsync'
+
+/** Commissions: the commission sheet for one 21st payday, for whoever runs payroll — every producer's commission for
+ *  the folio that closed last month and every SDR's bonus for last month's transfers, in one spreadsheet. No hours,
+ *  pay rates or salaries (those stay on Office Payroll, owners and admins only). */
+
+interface Comm { producer: string; totalPremium: number; policies: number; qualifies: boolean; tierRate: number; total: number }
+const pad = (n: number) => String(n).padStart(2, '0')
+/** The 21st paydays around today: the next one first, then the last few. */
+function paydays(today: string) {
+  const [y, m, d] = today.split('-').map(Number)
+  const start = y * 12 + (m - 1) + (d > 21 ? 1 : 0)
+  return Array.from({ length: 6 }, (_, i) => { const t = start - i; return `${Math.floor(t / 12)}-${pad((t % 12) + 1)}-21` })
+}
+
+export default function CommissionSheet() {
+  const today = todayPacific()
+  const days = useMemo(() => paydays(today), [today])
+  const [pay, setPay] = useState(days[0])
+  const { folios } = useFolio()
+  const folio = folioFor(pay, folios)
+  const periods = useAsync(getSdrPeriods, [])
+  const period = periods.data?.find((p) => p.pay_date === pay)
+  const comm = useAsync(async () => {
+    if (!folio) return [] as Comm[]
+    const { data, error } = await supabase.functions.invoke('commissions', { body: { folio: folio.start_date, scope: 'office' } })
+    if (error) { const msg = await (error as any).context?.json?.().then((j: any) => j.error).catch(() => null); throw new Error(msg || error.message) }
+    return ((data.results || []) as Comm[]).sort((a, b) => b.total - a.total)
+  }, [folio?.start_date])
+  const sdr = useAsync(async () => (period ? getSdrTransfers(period.month) : []), [period?.month])
+  const apex = useAsync(async () => (period ? getSdrQuoteNumbers(period.month) : new Map()), [period?.month])
+
+  const qb = Number(period?.qualified_transfer_bonus) || 0, bb = Number(period?.bound_policy_bonus) || 0
+  const sdrs = useMemo(() => {
+    const m = new Map<string, { logged: number; qualified: number; bound: number; qOnly: number; missing: number }>()
+    for (const t of sdr.data || []) {
+      const o = m.get(t.sdr) || { logged: 0, qualified: 0, bound: 0, qOnly: 0, missing: 0 }
+      // a bound transfer earns the bound bonus in place of the qualified one ($35 total, not $15 + $35)
+      o.logged++; if (t.az_qualifies) o.qualified++; if (t.bound) o.bound++; else if (t.az_qualifies) o.qOnly++
+      if (!apex.data?.get(t.lead_id)) o.missing++
+      m.set(t.sdr, o)
+    }
+    return [...m].map(([name, o]) => ({ name, ...o, bonus: o.qOnly * qb + o.bound * bb })).sort((a, b) => b.bonus - a.bonus)
+  }, [sdr.data, apex.data, qb, bb])
+  const prodTotal = (comm.data || []).reduce((s, c) => s + c.total, 0)
+  const sdrTotal = sdrs.reduce((s, x) => s + x.bonus, 0)
+  const err = comm.error || sdr.error || periods.error || apex.error
+  const ready = comm.data && sdr.data && apex.data && periods.data
+
+  const download = () => {
+    const r2 = (n: number) => (Math.round(n * 100) / 100).toFixed(2)
+    const folioLabel = folio ? `${folioName(folio)} (${mdy(folio.start_date)} – ${mdy(folio.end_date)})` : 'not set up'
+    downloadSheet(`Commissions_${pay}.xlsx`, [
+      [`Commission sheet · payday ${mdy(pay)}`],
+      [`Producer commission: folio ${folioLabel}`],
+      [`SDR bonus: ${period?.period_label || 'no SDR month for this payday'} transfers · $${qb} per qualified, $${bb} per bound (in place of the $${qb})`],
+      [],
+      ['Name', 'Type', 'Commission due'],
+      ...(comm.data || []).map((c) => [c.producer, 'Producer commission', r2(c.total)]),
+      ...sdrs.map((s) => [s.name, 'SDR bonus', r2(s.bonus)]),
+      ['Total', '', r2(prodTotal + sdrTotal)],
+      [], ['Producer commission'],
+      ['Producer', 'Total premium', 'Policies', 'Qualifies', 'Tier rate', 'Commission'],
+      ...(comm.data || []).map((c) => [c.producer, r2(c.totalPremium), c.policies, c.qualifies ? 'Yes' : 'No', Math.round(c.tierRate * 1000) / 10 + '%', r2(c.total)]),
+      [], ['SDR bonus'],
+      ['SDR', 'Transfers', 'Qualified', 'Bound', 'SDR bonus', 'Missing Apex quote #'],
+      ...sdrs.map((s) => [s.name, s.logged, s.qualified, s.bound, r2(s.bonus), s.missing]),
+      [], ['SDR transfers to reconcile — match each Apex quote # to the bonus it earns'],
+      ['SDR', 'Transferred', 'Client', 'Producer', 'AgencyZoom lead #', 'Apex quote #', 'Quoted premium', 'Qualified', 'Bound', 'Bonus'],
+      ...[...(sdr.data || [])].sort((a, b) => a.sdr.localeCompare(b.sdr) || String(a.date_time).localeCompare(String(b.date_time))).map((t) => [
+        t.sdr, String(t.date_time).slice(0, 10), t.client, t.producer, t.lead_id, apex.data?.get(t.lead_id)?.quote_number || 'MISSING',
+        r2(Number(t.az_quote_premium) || 0), t.az_qualifies ? 'Yes' : 'No', t.bound ? 'Yes' : 'No', r2(t.bound ? bb : t.az_qualifies ? qb : 0)]),
+    ], { sheet: `Commissions ${pay}` })
+  }
+
+  return (
+    <>
+      <PageHead kicker="Agency Management" title="Commissions" sub="The commission sheet for each 21st payday: every producer’s commission and every SDR’s bonus, in one spreadsheet." />
+      <Panel title={`Payday ${mdy(pay)}`} sub={`Producer commission for the folio ${folio ? `${mdy(folio.start_date)} – ${mdy(folio.end_date)}` : '(not set up yet)'} · SDR bonus for ${period?.period_label || 'last month'} transfers`}
+        right={<div className="filters">
+          <select className="fld" value={pay} onChange={(e) => setPay(e.target.value)} aria-label="Payday">
+            {days.map((d, i) => <option key={d} value={d}>{mdy(d)}{i === 0 ? ' (next payday)' : ''}</option>)}
+          </select>
+          <button className="btn-primary" onClick={download} disabled={!ready || !!err}>Download commission sheet</button>
+        </div>}>
+        {err ? <ErrorBox error={err} /> : !ready ? <Loading what="Adding up commissions" /> : (
+          <Tiles>
+            <Tile label="Total due" value={money2(prodTotal + sdrTotal)} sub={`paid ${mdy(pay)}`} tone="good" />
+            <Tile label="Producer commission" value={money2(prodTotal)} sub={`${(comm.data || []).length} producers`} />
+            <Tile label="SDR bonus" value={money2(sdrTotal)} sub={`${sdrs.length} SDRs · ${(sdr.data || []).length} transfers`} />
+            <Tile label="Missing Apex quote #" value={sdrs.reduce((s, x) => s + x.missing, 0)} sub="transfers without a quote # yet" tone={sdrs.some((x) => x.missing) ? 'warn' : 'good'} />
+          </Tiles>
+        )}
+      </Panel>
+      {ready && !err && <>
+        <Panel title="Producer commission" sub={folio ? `Folio ${mdy(folio.start_date)} – ${mdy(folio.end_date)}` : ''}>
+          {(comm.data || []).length ? (
+            <div className="tbl-wrap"><table className="tbl">
+              <thead><tr><th>Producer</th><th className="r">Total premium</th><th className="r">Policies</th><th>Qualifies</th><th className="r">Tier rate</th><th className="r">Commission</th></tr></thead>
+              <tbody>{(comm.data || []).map((c) => (
+                <tr key={c.producer}><td><b>{c.producer}</b></td><td className="r mono">{money2(c.totalPremium)}</td><td className="r">{c.policies}</td>
+                  <td><span className={'pill ' + (c.qualifies ? 'pill-good' : 'pill-muted')}>{c.qualifies ? 'Yes' : 'No'}</span></td>
+                  <td className="r">{Math.round(c.tierRate * 1000) / 10}%</td><td className="r mono"><b>{money2(c.total)}</b></td></tr>
+              ))}</tbody>
+            </table></div>
+          ) : <Empty>No producer commission for this payday (the folio isn’t set up, or nothing was sold).</Empty>}
+        </Panel>
+        <Panel title="SDR bonus" sub={period ? `${period.period_label} transfers · $${qb} per qualified, $${bb} per bound` : 'No SDR month for this payday'}>
+          {sdrs.length ? (
+            <div className="tbl-wrap"><table className="tbl">
+              <thead><tr><th>SDR</th><th className="r">Transfers</th><th className="r">Qualified</th><th className="r">Bound</th><th className="r">Missing quote #</th><th className="r">Bonus</th></tr></thead>
+              <tbody>{sdrs.map((s) => (
+                <tr key={s.name}><td><b>{s.name}</b></td><td className="r">{s.logged}</td><td className="r">{s.qualified}</td><td className="r">{s.bound}</td>
+                  <td className="r">{s.missing ? <span className="pill pill-warn">{s.missing}</span> : '0'}</td><td className="r mono"><b>{money2(s.bonus)}</b></td></tr>
+              ))}</tbody>
+            </table></div>
+          ) : <Empty>No SDR transfers for this payday.</Empty>}
+        </Panel>
+      </>}
+    </>
+  )
+}
