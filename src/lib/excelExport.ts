@@ -12,6 +12,8 @@ type Cell = string | number | null | undefined
 const DARK = 'FF1F3D2E', WHITE = 'FFFFFFFF', BAND = 'FFF6F7F5', TOTAL_BG = 'FFFBF1DD'
 const GREEN = 'FF1F7A57', GREEN_BG = 'FFE3F4EC', RED = 'FFA83E4B', RED_BG = 'FFF9E3E6', AMBER = 'FF9A6411', AMBER_BG = 'FFFDF1D8'
 const PEOPLE_FILLS = ['FFDCE6FF', 'FFFDE7C8', 'FFDDF3E4', 'FFF3DDF3', 'FFDDF1F5', 'FFFBE0D6', 'FFE8E4F8', 'FFEFF3D6', 'FFF5E1E9', 'FFE2ECE9']
+// the same people, as strong ink for an emphasised amount (one per fill above, in the same order)
+const PEOPLE_INK = ['FF1E3A8A', 'FF9A5B00', 'FF166534', 'FF7E2A86', 'FF0E6377', 'FFA3381C', 'FF4C3B9E', 'FF56651A', 'FF9D2457', 'FF2D5E52']
 const GOOD = /^(yes|active|paid|done|completed?|sold|bound|approved|in ?force|qualifies|won|closed won)$/i
 const BAD = /^(no|cancell?ed|overdue|dead|lost|expired|lapsed|declined|terminated|critical|high|urgent|failed|closed lost)$/i
 const WARN = /^(open|pending|in progress|in process|not started|medium|quoted|waiting|due soon|partial)$/i
@@ -20,13 +22,22 @@ const PEOPLE_HEAD = /^(producer|owner|sdr|agent|assigned|name)$/i
 const NUM = /^-?\d+(\.\d+)?$/
 const fill = (argb: string) => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } })
 
-/** Saves rows as a colour-coded .xlsx (the name's extension is replaced), or as a CSV if Excel isn't available. */
-export async function downloadSheet(filename: string, rows: Cell[][], opts: { sheet?: string } = {}) {
+/** Saves rows as a colour-coded .xlsx (the name's extension is replaced), or as a CSV if Excel isn't available.
+ *  emphasize: columns (by header) whose amounts should stand out — huge, bold, in the row's person colour. */
+export async function downloadSheet(filename: string, rows: Cell[][], opts: { sheet?: string; emphasize?: RegExp; tabs?: { name: string; rows: Cell[][] }[] } = {}) {
   const base = filename.replace(/\.(csv|xlsx)$/i, '')
   try {
     const ExcelJS = await excelLib()
     const wb = new ExcelJS.Workbook(); wb.creator = 'Declara'
-    build(wb.addWorksheet((opts.sheet || 'Export').slice(0, 31)), rows)
+    build(wb.addWorksheet((opts.sheet || 'Export').slice(0, 31)), rows, opts.emphasize)
+    // more tabs in the same workbook (Excel sheet names: 31 characters, no : \ / ? * [ ], and unique)
+    const used = new Set([(opts.sheet || 'Export').slice(0, 31).toLowerCase()])
+    for (const t of opts.tabs || []) {
+      let n = t.name.replace(/[:\\/?*[\]]/g, ' ').trim().slice(0, 31) || 'Sheet', k = 2
+      while (used.has(n.toLowerCase())) n = `${n.slice(0, 28)} ${k++}`
+      used.add(n.toLowerCase())
+      build(wb.addWorksheet(n), t.rows, opts.emphasize)
+    }
     const buf = await wb.xlsx.writeBuffer()
     save(base + '.xlsx', new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
   } catch {
@@ -35,11 +46,13 @@ export async function downloadSheet(filename: string, rows: Cell[][], opts: { sh
   }
 }
 
-function build(ws: any, rows: Cell[][]) {
+function build(ws: any, rows: Cell[][], emphasize?: RegExp) {
   const today = todayPacific()
   const width: number[] = []
   const people = new Map<string, string>()
-  const personFill = (v: string) => { if (!people.has(v)) people.set(v, PEOPLE_FILLS[people.size % PEOPLE_FILLS.length]); return people.get(v)! }
+  const personIdx = (v: string) => { if (!people.has(v)) people.set(v, String(people.size % PEOPLE_FILLS.length)); return Number(people.get(v)) }
+  const personFill = (v: string) => PEOPLE_FILLS[personIdx(v)]
+  const big = (h: string) => !!emphasize && emphasize.test(h)
   let head: string[] = [], first = 0, out = 1, band = 0, filtered = false
   const total = (from: number, to: number) => {
     const money = head.map((h, i) => (MONEY_HEAD.test(h) ? i : -1)).filter((i) => i >= 0)
@@ -50,7 +63,8 @@ function build(ws: any, rows: Cell[][]) {
       const col = colName(i + 1)
       t.getCell(i + 1).value = { formula: `SUM(${col}${from}:${col}${to})` }; t.getCell(i + 1).numFmt = '"$"#,##0.00'
     }
-    for (let c = 1; c <= head.length; c++) { t.getCell(c).font = { bold: true }; t.getCell(c).fill = fill(TOTAL_BG) }
+    for (let c = 1; c <= head.length; c++) { t.getCell(c).font = { bold: true, ...(big(head[c - 1]) ? { size: 20 } : {}) }; t.getCell(c).fill = fill(TOTAL_BG) }
+    if (head.some(big)) t.height = 34
   }
   const header = (cells: Cell[]) => {
     head = cells.map((c) => String(c ?? ''))
@@ -74,6 +88,8 @@ function build(ws: any, rows: Cell[][]) {
       header(rows[++i]); continue
     }
     const r = ws.getRow(out)
+    // the person this row is about (first name-type column), for colouring an emphasised amount
+    const who = String(row[head.findIndex((h) => PEOPLE_HEAD.test(h))] ?? '').trim()
     row.forEach((v, j) => {
       const c = r.getCell(j + 1), h = head[j] || '', s = v == null ? '' : String(v).trim()
       if (s === '') return
@@ -94,6 +110,12 @@ function build(ws: any, rows: Cell[][]) {
         if (d <= 30) { c.fill = fill(RED_BG); c.font = { bold: true, color: { argb: RED } } } else if (d <= 60) { c.fill = fill(AMBER_BG); c.font = { bold: true, color: { argb: AMBER } } }
       }
       if (/^due/i.test(h) && c.value instanceof Date && c.value.toISOString().slice(0, 10) < today) { c.fill = fill(RED_BG); c.font = { bold: true, color: { argb: RED } } }
+      if (big(h) && typeof c.value === 'number') {
+        const k = who ? personIdx(who) : 0
+        c.fill = fill(PEOPLE_FILLS[k]); c.font = { bold: true, size: 20, color: { argb: PEOPLE_INK[k] } }
+        c.alignment = { horizontal: 'right', vertical: 'middle' }
+        r.height = 34; width[j] = Math.max(width[j] || 0, 20)
+      }
     })
     out++; band++
   }
