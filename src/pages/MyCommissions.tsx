@@ -52,6 +52,7 @@ export default function MyCommissions() {
   return (
     <>
       <PageHead kicker="Workspace" title="My Commissions" sub="How your month is going: your transfers, how many qualified and bound, and the bonus they add up to." />
+      <div className="apex-warn" role="alert">It is your responsibility to type in the Apex quote numbers. If it is not on there, you will not get credit.</div>
       <Panel title={monthLabel(month) + (live ? ' · in progress' : '')}
         sub={period ? `$${qb} per qualified transfer · $${bb} total per bound policy · paid on ${mdy(period.pay_date)}` : ''}
         right={<div className="filters"><select value={month} onChange={(e) => setMonth(e.target.value)} aria-label="Month">

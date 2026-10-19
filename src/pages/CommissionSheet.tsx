@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useAuth } from '../auth'
 import { useFolio, folioName } from '../components/FolioPicker'
 import { Empty, ErrorBox, Loading, PageHead, Panel, Tile, Tiles } from '../components/ui'
 import { getSdrPeriods, getSdrQuoteNumbers, getSdrTransfers } from '../lib/data'
@@ -52,6 +53,26 @@ export default function CommissionSheet() {
     }
     return [...m].map(([name, o]) => ({ name, ...o, bonus: o.qOnly * qb + o.bound * bb })).sort((a, b) => b.bonus - a.bonus)
   }, [sdr.data, apex.data, qb, bb])
+  // owners and admins also see how SDR transfers turn into sales, per producer and per SDR (Rhon's view doesn't)
+  const { me } = useAuth()
+  const owner = me?.role === 'owner' || me?.role === 'admin'
+  const close = useMemo(() => {
+    type Row = { name: string; transfers: number; quoted: number; sold: number; premium: number }
+    const by = (key: (t: { sdr: string; producer: string }) => string) => {
+      const m = new Map<string, Row>()
+      for (const t of sdr.data || []) {
+        const k = key(t) || 'Unassigned'
+        const o = m.get(k) || { name: k, transfers: 0, quoted: 0, sold: 0, premium: 0 }
+        o.transfers++; if (t.az_qualifies) o.quoted++; if (t.bound) { o.sold++; o.premium += Number(t.bound_premium) || 0 }
+        m.set(k, o)
+      }
+      return [...m.values()].sort((a, b) => b.sold / (b.transfers || 1) - a.sold / (a.transfers || 1) || b.transfers - a.transfers)
+    }
+    return { producers: by((t) => t.producer), sdrs: by((t) => t.sdr), pairs: by((t) => `${t.sdr} → ${t.producer || 'Unassigned'}`) }
+  }, [sdr.data])
+  const pctOf = (a: number, b: number) => (b ? Math.round((a / b) * 1000) / 10 : 0)
+  // the best closer: highest close rate on SDR transfers, among producers with at least 3 (so 1 of 1 doesn't win)
+  const best = close.producers.find((r) => r.name !== 'Unassigned' && r.transfers >= 3 && r.sold > 0)
   const prodTotal = (comm.data || []).reduce((s, c) => s + c.total, 0)
   const sdrTotal = sdrs.reduce((s, x) => s + x.bonus, 0)
   const err = comm.error || sdr.error || periods.error || apex.error
@@ -83,7 +104,23 @@ export default function CommissionSheet() {
     ], {
       sheet: `Commissions ${pay}`, emphasize: /^commission due$/i,
       // one tab per producer: every sale in the folio, and how the commission adds up
-      tabs: (comm.data || []).map((c) => ({
+      tabs: [...(owner ? [{
+        name: 'Close rates',
+        rows: [
+          ['Producer', 'SDR transfers received', 'Quoted', 'Sold', 'Close rate %', 'Close rate on quoted %', 'Sold premium'],
+          ...close.producers.map((r) => [r.name, r.transfers, r.quoted, r.sold, pctOf(r.sold, r.transfers), pctOf(r.sold, r.quoted), r2(r.premium)]),
+          [], ['By SDR — transfers sent and how many sold'],
+          ['SDR', 'Transfers sent', 'Quoted', 'Sold', 'Close rate %', 'Close rate on quoted %', 'Sold premium'],
+          ...close.sdrs.map((r) => [r.name, r.transfers, r.quoted, r.sold, pctOf(r.sold, r.transfers), pctOf(r.sold, r.quoted), r2(r.premium)]),
+          [], ['SDR → producer — who closes whose transfers'],
+          ['SDR → producer', 'Transfers', 'Quoted', 'Sold', 'Close rate %', 'Close rate on quoted %', 'Sold premium'],
+          ...close.pairs.map((r) => [r.name, r.transfers, r.quoted, r.sold, pctOf(r.sold, r.transfers), pctOf(r.sold, r.quoted), r2(r.premium)]),
+          [], ['About this tab'],
+          ['Item', 'Detail'],
+          ['Transfers from', `${period?.period_label || '—'} SDR transfers`],
+          ['Close rate', 'Sold ÷ transfers. Close rate on quoted = sold ÷ transfers that got a real quote.'],
+        ],
+      }] : []), ...(comm.data || []).map((c) => ({
         name: c.producer,
         rows: [
           ['Sale date', 'Client', 'Carrier', 'Line', 'Bucket', 'Premium'],
@@ -103,7 +140,7 @@ export default function CommissionSheet() {
           ...(c.splitShare && c.splitShare !== 1 ? [['Split share', Math.round(c.splitShare * 100) + '%']] : []),
           ['Commission due', '$' + r2(c.total)],
         ],
-      })),
+      }))],
     })
   }
 
@@ -150,7 +187,35 @@ export default function CommissionSheet() {
             </table></div>
           ) : <Empty>No SDR transfers for this payday.</Empty>}
         </Panel>
+        {owner && (
+          <Panel title="SDR transfers → sales: close rate" sub={`${period?.period_label || 'Last month'} transfers · close rate = sold ÷ transfers · owners and admins only`}>
+            {best && <div className="cs-best"><span className="cs-best-k">Best closer</span><b>{best.name}</b><span>{pctOf(best.sold, best.transfers)}% · {best.sold} sold of {best.transfers} transfers · {money2(best.premium)}</span></div>}
+            {(sdr.data || []).length ? <div className="cs-close">
+              <CloseTable title="By producer — transfers received" who="Producer" rows={close.producers} pct={pctOf} best={best?.name} />
+              <CloseTable title="By SDR — transfers sent" who="SDR" rows={close.sdrs} pct={pctOf} />
+            </div> : <Empty>No SDR transfers for this payday.</Empty>}
+          </Panel>
+        )}
       </>}
     </>
+  )
+}
+
+function CloseTable({ title, who, rows, pct, best }: { title: string; who: string; rows: { name: string; transfers: number; quoted: number; sold: number; premium: number }[]; pct: (a: number, b: number) => number; best?: string }) {
+  return (
+    <div>
+      <div className="cs-close-h">{title}</div>
+      <div className="tbl-wrap"><table className="tbl">
+        <thead><tr><th>{who}</th><th className="r">Transfers</th><th className="r">Quoted</th><th className="r">Sold</th><th className="r">Close rate</th><th className="r">Sold premium</th></tr></thead>
+        <tbody>{rows.map((r) => {
+          const p = pct(r.sold, r.transfers)
+          return (
+            <tr key={r.name}><td><b>{r.name}</b>{r.name === best && <span className="pill pill-good cs-best-pill">Best closer</span>}</td><td className="r">{r.transfers}</td><td className="r">{r.quoted}</td><td className="r">{r.sold}</td>
+              <td className="r"><span className={'pill ' + (p >= 20 ? 'pill-good' : p >= 10 ? 'pill-warn' : 'pill-muted')}>{p}%</span><small className="cs-sub"> {pct(r.sold, r.quoted)}% of quoted</small></td>
+              <td className="r mono">{money2(r.premium)}</td></tr>
+          )
+        })}</tbody>
+      </table></div>
+    </div>
   )
 }
