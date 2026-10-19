@@ -12,7 +12,9 @@ import { useAsync } from '../lib/useAsync'
  *  the folio that closed last month and every SDR's bonus for last month's transfers, in one spreadsheet. No hours,
  *  pay rates or salaries (those stay on Office Payroll, owners and admins only). */
 
-interface Comm { producer: string; totalPremium: number; policies: number; qualifies: boolean; tierRate: number; total: number }
+interface CommRow { client: string; carrier: string; line: string; premium: number; sale_date: string; bucket: string }
+interface CommBucket { key: string; label: string; premium: number; rate: number; commission: number }
+interface Comm { producer: string; totalPremium: number; policies: number; qualifies: boolean; tierRate: number; total: number; rows?: CommRow[]; buckets?: Record<string, CommBucket>; bonuses?: Record<string, number>; splitShare?: number }
 const pad = (n: number) => String(n).padStart(2, '0')
 /** The 21st paydays around today: the next one first, then the last few. */
 function paydays(today: string) {
@@ -59,14 +61,9 @@ export default function CommissionSheet() {
     const r2 = (n: number) => (Math.round(n * 100) / 100).toFixed(2)
     const folioLabel = folio ? `${folioName(folio)} (${mdy(folio.start_date)} – ${mdy(folio.end_date)})` : 'not set up'
     downloadSheet(`Commissions_${pay}.xlsx`, [
-      [`Commission sheet · payday ${mdy(pay)}`],
-      [`Producer commission: folio ${folioLabel}`],
-      [`SDR bonus: ${period?.period_label || 'no SDR month for this payday'} transfers · $${qb} per qualified, $${bb} per bound (in place of the $${qb})`],
-      [],
       ['Name', 'Type', 'Commission due'],
       ...(comm.data || []).map((c) => [c.producer, 'Producer commission', r2(c.total)]),
       ...sdrs.map((s) => [s.name, 'SDR bonus', r2(s.bonus)]),
-      ['Total', '', r2(prodTotal + sdrTotal)],
       [], ['Producer commission'],
       ['Producer', 'Total premium', 'Policies', 'Qualifies', 'Tier rate', 'Commission'],
       ...(comm.data || []).map((c) => [c.producer, r2(c.totalPremium), c.policies, c.qualifies ? 'Yes' : 'No', Math.round(c.tierRate * 1000) / 10 + '%', r2(c.total)]),
@@ -78,7 +75,36 @@ export default function CommissionSheet() {
       ...[...(sdr.data || [])].sort((a, b) => a.sdr.localeCompare(b.sdr) || String(a.date_time).localeCompare(String(b.date_time))).map((t) => [
         t.sdr, String(t.date_time).slice(0, 10), t.client, t.producer, t.lead_id, apex.data?.get(t.lead_id)?.quote_number || 'MISSING',
         r2(Number(t.az_quote_premium) || 0), t.az_qualifies ? 'Yes' : 'No', t.bound ? 'Yes' : 'No', r2(t.bound ? bb : t.az_qualifies ? qb : 0)]),
-    ], { sheet: `Commissions ${pay}` })
+      [], ['About this sheet'],
+      ['Item', 'Detail'],
+      ['Payday', mdy(pay)],
+      ['Producer commission', `folio ${folioLabel}`],
+      ['SDR bonus', `${period?.period_label || 'no SDR month for this payday'} transfers · $${qb} per qualified, $${bb} per bound (in place of the $${qb})`],
+    ], {
+      sheet: `Commissions ${pay}`, emphasize: /^commission due$/i,
+      // one tab per producer: every sale in the folio, and how the commission adds up
+      tabs: (comm.data || []).map((c) => ({
+        name: c.producer,
+        rows: [
+          ['Sale date', 'Client', 'Carrier', 'Line', 'Bucket', 'Premium'],
+          ...[...(c.rows || [])].sort((a, b) => a.sale_date.localeCompare(b.sale_date)).map((r) => [r.sale_date, r.client, r.carrier, r.line, r.bucket, r2(r.premium)]),
+          [], ['How the commission adds up'],
+          ['Bucket', 'Premium', 'Rate', 'Commission'],
+          ...Object.values(c.buckets || {}).filter((b) => b.premium || b.commission).map((b) => [b.label, r2(b.premium), Math.round(b.rate * 1000) / 10 + '%', r2(b.commission)]),
+          ...Object.entries(c.bonuses || {}).filter(([, v]) => v).map(([k, v]) => [`Bonus: ${k}`, '', '', r2(v)]),
+          [], ['Summary'],
+          ['Item', 'Detail'],
+          ['Producer', c.producer],
+          ['Folio', folioLabel],
+          ['Policies', String(c.policies)],
+          ['Total premium', '$' + r2(c.totalPremium)],
+          ['Qualifies', c.qualifies ? 'Yes' : 'No'],
+          ['Tier rate', Math.round(c.tierRate * 1000) / 10 + '%'],
+          ...(c.splitShare && c.splitShare !== 1 ? [['Split share', Math.round(c.splitShare * 100) + '%']] : []),
+          ['Commission due', '$' + r2(c.total)],
+        ],
+      })),
+    })
   }
 
   return (
