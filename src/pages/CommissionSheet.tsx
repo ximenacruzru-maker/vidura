@@ -105,20 +105,20 @@ export default function CommissionSheet() {
       sheet: `Commissions ${pay}`, emphasize: /^commission due$/i,
       // one tab per producer: every sale in the folio, and how the commission adds up
       tabs: [...(owner ? [{
-        name: 'Close rates',
+        name: 'SDR transfers to sold',
         rows: [
-          ['Producer', 'SDR transfers received', 'Quoted', 'Sold', 'Close rate %', 'Close rate on quoted %', 'Sold premium'],
+          ['Producer', 'SDR transfers received', 'Quoted', 'Sold', 'Transfer → sold %', 'Transfer → sold, of quoted %', 'Sold premium'],
           ...close.producers.map((r) => [r.name, r.transfers, r.quoted, r.sold, pctOf(r.sold, r.transfers), pctOf(r.sold, r.quoted), r2(r.premium)]),
           [], ['By SDR — transfers sent and how many sold'],
-          ['SDR', 'Transfers sent', 'Quoted', 'Sold', 'Close rate %', 'Close rate on quoted %', 'Sold premium'],
+          ['SDR', 'Transfers sent', 'Quoted', 'Sold', 'Transfer → sold %', 'Transfer → sold, of quoted %', 'Sold premium'],
           ...close.sdrs.map((r) => [r.name, r.transfers, r.quoted, r.sold, pctOf(r.sold, r.transfers), pctOf(r.sold, r.quoted), r2(r.premium)]),
           [], ['SDR → producer — who closes whose transfers'],
-          ['SDR → producer', 'Transfers', 'Quoted', 'Sold', 'Close rate %', 'Close rate on quoted %', 'Sold premium'],
+          ['SDR → producer', 'Transfers', 'Quoted', 'Sold', 'Transfer → sold %', 'Transfer → sold, of quoted %', 'Sold premium'],
           ...close.pairs.map((r) => [r.name, r.transfers, r.quoted, r.sold, pctOf(r.sold, r.transfers), pctOf(r.sold, r.quoted), r2(r.premium)]),
           [], ['About this tab'],
           ['Item', 'Detail'],
           ['Transfers from', `${period?.period_label || '—'} SDR transfers`],
-          ['Close rate', 'Sold ÷ transfers. Close rate on quoted = sold ÷ transfers that got a real quote.'],
+          ['Transfer → sold', 'Only SDR transfers count, never a producer’s other sales. SDR transfers sold ÷ SDR transfers; "of quoted" = sold ÷ SDR transfers that got a real quote.'],
         ],
       }] : []), ...(comm.data || []).map((c) => ({
         name: c.producer,
@@ -188,10 +188,10 @@ export default function CommissionSheet() {
           ) : <Empty>No SDR transfers for this payday.</Empty>}
         </Panel>
         {owner && (
-          <Panel title="SDR transfers → sales: close rate" sub={`${period?.period_label || 'Last month'} transfers · close rate = sold ÷ transfers · owners and admins only`}>
-            {best && <div className="cs-best"><span className="cs-best-k">Best closer</span><b>{best.name}</b><span>{pctOf(best.sold, best.transfers)}% · {best.sold} sold of {best.transfers} transfers · {money2(best.premium)}</span></div>}
+          <Panel title="SDR transfers → sold" sub={`${period?.period_label || 'Last month'} SDR transfers only, not a producer’s other sales · sold rate = SDR transfers sold ÷ SDR transfers · owners and admins only`}>
+            {best && <div className="cs-best"><span className="cs-best-k">Best at closing SDR transfers</span><b>{best.name}</b><span>{pctOf(best.sold, best.transfers)}% · {best.sold} sold of {best.transfers} SDR transfers · {money2(best.premium)}</span></div>}
             {(sdr.data || []).length ? <div className="cs-close">
-              <CloseTable title="By producer — transfers received" who="Producer" rows={close.producers} pct={pctOf} best={best?.name} />
+              <CloseTable title="By producer — SDR transfers received" who="Producer" rows={close.producers} pct={pctOf} best={best?.name} />
               <CloseTable title="By SDR — transfers sent" who="SDR" rows={close.sdrs} pct={pctOf} />
             </div> : <Empty>No SDR transfers for this payday.</Empty>}
           </Panel>
@@ -206,11 +206,11 @@ function CloseTable({ title, who, rows, pct, best }: { title: string; who: strin
     <div>
       <div className="cs-close-h">{title}</div>
       <div className="tbl-wrap"><table className="tbl">
-        <thead><tr><th>{who}</th><th className="r">Transfers</th><th className="r">Quoted</th><th className="r">Sold</th><th className="r">Close rate</th><th className="r">Sold premium</th></tr></thead>
+        <thead><tr><th>{who}</th><th className="r">SDR transfers</th><th className="r">Quoted</th><th className="r">Sold</th><th className="r">Transfer → sold</th><th className="r">Sold premium</th></tr></thead>
         <tbody>{rows.map((r) => {
           const p = pct(r.sold, r.transfers)
           return (
-            <tr key={r.name}><td><b>{r.name}</b>{r.name === best && <span className="pill pill-good cs-best-pill">Best closer</span>}</td><td className="r">{r.transfers}</td><td className="r">{r.quoted}</td><td className="r">{r.sold}</td>
+            <tr key={r.name}><td><b>{r.name}</b>{r.name === best && <span className="pill pill-good cs-best-pill">Best</span>}</td><td className="r">{r.transfers}</td><td className="r">{r.quoted}</td><td className="r">{r.sold}</td>
               <td className="r"><span className={'pill ' + (p >= 20 ? 'pill-good' : p >= 10 ? 'pill-warn' : 'pill-muted')}>{p}%</span><small className="cs-sub"> {pct(r.sold, r.quoted)}% of quoted</small></td>
               <td className="r mono">{money2(r.premium)}</td></tr>
           )
