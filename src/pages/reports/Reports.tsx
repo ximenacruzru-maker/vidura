@@ -53,12 +53,13 @@ export function ReportsView({ D, open }: { D: PerfData; open?: string }) {
   useDarkFix(root, look.dark)
 
   const tabs = D.REPORT_TABS || []
-  const tab = tabs.some((t) => t.key === v.tab) ? v.tab : tabs[0]?.key || 'scorecard'
+  // Lead Sources is a tab the rebuild adds (the original had none), so it isn't in REPORT_TABS
+  const tab = v.tab === 'leads' || tabs.some((t) => t.key === v.tab) ? v.tab : tabs[0]?.key || 'scorecard'
   const fk = reportFolioKey(D, v.folio)
   const R: Json = D.AZ_REPORTS[fk] || {}
   const has = !!R.generatedAt
-  const wf: Json = D.WB_DATA?.folio?.[fk]
-  const leadSources = <LeadSources folio={wf ? { start: wf.start, end: wf.end, label: wbFolioLabel(D, fk) } : null} />
+  const leadFolios = wbFolioKeys(D).filter((k) => D.WB_DATA.folio[k]?.start).map((k) => ({ key: k, start: D.WB_DATA.folio[k].start, end: D.WB_DATA.folio[k].end, label: wbFolioLabel(D, k) }))
+  const leadSources = <LeadSources folios={leadFolios} current={fk} />
   const flt = R.filters || {}
   const openTab = (k: string) => (ELSEWHERE[k] ? go(ELSEWHERE[k]) : set({ tab: k, mode: 'details' }))
 
@@ -67,7 +68,8 @@ export function ReportsView({ D, open }: { D: PerfData; open?: string }) {
   const detailPanel = (kind: string) => (v.kind === kind ? <DrillPanel R={R} kind={kind} who={v.who} onClose={() => drill(null, null)} /> : null)
 
   let body: ReactNode
-  if (!has) body = <ReportEmpty />
+  if (tab === 'leads') body = leadSources
+  else if (!has) body = <ReportEmpty />
   else if (tab === 'scorecard') {
     body = <>
       <div className="scgrid">{(D.METRIC_ORDER || []).map((k) => <MetricCard key={k} D={D} R={R} k={k} />)}</div>
@@ -109,7 +111,6 @@ export function ReportsView({ D, open }: { D: PerfData; open?: string }) {
         </div>
       </div>
       {detailPanel('carrier')}
-      {leadSources}
       <div className="panel">
         <div className="panel-h"><div><div className="panel-t">Upcoming renewals</div><div className="panel-s">From the same pull</div></div></div>
         <div className="panel-b">
@@ -156,6 +157,7 @@ export function ReportsView({ D, open }: { D: PerfData; open?: string }) {
           </div>
           <div className="schead-tabs">
             {tabs.map((t) => <button key={t.key} className={'schead-tab' + (t.key === tab ? ' on' : '')} onClick={() => openTab(t.key)}>{t.label}</button>)}
+            <button data-parity="new" className={'schead-tab' + (tab === 'leads' ? ' on' : '')} onClick={() => openTab('leads')}>Lead Sources</button>
           </div>
         </div>
         <div className="scbar">
@@ -214,10 +216,10 @@ function MetricCard({ D, R, k }: { D: PerfData; R: Json; k: string }) {
 }
 
 /** Horizontal bars (engine.js reportBars): the top ten, and a click-through where the pull has the policies. */
-function RepBars({ items, detail, onGo }: { items?: Json[]; detail?: Record<string, Json> | null; onGo?: (label: string) => void }) {
+function RepBars({ items, detail, onGo, limit = 10 }: { items?: Json[]; detail?: Record<string, Json> | null; onGo?: (label: string) => void; limit?: number }) {
   if (!items || !items.length) return <div className="empty">Not in this pull.</div>
   const max = Math.max(...items.map((i) => i.value || 0), 1)
-  return <>{items.slice(0, 10).map((it, n) => {
+  return <>{items.slice(0, limit).map((it, n) => {
     const d = detail && detail[it.label]
     return (
       <div key={it.label + n} className={'rp-r' + (d ? ' rp-go' : '')} {...(d ? { tabIndex: 0, role: 'button', onClick: () => onGo?.(it.label) } : {})}>
@@ -277,6 +279,10 @@ function Written({ D, v, set, setFolio }: { D: PerfData; v: View; set: (p: Parti
     <div className="panel">
       <div className="panel-h"><div><div className="panel-t">Written Business by Producer</div><div className="panel-s">{v.metric === 'premium' ? 'Premium' : 'Policy count'}</div></div></div>
       <div className="panel-b"><RepBars items={x.bars} /></div>
+    </div>
+    <div className="panel" data-parity="new">
+      <div className="panel-h"><div><div className="panel-t">Written Business by Lead Source</div><div className="panel-s">{v.metric === 'premium' ? 'Premium' : 'Policy count'} · lead source from AgencyZoom on each sold policy · follows the filters above</div></div></div>
+      <div className="panel-b">{x.leadBars.length ? <RepBars items={x.leadBars} limit={Infinity} /> : <div className="empty">No sales match these filters.</div>}</div>
     </div>
     <div className="panel">
       <div className="panel-h"><div><div className="panel-t">Line items</div><div className="panel-s">{x.sales.length} polic{x.sales.length === 1 ? 'y' : 'ies'} in this view</div></div></div>

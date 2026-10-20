@@ -33,7 +33,7 @@ const read = (sel) => {
   const extra = [...w.querySelectorAll('[data-parity="new"]')].map((e) => { const d = e.style.display; e.style.display = 'none'; return () => { e.style.display = d } })
   const text = w.innerText.replace(/[\s\u00a0]+/g, ' ').trim()
   swaps.forEach((undo) => undo())
-  const geo = [...w.querySelectorAll('.rp-f, .dbar, .dmix-b i, .dspark i, .dbarv-t i, circle[stroke-dasharray], .ddots i')]
+  const geo = [...w.querySelectorAll('.rp-f, .dbar, .dmix-b i, .dspark i, .dbarv-t i, circle[stroke-dasharray], .ddots i')].filter((e) => !e.closest('[data-parity="new"]'))
     .map((e) => e.style.cssText || e.getAttribute('stroke-dasharray') || e.className.baseVal || e.className).join('|')
   extra.forEach((undo) => undo())
   return { text, geo }
