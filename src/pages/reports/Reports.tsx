@@ -12,6 +12,7 @@ import { useDarkFix, useFitFigures, useLegacyLook } from '../executive/look'
 import { ReportsDash, type DashState } from './ReportsDash'
 import { Commissions } from './Commissions'
 import { Sdr } from './Sdr'
+import { LeadSources } from './LeadSources'
 import { agencyShort } from '../../lib/data'
 import '../executive/executive.css'
 import './reports.css'
@@ -56,6 +57,8 @@ export function ReportsView({ D, open }: { D: PerfData; open?: string }) {
   const fk = reportFolioKey(D, v.folio)
   const R: Json = D.AZ_REPORTS[fk] || {}
   const has = !!R.generatedAt
+  const wf: Json = D.WB_DATA?.folio?.[fk]
+  const leadSources = <LeadSources folio={wf ? { start: wf.start, end: wf.end, label: wbFolioLabel(D, fk) } : null} />
   const flt = R.filters || {}
   const openTab = (k: string) => (ELSEWHERE[k] ? go(ELSEWHERE[k]) : set({ tab: k, mode: 'details' }))
 
@@ -106,6 +109,7 @@ export function ReportsView({ D, open }: { D: PerfData; open?: string }) {
         </div>
       </div>
       {detailPanel('carrier')}
+      {leadSources}
       <div className="panel">
         <div className="panel-h"><div><div className="panel-t">Upcoming renewals</div><div className="panel-s">From the same pull</div></div></div>
         <div className="panel-b">
@@ -142,7 +146,7 @@ export function ReportsView({ D, open }: { D: PerfData; open?: string }) {
           <button className={'ptab' + (v.mode === 'details' ? ' on' : '')} onClick={() => set({ mode: 'details' })}>Details</button>
         </div>
       </div>
-      {v.mode === 'dash' ? <ReportsDash D={D} st={v} set={set} onGo={(g) => ('tab' in g ? openTab(g.tab) : go(g.path))} /> :
+      {v.mode === 'dash' ? <ReportsDash D={D} st={v} set={set} onGo={(g) => ('tab' in g ? openTab(g.tab) : go(g.path))} extra={leadSources} /> :
       <div className="wrap">
         <div className="schead">
           <div className="schead-l">

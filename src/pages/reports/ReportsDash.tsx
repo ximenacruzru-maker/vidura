@@ -16,7 +16,7 @@ const windows = (D: PerfData) => (D.EXEC_PROD_WINDOWS.some((w) => w[0] === 'cust
 export interface DashState { win: string; book: string; line: string; goals: boolean; from: string; to: string }
 type Drawer = { kind: 'kpi'; i: number } | { kind: 'attn'; i: number } | { kind: 'components' } | null
 
-export function ReportsDash({ D, st, set, onGo }: { D: PerfData; st: DashState; set: (p: Partial<DashState>) => void; onGo: (g: Go) => void }) {
+export function ReportsDash({ D, st, set, onGo, extra }: { D: PerfData; st: DashState; set: (p: Partial<DashState>) => void; onGo: (g: Go) => void; extra?: ReactNode }) {
   const [goals, setGoals] = useState(D.GOALS)
   const [drawer, setDrawer] = useState<Drawer>(null)
   const x = computeReportsDash(D, st.win, st.book, st.line, { from: st.from, to: st.to })
@@ -128,6 +128,7 @@ export function ReportsDash({ D, st, set, onGo }: { D: PerfData; st: DashState; 
           </div>
         </div>
       </div>
+      {extra}
       <div className="dnote"><strong>Dashboard:</strong> Select any KPI or attention item to open the report behind it. Period, book and line filters apply to written business from the AgencyZoom sales ledger.</div>
     </div>
     <DashDrawer D={D} drawer={drawer} kpis={x.kpis} attention={x.attention} onClose={() => setDrawer(null)} onGo={(g) => { setDrawer(null); onGo(g) }} />
