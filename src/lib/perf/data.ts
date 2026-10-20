@@ -18,7 +18,7 @@ export interface Folio {
   sampleTotal?: number
 }
 
-export interface FolioRow { client: string; carrier: string; line: string; premium: number; producer: string; when: string; confirmed: boolean; customerId?: string | null; excludedReason?: string }
+export interface FolioRow { client: string; carrier: string; line: string; premium: number; producer: string; when: string; confirmed: boolean; customerId?: string | null; excludedReason?: string; leadSource?: string }
 
 export interface PerfData {
   DATA: { commercial: Json[]; farmers: Json[] }
@@ -187,10 +187,10 @@ function applyLiveFolios(D: PerfData, folioRows: Json[], sales: Json[], quotes: 
     const rep = D.AZ_REPORTS[k]
     const hist: FolioRow[] = rep ? ([] as Json[]).concat(...Object.values(rep.producerDetail || {}).map((p: any) => p.rows || []))
       .filter((x) => mdyToIso(x.when) <= HISTORY_CUTOFF)
-      .map((x) => ({ client: x.client, carrier: x.carrier, line: x.line, premium: Number(x.premium) || 0, producer: x.producer, when: x.when, confirmed: true })) : []
+      .map((x) => ({ client: x.client, carrier: x.carrier, line: x.line, premium: Number(x.premium) || 0, producer: x.producer, when: x.when, confirmed: true, leadSource: String(x.leadSource || '').trim() })) : []
     const synced: FolioRow[] = sales.filter((r) => r.az_ref && r.sale_date > HISTORY_CUTOFF && r.sale_date >= k && r.sale_date <= end)
       .map((r) => ({ client: r.client_name, carrier: r.carrier || '', line: r.policy_type || '', premium: Number(r.premium) || 0,
-        producer: r.producer, when: isoToMdy(r.sale_date), confirmed: true, customerId: r.customer_id || null }))
+        producer: r.producer, when: isoToMdy(r.sale_date), confirmed: true, customerId: r.customer_id || null, leadSource: String(r.lead_source || '').trim() }))
     const rows = hist.concat(synced)
     D.LIVE_FOLIO_ROWS[k] = rows
 
@@ -203,7 +203,7 @@ function applyLiveFolios(D: PerfData, folioRows: Json[], sales: Json[], quotes: 
     f.official = { lhAppts: 0, lhPolicies: 0, lhPremium: 0, ...f.official, pcPremium: Math.round(total * 100) / 100, pcPolicies: rows.length, pcItems: rows.length, pcSales: customers }
     f.sampleTotal = f.official.pcPremium
     f.sales = rows.slice().sort((a, b) => mdyToIso(b.when).localeCompare(mdyToIso(a.when))).map((r) => ({
-      carrier: r.carrier, confirmed: true, customerId: r.customerId || null, id: null, items: 1, leadSource: '', name: r.client,
+      carrier: r.carrier, confirmed: true, customerId: r.customerId || null, id: null, items: 1, leadSource: r.leadSource || '', name: r.client,
       policyType: r.line, premium: r.premium, producer: r.producer, soldDate: r.when, source: classifySource(r.carrier) }))
 
     // reports view for this folio

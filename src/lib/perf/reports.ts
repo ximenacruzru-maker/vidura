@@ -28,8 +28,13 @@ export function computeWritten(D: PerfData, folio: string | null | undefined, ca
   sales.forEach((s) => { const o = (by[s.producer] = by[s.producer] || { value: 0, n: 0 }); o.value += s.premium || 0; o.n += 1 })
   const bars = Object.entries(by).map(([label, o]) => ({ label, value: metric === 'premium' ? o.value : o.n, n: metric === 'premium' ? o.n : null }))
     .sort((a, b) => b.value - a.value)
+  // the same view split by lead source (AgencyZoom's lead source on each sold policy, where it has one)
+  const bySrc: Record<string, { value: number; n: number }> = {}
+  sales.forEach((s) => { const k = String(s.leadSource || '').trim() || 'No lead source'; const o = (bySrc[k] = bySrc[k] || { value: 0, n: 0 }); o.value += s.premium || 0; o.n += 1 })
+  const leadBars = Object.entries(bySrc).map(([label, o]) => (metric === 'premium' ? { label, value: o.value, n: o.n } : { label, value: o.n, count: o.n, unit: o.n === 1 ? 'policy' : 'policies' }))
+    .sort((a, b) => (a.label === 'No lead source' ? 1 : b.label === 'No lead source' ? -1 : b.value - a.value))
   return {
-    key, carriers, sales, bars,
+    key, carriers, sales, bars, leadBars,
     premium: sales.reduce((t, s) => t + (s.premium || 0), 0),
     rows: [...sales].sort((a, b) => String(b.soldDate || '').localeCompare(String(a.soldDate || ''))),
   }
