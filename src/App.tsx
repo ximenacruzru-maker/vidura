@@ -12,6 +12,7 @@ import { getClientFile } from './lib/client'
 const Settings = lazy(() => import('./pages/Settings'))
 const Books = lazy(() => import('./pages/Books'))
 const Resources = lazy(() => import('./pages/Resources'))
+const SalesFlow = lazy(() => import('./pages/SalesFlow'))
 const WorkQueue = lazy(() => import('./pages/WorkQueue'))
 const MySpace = lazy(() => import('./pages/MySpace'))
 const Chat = lazy(() => import('./pages/Chat'))
@@ -90,6 +91,7 @@ function Gate() {
           {/* Renewals now live on Books of Business as an alert; old links open it expanded. */}
           {can(me, 'books') && <Route path="/renewals" element={<Navigate to="/books/farmers?renewals=1" replace />} />}
           {(can(me, 'resources') || can(me, 'passwords')) && <Route path="/resources" element={<Resources />} />}
+          {can(me, 'resources') && <Route path="/sales-flow" element={<SalesFlow />} />}
           {can(me, 'work') && <Route path="/work" element={<WorkQueue />} />}
           {can(me, 'chat') && <Route path="/chat" element={<Chat />} />}
           {can(me, 'proteges') && <Route path="/proteges" element={<Proteges />} />}

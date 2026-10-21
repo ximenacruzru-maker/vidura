@@ -22,6 +22,7 @@ const P: Record<string, string> = {
   refresh: '<path d="M20 11a8 8 0 0 0-14.3-4.9L4 8M4 4v4h4M4 13a8 8 0 0 0 14.3 4.9L20 16M20 20v-4h-4"/>',
   cash: '<rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.5v5M18 9.5v5"/>',
   dollar: '<path d="M12 3v18M16.5 7.5c0-1.7-2-3-4.5-3s-4.5 1.3-4.5 3 2 2.6 4.5 3 4.5 1.3 4.5 3-2 3-4.5 3-4.5-1.3-4.5-3"/>',
+  flow: '<rect x="9" y="2.5" width="6" height="4.5" rx="1"/><path d="M12 7v3.5M12 10.5l4.5 3.5-4.5 3.5-4.5-3.5z"/><path d="M7.5 14H4v4M16.5 14H20v4"/><rect x="2" y="18" width="4" height="3.5" rx=".8"/><rect x="18" y="18" width="4" height="3.5" rx=".8"/>',
   pulse: '<path d="M3 12h4l2.5-6 4 12 2.5-6H21"/>',
 }
 export function Icon({ name, width = 1.4 }: { name: string; width?: number }) {

@@ -8,6 +8,7 @@ import { agencyShort, getFolios, getPolicies, getQuotes, type StaffAccount } fro
 import { mdy, money0, money2, todayPacific } from '../lib/format'
 import { supabase } from '../lib/supabase'
 import { getWork, isDone } from '../pages/WorkQueue'
+import { GUIDE, match } from '../lib/placement'
 
 /* Declara AI: answers questions from the agency's own data — the book, markets, the Farmers appetite guide,
    training notes, licenses, work and (for the people allowed to see them) sales and commissions.
@@ -39,6 +40,7 @@ const APP: Record<string, string> = { Y: 'Yes', N: 'No', M: 'Maybe' }
 const STOP = /^(does|do|is|are|farmers|write|the|a|an|for|of|in|with|can|we|will|what|appetite|eligible|accept|take|insure|cover|coverage|bop|gl|auto|wc|umbrella|policy|business|commercial|quote|ca|california|who|how|me|about|on|to|i|my|our|show|tell)$/
 
 export const CHIPS: { q: string; need?: string }[] = [
+  { q: 'I have a commercial deal', need: 'resources' },
   { q: 'Who qualified for commission this folio?' },
   { q: 'Top producer this folio', need: 'performance' },
   { q: 'What sold today?' },
@@ -63,6 +65,18 @@ async function answer(qRaw: string, me: StaffAccount | null, ctx: { client?: Acc
 
   // "yes / more" continues with the last client
   if (ctx.client && /^(yes|yeah|yep|sure|ok|okay|please|more|details?|go ahead|show me|list them)\b/.test(q)) return clientAnswer(ctx.client, true)
+
+  // placement questions ("I have a commercial deal", "Farmers said no, bad record", "wildfire home, no DIC") are
+  // answered with the agency's own rules (lib/placement) — the first step here, the rest in the carrier guide
+  if (c('resources') && (/\bdeals?\b|new (client|lead|business|account)|cross.?s(ell|ale)|(who|where) (do|should|can) i (quote|place|go|send)|(which|what) carrier|flow ?chart|i have a /.test(q)
+    || /farmers (said no|declined|denied|can'?t|won'?t|cannot|rejected)|bad (driving )?record|minimum limits|liability only|wildfire|high.?value (home|house)|\bdic\b|fair plan|bristol|kemper|aspire|bamboo|aegis/.test(q)) && !/appetite|does farmers (write|take)|premium|commission/.test(q)) {
+    const n = GUIDE[match(qRaw)]
+    const all = ((await ref<any[]>('markets')) || []).flatMap((g: any) => g.carriers || [])
+    const list = n.list ? (((await ref<any[]>('markets')) || []).find((g: any) => g.key === n.list!.key)?.carriers || []).filter((x: any) => !(n.list!.skip || []).some((k) => x.name.toLowerCase().includes(k.toLowerCase()))) : []
+    const names = [...(n.carriers || []).map((k) => (all.find((x: any) => x.name.toLowerCase().includes(k.toLowerCase())) || { name: k }).name), ...list.map((x: any) => x.name)]
+    return { body: <>{n.say}{names.length > 0 && <L items={names.map((x, i) => <><b>{list.length ? `${i + 1}. ` : ''}{x}</b></>)} max={12} />}{n.ask && <p><b>{n.ask}</b> {n.options ? n.options.map((o) => o.label).join(' · ') : ''}</p>}</>,
+      go: { to: '/sales-flow?view=ask&ask=' + encodeURIComponent(qRaw), label: n.end ? 'Open the carrier guide' : 'Answer in the carrier guide' } }
+  }
 
   const appetiteQ = /appetite|does farmers (write|take|accept|insure|cover)|can we (write|quote|place)|eligible|\bsic\b|kraft lake/.test(q) || (/farmers|commercial|business insurance|bop|\bgl\b|\bwc\b/.test(q) && /write|quote|appetite|accept|eligible|take/.test(q))
   if (appetiteQ && c('resources')) { const a = await appetite(q); if (a) return a }
