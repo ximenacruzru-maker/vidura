@@ -9,6 +9,7 @@ import { supabase } from '../lib/supabase'
 import { agencyName } from '../lib/data'
 import { downloadRetentionPdf } from '../lib/retentionPdf'
 import { useAsync } from '../lib/useAsync'
+import RenewalReview from './RenewalReview'
 import type { BonusTier } from '../lib/payday'
 import { LOSS_REASONS, ROLE_FROM, TARGETS, folioBonus, monthEnd, monthLabel, movement, type RetentionDay, type RetentionEntry, type RetentionMonth } from '../lib/retention'
 
@@ -125,6 +126,8 @@ export default function Retention() {
           </div>
         </div>
       </header>
+
+      <RenewalReview name={name} day={day} agency={agency} />
 
       {/* Net Book Movement and its four parts */}
       <section className="rp-hero">

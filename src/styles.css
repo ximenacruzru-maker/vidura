@@ -1455,3 +1455,34 @@ tr.cf-off td { opacity: .55; }
 @media (max-width: 640px) { .filters .pay-pick { flex: 1 1 100%; order: -1; } }
 .cg-check { margin: 0; padding: 8px 12px 8px 30px; border-radius: 10px; background: var(--soft); font-size: 13.5px; line-height: 1.5; color: var(--ink); }
 .cg-check li { margin: 2px 0; }
+
+/* ---------- Retention › Daily renewal review ---------- */
+.rr { margin: 0 0 18px; padding: 16px 18px; border-radius: var(--radius); background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow); }
+.rr-h { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: flex-start; }
+.rr-k { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.rr-t { font-family: var(--serif); font-size: 22px; font-weight: 800; color: var(--ink); }
+.rr-s, .rr-empty { font-size: 13px; color: var(--muted); }
+.rr-score { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.rr-score span { padding: 5px 10px; border-radius: 999px; background: var(--soft); font-size: 12.5px; font-weight: 700; }
+.rr-score span.ok { background: var(--good-bg); color: var(--good); }
+.rr-group { margin-top: 14px; }
+.rr-gh { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; margin-bottom: 6px; }
+.rr-gh span { color: var(--muted); font-weight: 700; }
+.rr-row { position: relative; display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.2fr); gap: 12px; padding: 10px 34px 10px 12px; border: 1px solid var(--line); border-left: 4px solid var(--warn); border-radius: 10px; margin-bottom: 8px; background: var(--card); }
+.rr-row.rr-done { border-left-color: var(--good); }
+.rr-c, .rr-calls, .rr-notes { display: flex; flex-direction: column; gap: 4px; min-width: 0; font-size: 13px; }
+.rr-c span { color: var(--muted); overflow-wrap: anywhere; }
+.rr-in { display: inline-block; width: 90px; padding: 2px 6px; }
+.rr-up { color: var(--bad); }
+.rr-down { color: var(--good); }
+.rr-calls label { display: flex; gap: 6px; align-items: center; font-weight: 700; font-size: 12.5px; }
+.rr-calls select { flex: 1; min-width: 0; padding: 3px 6px; }
+.rr-check { font-weight: 600 !important; }
+.rr-x { position: absolute; top: 6px; right: 6px; border: 0; background: none; font-size: 18px; color: var(--muted); cursor: pointer; }
+.rr-pick { padding: 10px; border-radius: 10px; background: var(--soft); margin-bottom: 8px; display: flex; flex-direction: column; gap: 6px; }
+.rr-pick-l { max-height: 260px; overflow-y: auto; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 8px; background: var(--card); }
+.rr-pick-r { display: flex; flex-direction: column; text-align: left; padding: 7px 10px; border: 0; border-bottom: 1px solid var(--line); background: none; color: var(--ink); cursor: pointer; font: inherit; }
+.rr-pick-r span { font-size: 12.5px; color: var(--muted); }
+.rr-pick-r:hover { background: var(--tint); }
+.rr-err { color: var(--bad); font-weight: 700; }
+@media (max-width: 860px) { .rr-row { grid-template-columns: 1fr; } }
