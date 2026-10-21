@@ -52,6 +52,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     { to: '/retention', label: 'Retention', icon: 'renew', show: c('retention') },
     { to: '/pay', label: 'My Pay', icon: 'dollar', show: me?.role !== 'owner' && !trainee },
     { to: '/my-commissions', label: 'My Commissions', icon: 'sales', show: me?.role === 'sdr' || me?.role === 'va' },
+    { to: '/sales-flow', label: 'Sales Flowchart', icon: 'flow', show: c('resources') && !trainee },
     { div: true },
     { h: 'Performance' },
     { to: '/', label: 'Executive Dashboard', icon: 'executive', show: c('performance'), also: ['/legacy-dashboard'] },

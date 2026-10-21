@@ -6,6 +6,7 @@ import { useAuth } from '../auth'
 import { can } from '../lib/access'
 import { getLogins, loginsFor, type Login } from '../lib/logins'
 import LoginCreds from '../components/LoginCreds'
+import CarrierGuide from '../components/CarrierGuide'
 import Passwords from './Passwords'
 import { useSearchParams } from 'react-router-dom'
 
@@ -42,7 +43,7 @@ export default function Resources() {
       <Tabs tabs={tabs} value={tab} onChange={setTab} />
       {tab === 'forms' && <Forms resources={data.resources} docs={data.docs} />}
       {tab === 'coi' && <Suspense fallback={<Loading />}><Coi /></Suspense>}
-      {tab === 'markets' && <Markets markets={data.markets} logins={data.logins} />}
+      {tab === 'markets' && <><CarrierGuide markets={data.markets} logins={data.logins} bi={data.bi?.rows} /><Markets markets={data.markets} logins={data.logins} /></>}
       {tab === 'appetite' && <Appetite bi={data.bi} />}
       {tab === 'kb' && <Kb kb={data.kb} />}
       {tab === 'platforms' && <Platforms systems={data.systems} logins={data.logins} pw={pw} />}

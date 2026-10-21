@@ -606,6 +606,17 @@
 .xd .dr-msg {margin-top:10px;font-size:12px;color:#008c63;font-weight:700}
 .xd .dr-intro {font-size:13px;color:#3155c9;margin:0 0 14px;line-height:1.5}
 .xd .mc-grid {display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.xd .mc-ls {margin-top:14px;padding:13px 14px;border-radius:13px;background:var(--card);border:1px solid var(--line);box-shadow:0 5px 18px rgba(7,43,122,.06)}
+.xd .mc-ls .mc-def {margin:4px 0 8px}
+.xd .mc-ls-f {width:100%;margin-bottom:10px}
+.xd .mc-ls-r {display:grid;grid-template-columns:minmax(0,9rem) minmax(0,1fr) auto 2.2rem;gap:8px;align-items:center;padding:4px 0;font-size:12.5px}
+.xd .mc-ls-l {font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.xd .mc-ls-t {height:7px;border-radius:4px;background:var(--line);overflow:hidden}
+.xd .mc-ls-t i {display:block;height:100%;border-radius:4px;background:var(--blue,#164fec)}
+.xd .mc-ls-v {font-weight:700;text-align:right}
+.xd .mc-ls-n {color:var(--muted);text-align:right}
+.xd .mc-ls-none {color:var(--muted)}
+.xd .mc-ls-go {margin-top:10px;border:0;background:none;padding:0;color:var(--blue,#164fec);font-weight:700;font-size:12.5px;cursor:pointer;text-align:left}
 .xd .mc-card {padding:13px 14px;border-radius:13px;background:var(--card);border:1px solid var(--line);box-shadow:0 5px 18px rgba(7,43,122,.06)}
 .xd .mc-head {display:flex;align-items:center;gap:8px}
 .xd .mc-head strong {font-size:12px;color:var(--ink);line-height:1.25}

@@ -12,6 +12,9 @@ import { Bars, DayChart, Donut, ICO, Meter, RenewalChart, ScoreCard } from './pa
 import { useDarkFix, useFitFigures, useLegacyLook } from './look'
 import VsLastYear from './VsLastYear'
 import RetentionReport from './RetentionReport'
+import CommercialQuotes from './CommercialQuotes'
+import { wbFolioKeys } from '../../lib/perf/data'
+import { wbFolioLabel } from '../../lib/perf/reports'
 import './executive.css'
 
 /* Filters survive leaving and coming back within a session, as they did while the original screens stayed loaded. */
@@ -120,6 +123,7 @@ export function Dashboard({ D }: { D: PerfData }) {
         <Production D={D} win={f.prod} setWin={(v) => set('prod', v)} range={{ from: f.prodFrom || '', to: f.prodTo || '' }}
           setRange={(r) => setF((x) => ({ ...x, prodFrom: r.from, prodTo: r.to }))} goals={goals} />
         {me?.role === 'owner' && <FarmersRevenue D={D} />}
+        {me?.role === 'owner' && <CommercialQuotes D={D} />}
         <VsLastYear />
         <RetentionReport />
 
@@ -425,7 +429,40 @@ function MetricComponents({ D, open, live, onClose }: { D: PerfData; open: boole
               <div className="mc-def">{d[1]}</div>
             </div>) })}</div>
         ) : <div className="empty">Every card on this dashboard is listed above it — no additional components are defined for this section yet.</div>}
+        <SoldByLeadSource D={D} />
       </div>
     </aside>
   </>
+}
+
+/** In the Metric Components drawer: what the current folio sold, by the lead source AgencyZoom has on each policy. */
+function SoldByLeadSource({ D }: { D: PerfData }) {
+  const go = useNavigate()
+  const keys = wbFolioKeys(D).slice(0, 12)
+  const [k, setK] = useState(keys[0])
+  const rows = useMemo(() => {
+    const m = new Map<string, { n: number; p: number }>()
+    for (const s of (k && D.WB_DATA.folio[k]?.sales) || []) {
+      const src = String(s.leadSource || '').trim() || 'No lead source'
+      const o = m.get(src) || { n: 0, p: 0 }
+      o.n++; o.p += Number(s.premium) || 0; m.set(src, o)
+    }
+    return [...m.entries()].sort((a, b) => (a[0] === 'No lead source' ? 1 : b[0] === 'No lead source' ? -1 : b[1].p - a[1].p))
+  }, [D, k])
+  const max = Math.max(1, ...rows.filter(([s]) => s !== 'No lead source').map(([, o]) => o.p))
+  return (
+    <div className="mc-ls">
+      <div className="mc-head"><span className="mc-ico">{ICO.people}</span><strong>Sold by lead source</strong></div>
+      <div className="mc-def">Premium and policies sold from each lead source (AgencyZoom) in the folio picked here</div>
+      {keys.length > 0 && <select className="f mc-ls-f" value={k} onChange={(e) => setK(e.target.value)} aria-label="Folio">{keys.map((x) => <option key={x} value={x}>{wbFolioLabel(D, x)}</option>)}</select>}
+      {rows.length ? rows.map(([src, o]) => (
+        <div key={src} className={'mc-ls-r' + (src === 'No lead source' ? ' mc-ls-none' : '')}>
+          <span className="mc-ls-l">{src}</span>
+          <span className="mc-ls-t">{src !== 'No lead source' && <i style={{ width: Math.max(2, (o.p / max) * 100) + '%' }} />}</span>
+          <span className="mc-ls-v mono">{money0(o.p)}</span><span className="mc-ls-n">{o.n}</span>
+        </div>
+      )) : <div className="empty">No sales in this folio yet.</div>}
+      <button className="mc-ls-go" onClick={() => go('/reports')}>Open Reports › Lead Sources for any folio, year to date or one producer ›</button>
+    </div>
+  )
 }
