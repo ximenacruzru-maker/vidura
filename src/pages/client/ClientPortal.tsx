@@ -4,7 +4,7 @@ import { daysUntil } from '../../lib/books'
 import { COPYRIGHT, mdy, money0, money2, timeAgo, todayPacific } from '../../lib/format'
 import { PageHead, Panel, Tabs, Tile, Tiles } from '../../components/ui'
 import { Icon } from '../../components/icons'
-import { getLook, onLook } from '../../lib/theme'
+import { applyLook, getLook, onLook } from '../../lib/theme'
 import logo from '../../assets/logo.jpg'
 import logoHalloween from '../../assets/logo-halloween.jpg'
 
@@ -143,6 +143,14 @@ export default function ClientPortal({ previewAccount, onSignOut, onChangePasswo
   const [loc, setLoc] = useState<string | null>(null)
   const [q, setQ] = useState('')
   const [dismissed, dismiss] = useDismissed()
+  // a client's portal is always the standard Declara Blue (not whatever theme was last used on this device);
+  // a staff preview keeps the staff member's own theme
+  useEffect(() => {
+    if (previewAccount) return
+    const before = getLook()
+    applyLook({ theme: 'declara', font: 'normal' })
+    return () => applyLook(before)
+  }, [previewAccount])
   const [, tick] = useState(0)
   useEffect(() => { const t = setInterval(() => tick((n) => n + 1), 5000); return () => clearInterval(t) }, [])
   useEffect(() => { window.scrollTo?.(0, 0) }, [loc, sec])
