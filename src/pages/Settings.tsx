@@ -81,7 +81,8 @@ function TeamAccess() {
 export function Switches({ role, access, onChange }: { role: Role; access: Record<string, boolean>; onChange: (a: Record<string, boolean>) => void }) {
   const full = role === 'owner' || role === 'admin'
   const d = roleDefaults(role)
-  const adminOnly = (k: string) => k === 'performance' || (k === 'commissions_only' && full)
+  // the owner's and admins' alone: no switch gives these to anyone else
+  const adminOnly = (k: string) => k === 'performance' || k === 'payroll' || k === 'hr' || (k === 'commissions_only' && full)
   return (
     <div className="access-grid">
       {SECTIONS.map((x) => {

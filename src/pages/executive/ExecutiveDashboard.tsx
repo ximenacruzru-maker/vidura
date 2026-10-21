@@ -13,6 +13,7 @@ import { useDarkFix, useFitFigures, useLegacyLook } from './look'
 import VsLastYear from './VsLastYear'
 import RetentionReport from './RetentionReport'
 import CommercialQuotes from './CommercialQuotes'
+import { VendorSummary } from '../hr/Vendors'
 import { wbFolioKeys } from '../../lib/perf/data'
 import { wbFolioLabel } from '../../lib/perf/reports'
 import './executive.css'
@@ -124,6 +125,7 @@ export function Dashboard({ D }: { D: PerfData }) {
           setRange={(r) => setF((x) => ({ ...x, prodFrom: r.from, prodTo: r.to }))} goals={goals} />
         {me?.role === 'owner' && <FarmersRevenue D={D} />}
         {me?.role === 'owner' && <CommercialQuotes D={D} />}
+        {me?.role === 'owner' && <VendorSummary />}
         <VsLastYear />
         <RetentionReport />
 

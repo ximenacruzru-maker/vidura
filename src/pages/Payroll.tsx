@@ -29,6 +29,14 @@ interface PayDoc extends Doc { created_at?: string }
 const first = (n: string) => n.trim().split(/\s+/)[0].toLowerCase()
 const hm = (m: number) => `${Math.floor(m / 60)}h ${String(Math.round(m % 60)).padStart(2, '0')}m`
 
+/** The payday dropdown: the next two paydays and the past year's, newest first (plus the one picked, if older). */
+function paydays(picked: string) {
+  let d = stepPay(stepPay(nextPay(todayPacific()), 1), 1)
+  const out: string[] = []
+  for (let i = 0; i < 28; i++) { out.push(d); d = stepPay(d, -1) }
+  return out.includes(picked) ? out : [...out, picked]
+}
+
 export default function Payroll() {
   const { me } = useAuth()
   // the next payday to get ready
@@ -170,8 +178,11 @@ export default function Payroll() {
       <PageHead kicker="Agency Management" title="Office Payroll" sub="Payroll is paid on the 5th and the 21st: the 5th for hours from the 16th to the end of the month, the 21st for hours from the 1st to the 15th, plus commission for last month’s folio and SDR bonuses for last month’s transfers. Download it for the payroll run, then upload the payroll files back here." />
       <Panel title={`Payday ${mdy(pay)}`} sub={check.commission ? `Hours ${hoursLabel} · commission for the folio ${folioLabel || 'closed last month (not set up yet)'} · SDR bonus for ${period?.period_label || 'last month'} transfers` : `Hours ${hoursLabel} · no commission on the 5th (commission is paid on the 21st)`}
         right={<div className="filters">
-          <button className="btn-ghost" onClick={() => setPay(stepPay(pay, -1))} aria-label="Previous payday">‹ {shortDate(stepPay(pay, -1))}</button>
-          <button className="btn-ghost" onClick={() => setPay(stepPay(pay, 1))} aria-label="Next payday">{shortDate(stepPay(pay, 1))} ›</button>
+          <button className="btn-ghost" onClick={() => setPay(stepPay(pay, -1))} aria-label="Previous payday">‹</button>
+          <select className="fld" value={pay} onChange={(e) => setPay(e.target.value)} aria-label="Payday">
+            {paydays(pay).map((d) => <option key={d} value={d}>{mdy(d)}{d.endsWith('-21') ? ' · hours + commission' : ' · hours'}{d === nextPay(todayPacific()) ? ' (next payday)' : ''}</option>)}
+          </select>
+          <button className="btn-ghost" onClick={() => setPay(stepPay(pay, 1))} aria-label="Next payday">›</button>
           <button className="btn-primary" onClick={download} disabled={!lines || !!err || (check.commission && !apex.data)}>Download Excel</button>
         </div>}>
         {err ? <ErrorBox error={err} /> : !lines ? <Loading what="Adding up payroll" /> : (

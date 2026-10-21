@@ -254,6 +254,7 @@ function PersonalFlow({ n, line, markets, logins }: { n: number; line: Exclude<L
   if (!m?.carriers.length) return <><Arrow /><Node n={n + 1} q="No markets listed"><Empty>Agency Resources › Carrier markets has no list for this line yet.</Empty></Node></>
   return <>
     <Arrow label={m.note || 'Shop in this order'} />
+    {(line === 'condos' || line === 'landlord') && <div className="note-box sf-tip"><b>A condo rented to others?</b> Start with Farmers, then the rest of the condo list.</div>}
     {line === 'home' && <div className="note-box sf-tip"><b>Wildfire / brush area?</b> If Farmers can only do a DIC and the client doesn’t want one: Bamboo → Aegis → Delos (final). All say no? Back to Farmers with the CA FAIR Plan for the fire. <b>High-value home Farmers can’t take?</b> No FAIR Plan needed: Bamboo, then Delos. Use <b>Ask the carrier guide</b> above for the full flow.</div>}
     {m.carriers.map((c, i) => (
       <div key={c.name + i}>

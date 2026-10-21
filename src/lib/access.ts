@@ -10,7 +10,7 @@ export const SECTIONS: { key: string; label: string; note: string }[] = [
   { key: 'training', label: 'Training', note: 'New Agent Training classroom' },
   { key: 'proteges', label: 'Protégé program', note: 'Milestones and training checklist for protégés' },
   { key: 'passwords', label: 'Agency passwords', note: 'View and copy the saved logins — on for everyone by default; only admins can add or change them' },
-  { key: 'hr', label: 'HR (timesheets & pay rates)', note: 'Everyone’s hours and hourly rates' },
+  { key: 'hr', label: 'HR (timesheets, pay rates & employee files)', note: 'Owner and admins only — hours, pay, W-4s, the agency’s legal records' },
   { key: 'retention', label: 'Retention scorecard', note: 'Owns client success and retention: the daily huddle scorecard, saves, losses and cross-sell, Net Book Movement; My Space shows retention instead of the sales pipeline' },
   { key: 'commissions_only', label: 'My Commissions only', note: 'For an SDR who should see nothing but their own commissions: every other page is hidden except Farmers University and their Settings. Turning it on switches the other sections off' },
   { key: 'commission_sheet', label: 'Commission sheet (payroll)', note: 'For whoever runs payroll: a Commissions tab to download each 21st payday’s sheet — every producer’s commission and every SDR’s bonus. No hours, pay rates or salaries' },
@@ -27,8 +27,8 @@ export function roleDefaults(role: Role): Record<string, boolean> {
 export function can(me: StaffAccount | null | undefined, section: string) {
   if (!me) return false
   if (me.role === 'owner' || me.role === 'admin') return true
-  // everyone's numbers and everyone's pay (Office payroll) are for the owner and admins only
-  if (section === 'performance' || section === 'payroll') return false
+  // everyone's numbers, everyone's pay (Office payroll) and HR records are for the owner and admins only
+  if (section === 'performance' || section === 'payroll' || section === 'hr') return false
   const a = me.access || {}
   if (a.commissions_only) return section === 'commissions_only'
   return section in a ? !!a[section] : !!roleDefaults(me.role)[section]

@@ -75,8 +75,14 @@ export const GUIDE: Record<string, GuideNode> = {
   home_list: { say: 'Farmers said no: shop the rest of the home markets in this order. If one declines or is too high, go to the next.', list: { key: 'home', skip: ['Farmers'] }, end: true },
 
   /* ---------- the rest ---------- */
-  landlord: { say: 'Landlord / rental: shop in this order. If one declines or is too high, go to the next.', list: { key: 'landlord' }, end: true },
-  condo: { say: 'Condo (HO-6): shop in this order. If one declines or is too high, go to the next.', list: { key: 'condos' }, end: true },
+  landlord: { say: 'Landlord / rental.', ask: 'What kind of rental is it?', options: [
+    { label: 'A condo unit rented to others', next: 'condo_rented' }, { label: 'A house, duplex or other dwelling', next: 'landlord_list' }] },
+  landlord_list: { say: 'Landlord / rental: shop in this order. If one declines or is too high, go to the next.', list: { key: 'landlord' }, end: true },
+  condo: { say: 'Condo (HO-6).', ask: 'Does the owner live in it, or is it rented to others?', options: [
+    { label: 'The owner lives in it', next: 'condo_list' }, { label: 'It’s rented to others', next: 'condo_rented' }] },
+  condo_list: { say: 'Condo (HO-6): shop in this order. If one declines or is too high, go to the next.', list: { key: 'condos' }, end: true },
+  condo_rented: { say: 'Condo rented to others: start with Farmers.', carriers: ['Farmers'], ...worked('bind_farmers', 'condo_rented_list') },
+  condo_rented_list: { say: 'Farmers said no: shop the rest of the condo markets in this order. If one declines or is too high, go to the next.', list: { key: 'condos', skip: ['Farmers'] }, end: true },
   /* ---------- business / commercial: Farmers (by the appetite guide) → Kraft Lake → wholesale ---------- */
   commercial: { say: 'Business / commercial: Farmers Commercial is the first stop for any type of business.', ask: 'Which coverage are you quoting?', options: [
     { label: 'General liability (or BOP)', next: 'com_gl' }, { label: 'Commercial auto', next: 'com_auto' }, { label: 'Workers’ comp', next: 'com_wc' }] },
@@ -111,8 +117,8 @@ export function match(raw: string): string {
     if (/general liab|\bgl\b|liability|\bbop\b|business ?owners/.test(q)) return 'com_gl'
     return 'commercial'
   }
+  if (/condo|ho-?6/.test(q)) return /rent|tenant|landlord|lease/.test(q) ? (farmersNo ? 'condo_rented_list' : 'condo_rented') : 'condo'
   if (/landlord|rental|dwelling|tenant|\bdp-?3\b/.test(q)) return 'landlord'
-  if (/condo|ho-?6/.test(q)) return 'condo'
   if (/wildfire|brush|fire zone|high fire|fire risk|fire area|\bdic\b|fair plan/.test(q) || (/home|house/.test(q) && /fire/.test(q))) {
     if (/(not|doesn'?t|don'?t|won'?t|no) (want|like|need)( a| the)? dic|no dic|without (a )?dic/.test(q)) return 'home_bamboo'
     if (/high.?value|expensive (home|house)|luxury|million/.test(q)) return 'home_hv'
