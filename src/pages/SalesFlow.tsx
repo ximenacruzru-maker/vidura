@@ -13,7 +13,7 @@ import { bookLabel, getAccounts, getBookPolicies, getReference, type Account, ty
 import { money0 } from '../lib/format'
 import { getLogins, loginsFor, type Login } from '../lib/logins'
 import { useAsync } from '../lib/useAsync'
-import { AUTO_READY, GL_READY, KRAFT_LAKE, WC_READY } from '../lib/placement'
+import { AUTO_READY, GL_READY, KRAFT_LAKE, NEXT_GENERAL, NEXT_GL, NEXT_PORTAL, NEXT_WC, WC_READY } from '../lib/placement'
 import CarrierGuide from '../components/CarrierGuide'
 
 type Line = 'commercial' | 'auto' | 'home' | 'landlord' | 'condos'
@@ -220,13 +220,22 @@ function CommercialFlow({ n, cov, row, markets, logins }: { n: number; cov: Cov;
       <div className="sf-say">
         <b>Quote it in Farmers Business Insurance Express (FBIE) first</b> — Farmers Commercial is the first stop for any type of business.
         {verdict === 'M' && <> The guide says <b>maybe</b> for {row!.d.toLowerCase()}: underwriting will ask more, so answer every question fully.</>}
-        {verdict === 'N' && <> The guide lists {row!.d.toLowerCase()} as <b>not eligible</b> for {c.label.toLowerCase()}, so expect a decline{cov === 'auto' ? ' — then go to Progressive through KL Compare.' : ' — then refer it to Kraft Lake straight from FBIE.'}</>}
+        {verdict === 'N' && <> The guide lists {row!.d.toLowerCase()} as <b>not eligible</b> for {c.label.toLowerCase()}, so expect a decline{cov === 'auto' ? ' — then go to Progressive through KL Compare.' : ' — then check NEXT Insurance.'}</>}
         <div className="sf-ready">{c.ready}</div>
         {row?.n && <div className="sub">Guide note: {row.n}</div>}
       </div>
       {farmers && <CarrierCard c={{ ...farmers, blurb: 'Farmers Business Insurance — quote in FBIE.' }} logins={logins} />}
-      <Decide yes={<>Bind it with Farmers Commercial. Done.</>} no={cov === 'auto' ? <>Quote Progressive Commercial through KL Compare (next).</> : <>Refer it to Kraft Lake from inside FBIE (next).</>} />
+      <Decide yes={<>Bind it with Farmers Commercial. Done.</>} no={cov === 'auto' ? <>Quote Progressive Commercial through KL Compare (next).</> : <>Check NEXT Insurance (next).</>} />
     </Node>
+    {cov !== 'auto' && <>
+      <Arrow />
+      <Node n={++k} q="NEXT Insurance — if Farmers says no">
+        <div className="sf-say">{cov === 'wc' ? <>NEXT writes <b>workers’ comp</b> in California.</> : <>In California NEXT writes <b>general liability and commercial property</b> (GL + property instead of a BOP), plus professional liability and inland marine. One location only.</>} It has to pass all of these — confirm the business type in NEXT’s Appetite Checker; underwriting has the final say.</div>
+        <ul className="cg-check">{(cov === 'wc' ? [...NEXT_GENERAL.filter((x) => !/^Revenue/.test(x)), ...NEXT_WC] : [...NEXT_GENERAL, ...NEXT_GL]).map((c) => <li key={c}>{c}</li>)}</ul>
+        <div className="sf-carrier-a"><a className="btn-ghost" href={NEXT_PORTAL.href} target="_blank" rel="noreferrer">{NEXT_PORTAL.label} ↗</a><span className="sub">Not sure? Email the details to coveragecheck@nextinsurance.com.</span></div>
+        <Decide yes={<>Passes and NEXT approves: bind it with NEXT. Done.</>} no={<>Fails a rule or NEXT declines: refer it to Kraft Lake (next).</>} />
+      </Node>
+    </>}
     <Arrow />
     {cov === 'auto' ? (
       <Node n={++k} q="Progressive Commercial — quoted through KL Compare">

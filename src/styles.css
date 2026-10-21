@@ -1453,3 +1453,5 @@ tr.cf-off td { opacity: .55; }
 .filters .pay-pick { min-width: 0; max-width: 100%; flex: 1 1 150px; width: auto; }
 .panel-h > .filters { max-width: 100%; min-width: 0; }
 @media (max-width: 640px) { .filters .pay-pick { flex: 1 1 100%; order: -1; } }
+.cg-check { margin: 0; padding: 8px 12px 8px 30px; border-radius: 10px; background: var(--soft); font-size: 13.5px; line-height: 1.5; color: var(--ink); }
+.cg-check li { margin: 2px 0; }

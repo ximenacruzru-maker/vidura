@@ -11,6 +11,10 @@ export interface GuideNode {
   /** a market list to show in order (its carriers, minus any named in skip) */
   list?: { key: string; skip?: string[] }
   link?: { to: string; label: string }
+  /** a website to open (a carrier portal) */
+  ext?: { href: string; label: string }
+  /** what has to be true to go this way (a carrier's quick eligibility check) */
+  checklist?: string[]
   ask?: string
   options?: GuideOption[]
   /** the end of a branch: bound, or handed to the owner */
@@ -19,6 +23,16 @@ export interface GuideNode {
 
 const bind = (carrier: string): GuideNode => ({ say: `Bind it with ${carrier}. Done.`, carriers: [carrier], end: true })
 export const KRAFT_LAKE = '1-800-339-3114'
+/** NEXT Insurance (ERGO | NEXT), from its appetite & routing guide captured Oct 21, 2026 — California rules. Final say is
+ *  NEXT underwriting at quote; confirm the class in the NEXT Appetite Checker. Quick check by email: coveragecheck@nextinsurance.com */
+export const NEXT_PORTAL = { href: 'https://agents.nextinsurance.com', label: 'Open the NEXT Agents Portal' }
+export const NEXT_GENERAL = ['Revenue under $5 million and W-2 payroll under $5 million', 'No more than 2 claims, totaling $20,000 or less, in the last 3 years', 'No prior cancellation for non-payment', 'One location only (NEXT doesn’t write multi-location in California)', 'New businesses and startups are welcome']
+export const NEXT_GL = ['Liability up to $2M per occurrence / $4M aggregate (+$2M umbrella available)', 'Holds every license the business legally needs; background checks on employees', 'Subcontractor costs don’t exceed revenue',
+  'Property (in CA NEXT writes GL + Commercial Property, not a BOP): not in a wildfire, coastal, windstorm or high-burglary area; building 5 stories or fewer; roof 30 years or newer and undamaged; plumbing, electrical and heating 15 years or newer; no aluminum wiring',
+  'Not allowed on premises: auto servicing, car washes, welding, metalwork, woodworking; no alcohol served midnight–5 a.m.', 'Doesn’t sell gasoline, cannabis, weapons, antiques, animals, explosives, pharmaceuticals or other prohibited products',
+  'Size: office under 75,000 sq ft, food & beverage under 7,500 sq ft, everything else under 35,000 sq ft']
+export const NEXT_WC = ['Workers’ comp manual premium $50,000 or less; experience mod (EMR) 1.5 or below', 'All work between 3 ft below and 15 ft above ground — no roofing, trucking or tree services', 'No restaurant delivery drivers; no more than 5 employees in a vehicle; no migrant or seasonal farm workers',
+  'At least one covered owner or employee (no ghost policies); not owned by another company; one FEIN', 'Owners: no felony in 5 years, no bankruptcy in 3 years, no business lawsuits', 'W-2 payroll under $5 million (the revenue limit doesn’t apply to comp)']
 /** What to have ready for each Farmers Commercial section (shown in the guide and the flowchart). */
 export const GL_READY = 'Have ready: what the business does, years in business, annual revenue, payroll, every location with square footage, and losses in the last 3–5 years.'
 export const AUTO_READY = 'Have ready: every vehicle (VIN, year, make, model, what it’s used for, where it’s parked) and every driver (license number, date of birth), plus current carrier and losses.'
@@ -84,14 +98,23 @@ export const GUIDE: Record<string, GuideNode> = {
   condo_rented: { say: 'Condo rented to others: start with Farmers.', carriers: ['Farmers'], ...worked('bind_farmers', 'condo_rented_list') },
   condo_rented_list: { say: 'Farmers said no: shop the rest of the condo markets in this order. If one declines or is too high, go to the next.', list: { key: 'condos', skip: ['Farmers'] }, end: true },
   /* ---------- business / commercial: Farmers (by the appetite guide) → Kraft Lake → wholesale ---------- */
-  commercial: { say: 'Business / commercial: Farmers Commercial is the first stop for any type of business.', ask: 'Which coverage are you quoting?', options: [
+  commercial: { say: 'Business / commercial (California risks only): Farmers Commercial is always the first stop, for any type of business.', ask: 'Which coverage are you quoting?', options: [
     { label: 'General liability (or BOP)', next: 'com_gl' }, { label: 'Commercial auto', next: 'com_auto' }, { label: 'Workers’ comp', next: 'com_wc' }] },
-  com_gl: { say: `General liability — quote Farmers Commercial first, in Farmers Business Insurance Express (FBIE). ${GL_READY}`, carriers: ['Farmers'], ...worked('bind_farmers', 'com_kraft') },
+  com_gl: { say: `General liability — quote Farmers Commercial first, in Farmers Business Insurance Express (FBIE). ${GL_READY}`, carriers: ['Farmers'], ...worked('bind_farmers', 'com_next_gl') },
+  com_next_gl: { say: 'Farmers said no: check NEXT Insurance. In California NEXT writes general liability, commercial property (GL + property instead of a BOP), professional liability, inland marine and workers’ comp. It has to pass all of these:',
+    checklist: [...NEXT_GENERAL, ...NEXT_GL], ext: NEXT_PORTAL, ask: 'Does it pass NEXT’s check?', options: [
+      { label: 'Yes — quote NEXT', next: 'com_next_quote' }, { label: 'No — it fails one', next: 'com_kraft' }, { label: 'Not sure', next: 'com_next_unsure' }] },
+  com_next_quote: { say: 'Quote it with NEXT Insurance on the Agents Portal. Confirm the business type in NEXT’s Appetite Checker first — underwriting has the final say at quote.', carriers: ['NEXT Insurance'], ext: NEXT_PORTAL, ...worked('bind_next', 'com_kraft') },
+  com_next_unsure: { say: 'Search the business type (or its NAICS / ISO / NCCI code) in NEXT’s Appetite Checker, or email the details to coveragecheck@nextinsurance.com for a quick answer.', ext: NEXT_PORTAL, ask: 'What did NEXT say?', options: [
+    { label: 'NEXT will look at it', next: 'com_next_quote' }, { label: 'Not a fit for NEXT', next: 'com_kraft' }] },
+  bind_next: { say: 'Bind it with NEXT Insurance. Done.', carriers: ['NEXT Insurance'], end: true },
   com_auto: { say: `Commercial auto — quote Farmers Commercial first, in FBIE. ${AUTO_READY}`, carriers: ['Farmers'], ...worked('bind_farmers', 'com_auto_prog') },
   com_auto_prog: { say: 'Farmers said no on the commercial auto: quote Progressive Commercial through KL Compare (Kraft Lake Compare). Turnaround is 3–5 business days, so tell the client when to expect it.',
     carriers: ['Progressive'], ...worked('bind_prog', 'com_whole') },
   bind_prog: { say: 'Bind it with Progressive Commercial through KL Compare. Done.', end: true },
-  com_wc: { say: `Workers’ comp — quote Farmers Commercial first, in FBIE. ${WC_READY}`, carriers: ['Farmers'], ...worked('bind_farmers', 'com_kraft') },
+  com_wc: { say: `Workers’ comp — quote Farmers Commercial first, in FBIE. ${WC_READY}`, carriers: ['Farmers'], ...worked('bind_farmers', 'com_next_wc') },
+  com_next_wc: { say: 'Farmers said no on the comp: check NEXT Insurance (it writes workers’ comp in California). It has to pass all of these:', checklist: [...NEXT_GENERAL.filter((x) => !/^Revenue/.test(x)), ...NEXT_WC], ext: NEXT_PORTAL,
+    ask: 'Does it pass NEXT’s check?', options: [{ label: 'Yes — quote NEXT', next: 'com_next_quote' }, { label: 'No — it fails one', next: 'com_kraft' }, { label: 'Not sure', next: 'com_next_unsure' }] },
   com_kraft: { say: `Refer it to Kraft Lake from inside FBIE — it carries the quote over so you don’t retype it. Questions: chat or call Kraft Lake at ${KRAFT_LAKE}. They place GL / BOP / package, workers’ comp, commercial auto, habitational, lessor’s risk, builders risk and vacant, bonds, flood, earthquake and farm & ranch.`,
     ...worked('bind_kraft', 'com_whole') },
   com_whole: { say: 'Kraft Lake can’t place it: submit it to the wholesale markets.', carriers: ['Burns & Wilcox', 'Access One80'], ...worked('bind_whole', 'owner') },
@@ -109,9 +132,10 @@ export function match(raw: string): string {
   const farmersNo = /farmers (said no|declined|denied|won'?t|can'?t|cannot|turned|rejected)|(declined|denied|rejected) by farmers|too (high|expensive)/.test(q)
   if (/commercial|business|\bbop\b|\bgl\b|general liab|workers|work comp|\bwc\b|contractor|restaurant|\bllc\b|plumb|roofer|roofing|electrician|painter|landscap|salon|janitor|handyman|hvac|carpent|construction|bakery|\bcafe\b|\bdeli\b|gas station|liquor|retail store|trucking/.test(q)) {
     if (/kraft( lake)? (said no|declined|denied|can'?t|couldn'?t)/.test(q)) return 'com_whole'
+    if (/\bnext( insurance)? (said no|declined|denied|can'?t|won'?t)/.test(q)) return 'com_kraft'
     const cauto = /commercial auto|business auto|fleet|trucks?\b|vehicles?|vans?\b/.test(q)
     if (cauto && /progressive/.test(q) && /said no|declin|denied|too (high|expensive)/.test(q)) return 'com_whole'
-    if (farmersNo || /not (eligible|listed)/.test(q)) return cauto ? 'com_auto_prog' : 'com_kraft'
+    if (farmersNo || /not (eligible|listed)/.test(q)) return cauto ? 'com_auto_prog' : /workers|work comp|\bwc\b/.test(q) ? 'com_next_wc' : 'com_next_gl'
     if (/workers|work comp|\bwc\b/.test(q)) return 'com_wc'
     if (cauto) return 'com_auto'
     if (/general liab|\bgl\b|liability|\bbop\b|business ?owners/.test(q)) return 'com_gl'

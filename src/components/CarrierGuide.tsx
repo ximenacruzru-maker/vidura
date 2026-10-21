@@ -59,6 +59,8 @@ export default function CarrierGuide({ markets, logins, ask, bi }: { markets: Ma
                   </div>
                 ))}</div>}
                 {n.link && <button className="btn-primary cg-link" onClick={() => nav(n.link!.to)}>{n.link.label} ›</button>}
+                {n.checklist && <ul className="cg-check">{n.checklist.map((c) => <li key={c}>{c}</li>)}</ul>}
+                {n.ext && <a className="btn-ghost cg-link" href={n.ext.href} target="_blank" rel="noreferrer">{n.ext.label} ↗</a>}
                 {n.ask && <div className="cg-ask">{n.ask}</div>}
                 {n.options && <div className="cg-opts">{n.options.map((o) => <button key={o.label} className="cg-opt" disabled={i !== last} onClick={() => pick(o.label, o.next)}>{o.label}</button>)}</div>}
               </div>
