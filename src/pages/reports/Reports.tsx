@@ -13,6 +13,7 @@ import { ReportsDash, type DashState } from './ReportsDash'
 import { Commissions } from './Commissions'
 import { Sdr } from './Sdr'
 import { LeadSources } from './LeadSources'
+import ReportsPdfButton from './ReportsPdf'
 import { agencyShort } from '../../lib/data'
 import '../executive/executive.css'
 import './reports.css'
@@ -142,6 +143,7 @@ export function ReportsView({ D, open }: { D: PerfData; open?: string }) {
       <div className="pagehead">
         <div className="hd-titles"><p className="eyebrow">Performance</p><p className="ptitle">Reports</p>
           <p className="psrc">{has ? (R.source || 'AgencyZoom') + ' · pulled ' + R.generatedAt : 'No report loaded'}</p></div>
+        <ReportsPdfButton D={D} />
         <div className="ptabs">
           <button className={'ptab' + (v.mode === 'dash' ? ' on' : '')} onClick={() => set({ mode: 'dash' })}>Dashboard</button>
           <button className={'ptab' + (v.mode === 'details' ? ' on' : '')} onClick={() => set({ mode: 'details' })}>Details</button>

@@ -8,9 +8,10 @@ import { downloadSheet } from '../lib/excelExport'
 import { mdy, money2, shortDate, todayPacific } from '../lib/format'
 import { supabase } from '../lib/supabase'
 import { useAsync } from '../lib/useAsync'
-import { agencyBonus, checkFor, folioFor, nextPay, salaryCheck, stepPay, type BonusTier } from '../lib/payday'
+import { agencyBonus, checkFor, folioFor, nextPay, stepPay } from '../lib/payday'
 import { workedMinutes } from './Licensing'
 import { bonusCounts, folioBonus } from '../lib/retention'
+import { payrollLines, type Comm, type Punch, type Staff } from '../lib/payrollCalc'
 
 /** Office payroll: what everyone in the office is owed on one payday, downloaded as one workbook, with the payroll
  *  files (the provider's report, a signed copy) uploaded back to that payday. Payroll is paid twice a month:
@@ -21,12 +22,8 @@ import { bonusCounts, folioBonus } from '../lib/retention'
  *  premium for the folio.
  *  For the owner and admins only: it shows everyone's pay. */
 
-interface Staff { name: string; role: string | null; hourly: boolean; rate: number | null; active: boolean; left_on: string | null; salary_annual: number | null; bonus_tiers: BonusTier[] | null; bonus_period?: string | null }
-interface Punch { id: number; name: string; work_date: string; start_time: string | null; end_time: string | null; breaks: [string, string][]; edited: boolean }
-interface Comm { producer: string; totalPremium: number; policies: number; qualifies: boolean; tierRate: number; total: number }
 interface PayDoc extends Doc { created_at?: string }
 
-const first = (n: string) => n.trim().split(/\s+/)[0].toLowerCase()
 const hm = (m: number) => `${Math.floor(m / 60)}h ${String(Math.round(m % 60)).padStart(2, '0')}m`
 
 /** The payday dropdown: the next two paydays and the past year's, newest first (plus the one picked, if older). */
@@ -92,45 +89,8 @@ export default function Payroll() {
 
   const qb = Number(period?.qualified_transfer_bonus) || 0, bb = Number(period?.bound_policy_bonus) || 0
 
-  const lines = useMemo(() => {
-    if (!hours.data) return null
-    // hourly staff on the books in the period, including anyone whose last day falls in it (their final check)
-    const hourly = hours.data.staff.filter((s) => s.hourly && (s.active || (s.left_on && s.left_on >= check.from))).map((s) => {
-      const ps = hours.data!.punches.filter((p) => p.name === s.name)
-      const mins = ps.reduce((a, p) => a + workedMinutes(p), 0)
-      return { name: s.name, role: (s.role || '') + (!s.active && s.left_on ? ` (last day ${shortDate(s.left_on)})` : ''), days: ps.length, mins, rate: s.rate, pay: s.rate ? Math.round((mins / 60) * s.rate * 100) / 100 : 0 }
-    })
-    const sdrs = new Map<string, { logged: number; qualified: number; bound: number; qOnly: number }>()
-    for (const t of sdr.data || []) {
-      const o = sdrs.get(t.sdr) || { logged: 0, qualified: 0, bound: 0, qOnly: 0 }
-      // a bound transfer earns the bound bonus in place of the qualified one ($35 total, not $15 + $35)
-      o.logged++; if (t.az_qualifies) o.qualified++; if (t.bound) o.bound++; else if (t.az_qualifies) o.qOnly++
-      sdrs.set(t.sdr, o)
-    }
-    // one line per person: SDR tags carry first names, so they join a full name with the same first name
-    const people = new Map<string, { name: string; role: string; hours: number; pay: number; salary: number; comm: number; bonus: number; cash: number }>()
-    const person = (name: string, role = '') => {
-      const k = first(name)
-      const p = people.get(k) || { name, role, hours: 0, pay: 0, salary: 0, comm: 0, bonus: 0, cash: 0 }
-      if (name.length > p.name.length) p.name = name
-      if (!p.role) p.role = role
-      people.set(k, p); return p
-    }
-    for (const h of hourly) { const p = person(h.name, h.role); p.hours += h.mins / 60; p.pay += h.pay }
-    // salaried staff on the books: a salary check every payday, and on the 21st their cash bonus instead of commission
-    const salaried = hours.data.staff.filter((s) => s.salary_annual && (s.active || (s.left_on && s.left_on >= check.from)))
-    const noComm = new Set(salaried.map((s) => first(s.name)))
-    for (const s of salaried) {
-      const p = person(s.name, s.role || '')
-      p.salary += salaryCheck(s.salary_annual)
-      if (s.bonus_period === 'folio_gated') p.cash += gated.data?.[s.name]?.amount || 0
-      else if (check.commission && agencyPrem.data != null) p.cash += agencyBonus(s.bonus_tiers, agencyPrem.data).amount
-    }
-    for (const c of comm.data || []) if (c.total && !noComm.has(first(c.producer))) person(c.producer, 'Producer').comm += c.total
-    for (const [n, o] of sdrs) person(n, 'SDR').bonus += o.qOnly * qb + o.bound * bb
-    const who = [...people.values()].map((p) => ({ ...p, total: p.pay + p.salary + p.comm + p.bonus + p.cash })).filter((p) => p.total || p.hours).sort((a, b) => b.total - a.total)
-    return { hourly, sdrs, who, salaried }
-  }, [hours.data, comm.data, sdr.data, qb, bb, check.from, check.commission, agencyPrem.data, gated.data])
+  const lines = useMemo(() => (hours.data ? payrollLines({ staff: hours.data.staff, punches: hours.data.punches, comm: comm.data || [], sdr: sdr.data || [], qb, bb, check, agencyPrem: agencyPrem.data ?? null, gated: gated.data || {} }) : null),
+    [hours.data, comm.data, sdr.data, qb, bb, check, agencyPrem.data, gated.data])
 
   const hoursLabel = `${shortDate(check.from)} – ${shortDate(check.to, true)}`
   const folioLabel = folio ? `${shortDate(folio.start_date)} – ${shortDate(folio.end_date, true)}` : ''
@@ -179,7 +139,7 @@ export default function Payroll() {
       <Panel title={`Payday ${mdy(pay)}`} sub={check.commission ? `Hours ${hoursLabel} · commission for the folio ${folioLabel || 'closed last month (not set up yet)'} · SDR bonus for ${period?.period_label || 'last month'} transfers` : `Hours ${hoursLabel} · no commission on the 5th (commission is paid on the 21st)`}
         right={<div className="filters">
           <button className="btn-ghost" onClick={() => setPay(stepPay(pay, -1))} aria-label="Previous payday">‹</button>
-          <select className="fld" value={pay} onChange={(e) => setPay(e.target.value)} aria-label="Payday">
+          <select className="fld pay-pick" value={pay} onChange={(e) => setPay(e.target.value)} aria-label="Payday">
             {paydays(pay).map((d) => <option key={d} value={d}>{mdy(d)}{d.endsWith('-21') ? ' · hours + commission' : ' · hours'}{d === nextPay(todayPacific()) ? ' (next payday)' : ''}</option>)}
           </select>
           <button className="btn-ghost" onClick={() => setPay(stepPay(pay, 1))} aria-label="Next payday">›</button>

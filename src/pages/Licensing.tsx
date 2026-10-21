@@ -16,20 +16,9 @@ interface License { id: number; name: string; role: string | null; state: string
 interface Staff { name: string; role: string | null; hourly: boolean; rate: number | null; active: boolean; hired_on: string | null; left_on: string | null; leave_reason: string | null; salary_annual?: number | null }
 interface Punch { id: number; name: string; work_date: string; start_time: string | null; end_time: string | null; breaks: [string, string][]; edited: boolean }
 
-/** "9:15AM" -> minutes after midnight */
-export function clock(t: string | null) {
-  const m = /^(\d{1,2}):(\d{2})\s*([AP])M$/i.exec((t || '').trim())
-  if (!m) return null
-  let h = Number(m[1]) % 12
-  if (m[3].toUpperCase() === 'P') h += 12
-  return h * 60 + Number(m[2])
-}
-export function workedMinutes(p: Punch) {
-  const s = clock(p.start_time), e = clock(p.end_time)
-  if (s == null || e == null || e <= s) return 0
-  const br = (p.breaks || []).reduce((a, [b1, b2]) => { const x = clock(b1), y = clock(b2); return a + (x != null && y != null && y > x ? y - x : 0) }, 0)
-  return e - s - br
-}
+// the clock math lives with the payroll math, so timesheets, Office Payroll, My Pay and the report PDFs agree
+import { clock, workedMinutes } from '../lib/payrollCalc'
+export { clock, workedMinutes }
 const hm = (m: number) => `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m`
 
 export default function Licensing() {

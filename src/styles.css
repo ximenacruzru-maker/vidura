@@ -1450,3 +1450,6 @@ html[data-theme="astra"] .xd .mc-btn { border-color: #E5252E; background: #2A101
 .cf-h { font-weight: 800; color: var(--ink); margin: 6px 0 2px; }
 tr.cf-off td { opacity: .55; }
 .cf-grid th:first-child, .cf-grid td:first-child { text-align: left; white-space: nowrap; }
+.filters .pay-pick { min-width: 0; max-width: 100%; flex: 1 1 150px; width: auto; }
+.panel-h > .filters { max-width: 100%; min-width: 0; }
+@media (max-width: 640px) { .filters .pay-pick { flex: 1 1 100%; order: -1; } }
