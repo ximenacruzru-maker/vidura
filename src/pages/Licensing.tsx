@@ -79,7 +79,8 @@ function Licenses({ admin }: { admin: boolean }) {
     const ext = (f.name.match(/\.([a-z0-9]+)$/i) || [])[1]?.toLowerCase() || 'pdf'
     const id = `lic-${l.id}-${Date.now()}`
     const path = `${me.agency_id}/license/${id}.${ext}`
-    const up = await supabase.storage.from('documents').upload(path, f, { upsert: true, contentType: f.type || 'application/pdf' })
+    // a new file every time (the name is unique): replacing one would need read access to a file not filed yet
+    const up = await supabase.storage.from('documents').upload(path, f, { upsert: false, contentType: f.type || 'application/pdf' })
     if (up.error) return alert('Could not upload: ' + up.error.message)
     const doc = await supabase.from('documents').insert({ id, category: 'license', title: l.kind === 'eo' ? `E&O certificate — ${l.number}` : `License — ${l.name}`, file_name: f.name,
       mime: f.type || 'application/pdf', storage_path: path, size_bytes: f.size, admin_only: false, uploaded: true })

@@ -1486,3 +1486,19 @@ tr.cf-off td { opacity: .55; }
 .rr-pick-r:hover { background: var(--tint); }
 .rr-err { color: var(--bad); font-weight: 700; }
 @media (max-width: 860px) { .rr-row { grid-template-columns: 1fr; } }
+/* Employee files as folders (like Google Drive) */
+.cf-drive-r { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.cf-seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.cf-seg button { border: 0; background: var(--card); color: var(--ink); padding: 6px 12px; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.cf-seg button.on { background: var(--blue); color: #fff; }
+.cf-crumbs { display: inline-flex; gap: 4px; flex-wrap: wrap; align-items: baseline; }
+.cf-folders { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
+.cf-folder { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--ink); cursor: pointer; font: inherit; text-align: left; min-width: 0; transition: box-shadow .15s, border-color .15s; }
+.cf-folder:hover { border-color: var(--blue); box-shadow: 0 4px 14px rgba(20, 60, 160, .12); }
+.cf-folder-i { width: 48px; height: 40px; margin-bottom: 4px; }
+.cf-folder-n { font-weight: 800; font-size: 14.5px; overflow-wrap: anywhere; }
+.cf-folder-s { font-size: 12.5px; color: var(--muted); }
+.cf-badge { margin-top: 4px; padding: 2px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 800; }
+.cf-badge.bad { background: var(--bad-bg); color: var(--bad); }
+.cf-badge.ok { background: var(--good-bg); color: var(--good); }
+.cf-in { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
