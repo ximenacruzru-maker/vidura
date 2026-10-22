@@ -15,7 +15,7 @@ import { useAsync } from '../lib/useAsync'
 type Kind = 'negative' | 'positive'
 type Call = 'no_answer' | 'voicemail' | 'reached'
 export interface Review { id: number; name: string; day: string; kind: Kind; account_id: string | null; policy_id: string | null; client: string; policy: string | null; renewal_date: string | null; current_premium: number | null; renewal_premium: number | null; call1: Call | null; call2: Call | null; emailed: boolean; cross_sell: string | null; notes: string | null; findings: string | null
-  phone: string | null; dnc: boolean; spoke: boolean; options_path: string | null; options_file: string | null }
+  phone: string | null; dnc: boolean; spoke: boolean; options_path: string | null; options_file: string | null; carried_from: string | null }
 interface Listed { id: number; kind: Kind; rank: number; client: string; policy_number: string | null; lob: string | null; renewal_date: string | null; current_premium: number | null; renewal_premium: number | null; phone: string | null; phone_type: string | null; dnc: boolean; notes: string | null }
 export const GOAL: Record<Kind, number> = { negative: 10, positive: 10 }
 export const DAY_GOAL = GOAL.negative + GOAL.positive
@@ -76,7 +76,7 @@ export default function RenewalReview({ name, day: start, agency }: { name: stri
             <button className="rr-step" disabled={day >= today} onClick={() => setDay(workday(day, 1) > today ? today : workday(day, 1))} aria-label="Next workday">›</button>
             {day !== today && <button className="linkbtn" onClick={() => setDay(today)}>Back to today</button>}</div>
           <div className="rr-t">{done_.length} of {DAY_GOAL} renewals worked</div>
-          <div className="rr-s">{GOAL.negative} negative (premium going up) · {GOAL.positive} positive with a cross-sell · call twice, then email the renewal snapshot · attach the renewal options PDF · a renewal counts as worked once it has notes</div></div>
+          <div className="rr-s">{GOAL.negative} negative (premium going up) · {GOAL.positive} positive with a cross-sell · call twice, then email the renewal snapshot · attach the renewal options PDF · a renewal counts as worked once it has notes · anything without notes at 5 PM carries over to the next workday</div></div>
         <div className="rr-score">
           <span className={wk('negative') >= GOAL.negative ? 'ok' : ''}>Negative {wk('negative')}/{GOAL.negative}</span>
           <span className={wk('positive') >= GOAL.positive ? 'ok' : ''}>Positive {wk('positive')}/{GOAL.positive}</span>
@@ -123,7 +123,7 @@ function Row({ r, save, refresh, remove }: { r: Review; save: (id: number, p: Pa
   return (
     <div className={'rr-row' + (done(r) ? ' rr-done' : '')}>
       <div className="rr-c">
-        <b>{r.client}</b><span>{[r.policy, r.renewal_date ? `renews ${mdy(r.renewal_date)}` : ''].filter(Boolean).join(' · ')}</span>
+        <b>{r.client}{r.carried_from && <span className="rr-carry" title="Not worked on the day it was on the list, so it moved here at 5 PM"> Carried over from {mdy(r.carried_from)}</span>}</b><span>{[r.policy, r.renewal_date ? `renews ${mdy(r.renewal_date)}` : ''].filter(Boolean).join(' · ')}</span>
         {(r.phone || r.dnc) && <span>{r.phone && (!dial(r.phone) ? r.phone : <a href={`tel:${dial(r.phone)}`}>{r.phone}</a>)}{r.dnc && <b className="rr-dnc" title="Marked DNC on the call list — still reach out"> DNC on file</b>}</span>}
         <span>Now {r.current_premium != null ? money0(Number(r.current_premium)) : '—'} → renewal <input className="fld rr-in" inputMode="decimal" value={ren} placeholder="amount" onChange={(e) => setRen(e.target.value)}
           onBlur={() => { const v = ren === '' ? null : Number(ren.replace(/[$,]/g, '')); if (v !== r.renewal_premium && (v == null || !isNaN(v))) save(r.id, { renewal_premium: v }) }} aria-label="Renewal premium" />
@@ -280,7 +280,7 @@ export async function reportPdf(list: Review[], name: string, day: string, agenc
   list.forEach((r, i) => {
     const ch = change(r)
     const client = wrap(r.client, SIZE, cols[0][1] - 12, true)
-    const sub = wrap([r.kind === 'negative' ? 'Negative' : 'Positive', r.policy, r.renewal_date && `renews ${mdy(r.renewal_date)}`, ch != null && signed(ch), r.dnc && 'DNC on file'].filter(Boolean).join(' · '), 7.5, cols[0][1] - 12)
+    const sub = wrap([r.kind === 'negative' ? 'Negative' : 'Positive', r.policy, r.renewal_date && `renews ${mdy(r.renewal_date)}`, ch != null && signed(ch), r.dnc && 'DNC on file', r.carried_from && `carried over from ${mdy(r.carried_from)}`].filter(Boolean).join(' · '), 7.5, cols[0][1] - 12)
     const result = !worked(r) ? ['Not worked — no notes'] : [reached(r) ? 'Reached client' : r.emailed ? 'No contact, emailed' : 'Not reached yet',
       ...[r.call1, r.call2].map((c, k) => (c ? `Call ${k + 1}: ${CALL[c]}` : '')).filter(Boolean), r.options_path ? 'Options PDF attached' : ''].filter(Boolean)
     const findings = wrap([r.findings, r.cross_sell && `Cross-sell: ${r.cross_sell}`].filter(Boolean).join('\n') || '—', SIZE, cols[2][1] - 12)
