@@ -3,6 +3,8 @@
 // entries in full, the folio bonus and its gates, and the year month by month. For the person in the role and admins.
 // The daily huddle report (huddle: true) is the same report for one workday — the day before the huddle — with that
 // day's numbers, entries and talk track, and the folio, month and year as of that day; no bonus or yearly pages.
+// Both show the day's renewal reviews (Retention › Daily renewal review): how many were completed, each client, the
+// result of the call and the notes.
 import { supabase } from './supabase'
 import { loadScript } from './perf/commissionFiles'
 import { folioBonus, movement, type Period, type RetentionDay, type RetentionEntry } from './retention'
@@ -11,6 +13,12 @@ import type { BonusTier } from './payday'
 const KIND: Record<RetentionEntry['kind'], string> = { save: 'Save', loss: 'Loss', cross_sell: 'Cross-sell', new_business: 'New business', review: 'Service / review' }
 const m0 = (n: number) => (n < 0 ? '-$' : '$') + Math.round(Math.abs(n)).toLocaleString('en-US')
 const us = (iso: string) => iso.slice(5, 7) + '/' + iso.slice(8, 10) + '/' + iso.slice(0, 4)
+/** a renewal review row (the daily renewal review), as much as the report needs */
+interface Reviewed { kind: 'negative' | 'positive'; client: string; policy: string | null; current_premium: number | null; renewal_premium: number | null; call1: string | null; call2: string | null; emailed: boolean; spoke: boolean; findings: string | null; cross_sell: string | null; notes: string | null; options_path: string | null }
+const REVIEW_GOAL = 20
+/** a renewal counts as worked only once it has notes (findings before the call or the result) */
+const hasNotes = (r: Reviewed) => !!(r.findings?.trim() || r.notes?.trim())
+const wasReached = (r: Reviewed) => r.spoke || r.call1 === 'reached' || r.call2 === 'reached'
 const monthName = (m: string) => new Date(m + '-15T12:00:00Z').toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' })
 
 export async function downloadRetentionPdf(name: string, folio: Period | null, today: string, agency = 'Your agency', huddle = false) {
@@ -20,11 +28,15 @@ export async function downloadRetentionPdf(name: string, folio: Period | null, t
   const dayLabel = huddle ? dayName : 'Today'
   const year = today.slice(0, 4), month = today.slice(0, 7)
   const from = folio && folio.start_date < year + '-01-01' ? folio.start_date : year + '-01-01'
-  const [days, log, staff] = await Promise.all([
+  const [days, log, staff, reviews] = await Promise.all([
     supabase.from('retention_days').select('*').eq('name', name).gte('day', from).lte('day', today).order('day').then((r) => { if (r.error) throw r.error; return r.data as RetentionDay[] }),
     supabase.from('retention_log').select('*').eq('name', name).gte('day', from).lte('day', today).order('day').order('id').then((r) => { if (r.error) throw r.error; return r.data as RetentionEntry[] }),
     supabase.from('hr_staff').select('bonus_tiers').eq('name', name).maybeSingle().then((r) => (r.data as { bonus_tiers: BonusTier[] | null } | null)),
+    supabase.from('renewal_reviews').select('*').eq('name', name).eq('day', today).order('kind').order('id').then((r) => (r.error ? [] : (r.data as Reviewed[]))),
   ])
+  const rvWorked = reviews.filter(hasNotes)
+  const rvReached = rvWorked.filter(wasReached).length, rvEmailed = rvWorked.filter((x) => !wasReached(x) && x.emailed).length
+  const rvNeg = rvWorked.filter((x) => x.kind === 'negative').length, rvPos = rvWorked.length - rvNeg
   const bonus = folio && !huddle ? await folioBonus(name, staff?.bonus_tiers, folio, today) : null
 
   const w = window as unknown as { jspdf?: { jsPDF: new (o: object) => any } }
@@ -133,6 +145,8 @@ export async function downloadRetentionPdf(name: string, folio: Period | null, t
     y += heroH + 8
   } else y -= 10
 
+  // the huddle report is the renewal reviews only; the full report has the day's scorecard and log
+  if (!huddle) {
   // today: goals as progress cards
   section(huddle ? `${dayName}’s work` : 'Today', us(today))
   const td = days.find((d) => d.day === today)
@@ -157,6 +171,8 @@ export async function downloadRetentionPdf(name: string, folio: Period | null, t
   if (td?.priority) {
     room(30); box(L, y, CW, 26, C.amberSoft, 6); box(L, y, 4, 26, C.amber, 2)
     txt(huddle ? 'PRIORITY THAT DAY' : 'TODAY’S PRIORITY', L + 14, y + 16.5, 7.5, true, C.amber); txt(fit(td.priority, 9.5, CW - 130), L + 108, y + 16.5, 9.5, false, C.ink); y += 34
+  }
+
   }
 
   /** The log as a table: day, a colored type pill, client, premium (green / red), notes that wrap. */
@@ -185,15 +201,13 @@ export async function downloadRetentionPdf(name: string, folio: Period | null, t
     })
     stroke(C.line); pdf.setLineWidth(0.8); pdf.line(L, y, R, y); y += 12
   }
-  entries(log.filter((e) => e.day === today), huddle ? `Nothing logged on ${us(today)}.` : 'Nothing logged today yet.')
+  if (!huddle) entries(log.filter((e) => e.day === today), 'Nothing logged today yet.')
 
-  // ---- huddle: the talk track, filled in from the day ----
+  // ---- huddle: the talk track, filled in from the day's renewal reviews ----
   if (huddle) {
-    const d = stats[0], mtd = stats[periods.findIndex((p) => p.label === 'This month')]
-    const say = `On ${dayName} I completed ${td?.at_risk_touches ?? 0} at-risk touches and ${td?.renewal_conversations ?? 0} live renewal conversations. ` +
-      `I saved ${d.mv.saved.n} policies / ${m0(d.mv.saved.p)} premium, lost ${d.mv.lost.n} policies / ${m0(d.mv.lost.p)} premium, and generated ${m0(d.mv.cross.p)} in cross-sell premium and ${m0(d.mv.fresh.p)} in new business. ` +
-      `My MTD Net Book Movement is ${m0(mtd.mv.net)}. I have ${td?.open_critical_aged ?? 0} critical cases open past a day.` +
-      (td?.priority ? ` My priority: ${td.priority}.`.replace('..', '.') : '')
+    const say = `On ${dayName} I worked ${rvWorked.length} of ${REVIEW_GOAL} renewal reviews: ${rvNeg} negative and ${rvPos} positive. ` +
+      `I reached ${rvReached} client${rvReached === 1 ? '' : 's'} and emailed the renewal snapshot to ${rvEmailed} I couldn’t reach.` +
+      (rvWorked.length < REVIEW_GOAL ? ` ${REVIEW_GOAL - rvWorked.length} still to go.` : '')
     section('Huddle talk track', `for the ${us(nextWorkday)} huddle`, 80)
     font(10); const lines = pdf.splitTextToSize(`“${say}”`, CW - 36) as string[]
     const th = 22 + lines.length * 14
@@ -201,7 +215,49 @@ export async function downloadRetentionPdf(name: string, folio: Period | null, t
     lines.forEach((ln, k) => txt(ln, L + 18, y + 20 + k * 14, 10, false, C.ink)); y += th + 8
   }
 
+  // ---- the day's renewal reviews ----
+  if (reviews.length || huddle) {
+    section('Renewal reviews', `${huddle ? dayName : 'Today'} · ${REVIEW_GOAL} a day: 10 negative, 10 positive`, 120)
+    const cards: [string, string, boolean][] = [
+      ['Worked (with notes)', `${rvWorked.length} / ${REVIEW_GOAL}`, rvWorked.length >= REVIEW_GOAL], ['Negative · positive', `${rvNeg} / 10  ·  ${rvPos} / 10`, rvNeg >= 10 && rvPos >= 10],
+      ['Reached client', String(rvReached), false], ['No contact, emailed', String(rvEmailed), false],
+    ]
+    const cw4 = (CW - 30) / 4, ch = 44
+    room(ch + 10)
+    cards.forEach(([l, v, good], i) => { const x = L + i * (cw4 + 10); box(x, y, cw4, ch, C.soft, 8); txt(l.toUpperCase(), x + 10, y + 15, 7, true, C.muted); txt(fit(v, 14, cw4 - 20, true), x + 10, y + 35, 14, true, good ? C.green : C.ink) })
+    y += ch + 10
+    if (!reviews.length) { room(24); box(L, y, CW, 22, C.soft, 6); txt(`No renewal reviews logged on ${us(today)}.`, L + 12, y + 14.5, 9, false, C.amber); y += 30 }
+    else {
+      const cols = [{ h: 'TYPE', w: 62 }, { h: 'CLIENT', w: 128 }, { h: 'CHANGE', w: 56 }, { h: 'RESULT', w: 92 }, { h: 'FINDINGS · NOTES', w: CW - 338 }]
+      const xs: number[] = []; let x = L; for (const c of cols) { xs.push(x); x += c.w }
+      const head = () => { box(L, y, CW, 18, C.navy, 4); cols.forEach((c, i) => txt(c.h, c.h === 'CHANGE' ? xs[i] + c.w - 8 : xs[i] + 8, y + 12, 7, true, [255, 255, 255], c.h === 'CHANGE' ? 'right' : undefined)); y += 18 }
+      room(40); head()
+      reviews.forEach((rv, i) => {
+        const note = [rv.findings && `Findings: ${rv.findings}`, rv.cross_sell && `Cross-sell: ${rv.cross_sell}`, rv.notes && `Result: ${rv.notes}`, rv.options_path && 'Options PDF attached'].filter(Boolean).join('\n') || '—'
+        font(8.5); const notes = pdf.splitTextToSize(note, cols[4].w - 14) as string[]
+        font(8.5, true); const client = pdf.splitTextToSize(rv.client, cols[1].w - 14) as string[]
+        const lines = Math.max(notes.length, client.length + (rv.policy ? 1 : 0), 1)
+        const h = 10 + lines * 11
+        if (y + h > BOTTOM) { newPage(); head() }
+        if (i % 2) { fill(C.soft); pdf.rect(L, y, CW, h, 'F') }
+        const base = y + 15
+        pill(rv.kind === 'negative' ? 'Negative' : 'Positive', xs[0] + 8, base, rv.kind === 'negative' ? { fg: C.red, bg: C.redSoft } : { fg: C.green, bg: C.greenSoft })
+        client.forEach((ln, k) => txt(ln, xs[1] + 8, base + k * 11, 8.5, true, C.ink))
+        if (rv.policy) txt(fit(rv.policy, 7.5, cols[1].w - 14), xs[1] + 8, base + client.length * 11, 7.5, false, C.muted)
+        const ch2 = rv.current_premium != null && rv.renewal_premium != null ? Number(rv.renewal_premium) - Number(rv.current_premium) : null
+        txt(ch2 == null ? '—' : (ch2 > 0 ? '+' : ch2 < 0 ? '-' : '') + m0(Math.abs(ch2)), xs[2] + cols[2].w - 8, base, 8.5, true, ch2 == null ? C.faint : ch2 > 0 ? C.red : C.green, 'right')
+        const reachedIt = wasReached(rv)
+        const result = !hasNotes(rv) ? 'Not worked' : reachedIt ? 'Reached client' : rv.emailed ? 'No contact, emailed' : rv.call1 || rv.call2 ? 'Calling' : 'Notes only'
+        txt(fit(result, 8.5, cols[3].w - 12, true), xs[3] + 8, base, 8.5, true, !hasNotes(rv) ? C.red : reachedIt ? C.green : rv.emailed ? C.navy2 : C.amber)
+        notes.forEach((ln, k) => txt(ln, xs[4] + 8, base + k * 11, 8.5, false, C.ink))
+        y += h
+      })
+      stroke(C.line); pdf.setLineWidth(0.8); pdf.line(L, y, R, y); y += 12
+    }
+  }
+
   // the periods side by side
+  if (!huddle) {
   section('At a glance', `${huddle ? dayName.toLowerCase() : 'today'} · folio · month · year to date`, 200)
   {
     const labelW = 168, cw = (CW - labelW) / periods.length
@@ -230,6 +286,7 @@ export async function downloadRetentionPdf(name: string, folio: Period | null, t
       y += 19
     })
     y += 8
+  }
   }
 
   // ---- folio: bonus and gates ----
