@@ -12,7 +12,8 @@ import { Bars, DayChart, Donut, ICO, Meter, RenewalChart, ScoreCard } from './pa
 import { useDarkFix, useFitFigures, useLegacyLook } from './look'
 import VsLastYear from './VsLastYear'
 import RetentionReport from './RetentionReport'
-import CommercialQuotes from './CommercialQuotes'
+import TopOpportunities from './CommercialQuotes'
+import { VendorSummary } from '../hr/Vendors'
 import { wbFolioKeys } from '../../lib/perf/data'
 import { wbFolioLabel } from '../../lib/perf/reports'
 import './executive.css'
@@ -123,7 +124,8 @@ export function Dashboard({ D }: { D: PerfData }) {
         <Production D={D} win={f.prod} setWin={(v) => set('prod', v)} range={{ from: f.prodFrom || '', to: f.prodTo || '' }}
           setRange={(r) => setF((x) => ({ ...x, prodFrom: r.from, prodTo: r.to }))} goals={goals} />
         {me?.role === 'owner' && <FarmersRevenue D={D} />}
-        {me?.role === 'owner' && <CommercialQuotes D={D} />}
+        {me?.role === 'owner' && <TopOpportunities D={D} />}
+        {me?.role === 'owner' && <VendorSummary />}
         <VsLastYear />
         <RetentionReport />
 

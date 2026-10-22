@@ -725,3 +725,8 @@
 .xd .panel-h > .fbar {min-width:0;max-width:100%}
 .xd .panel-h > div {min-width:0}
 .xd .scg.fr-one {grid-template-columns:minmax(0,300px);margin-bottom:16px}
+
+.xd .opp-tag {display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:800;white-space:nowrap}
+.xd .opp-tag-risk {background:#fde8e6;color:#b42318}
+.xd .opp-tag-quote {background:#e7efff;color:#1f4fd8}
+.xd tr.opp-risk td {background:rgba(220,38,38,.04)}

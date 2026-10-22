@@ -2,3 +2,34 @@
    must not reach the Commissions "Download Excel" button, which keeps the original's look in every theme. */
 html[data-theme] .xd .hd-kai { background: linear-gradient(135deg, var(--bistre), #4d60ff); border-color: #8ca5ff; box-shadow: 0 7px 18px rgba(22,79,236,.2); }
 .xd .cm-link { text-decoration: underline; }
+
+/* the owner's Download reports (PDF) button and its dialog */
+.xd .rp-pdf-btn {display:inline-flex;align-items:center;gap:10px;padding:14px 22px;border:0;border-radius:14px;background:linear-gradient(135deg,#1f4fd8,#163aa8);color:#fff;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 8px 22px rgba(22,58,168,.28);white-space:nowrap}
+.xd .rp-pdf-btn:hover:not(:disabled) {filter:brightness(1.08)}
+.xd .rp-pdf-btn:disabled {opacity:.7;cursor:default}
+.xd .rp-pdf-btn span {font-size:18px}
+.xd .pagehead .rp-pdf-btn {margin-left:auto;margin-right:14px}
+.rp-dlg-ov {position:fixed;inset:0;background:rgba(10,20,50,.45);z-index:200;display:grid;place-items:center;padding:16px}
+.rp-dlg {width:min(640px,100%);max-height:calc(100vh - 32px);display:flex;flex-direction:column;background:var(--card,#fff);color:var(--ink,#1e2230);border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,.3);overflow:hidden}
+.rp-dlg-h {display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:18px 20px;background:linear-gradient(135deg,#1f4fd8,#163aa8);color:#fff}
+.rp-dlg-h b {display:block;font-size:18px}
+.rp-dlg-h span {font-size:13px;opacity:.85}
+.rp-dlg-x {border:0;background:rgba(255,255,255,.15);color:#fff;width:32px;height:32px;border-radius:8px;font-size:20px;cursor:pointer}
+.rp-dlg-b {padding:16px 20px;overflow-y:auto;display:flex;flex-direction:column;gap:8px}
+.rp-dlg-l {font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted,#6e7486);margin-top:8px}
+.rp-dlg-f {width:100%;font-weight:700}
+.rp-dlg-dates {display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.rp-dlg-presets {display:flex;flex-wrap:wrap;gap:8px}
+.rp-dlg-preset {border:1.5px solid var(--line,#e1e5ee);background:var(--card,#fff);color:inherit;border-radius:999px;padding:7px 14px;font-weight:700;cursor:pointer}
+.rp-dlg-preset.on {border-color:#1f4fd8;background:#e7efff;color:#1f4fd8}
+.rp-dlg-g {display:flex;flex-direction:column;gap:4px}
+.rp-dlg-c {display:flex;gap:10px;align-items:flex-start;padding:6px 4px;border-radius:8px;cursor:pointer}
+.rp-dlg-c:hover {background:var(--paper,#f5f7fc)}
+.rp-dlg-c input {margin-top:3px}
+.rp-dlg-c span {display:flex;flex-direction:column}
+.rp-dlg-c small {color:var(--muted,#6e7486);font-size:12px}
+.rp-dlg-err {padding:8px 12px;border-radius:8px;background:#fde8e6;color:#b42318;font-weight:700}
+.rp-dlg-foot {display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 20px;border-top:1px solid var(--line,#e1e5ee)}
+.rp-dlg-note {font-size:13px;color:var(--muted,#6e7486)}
+.rp-dlg .rp-pdf-btn {display:inline-flex;align-items:center;gap:10px;padding:12px 20px;border:0;border-radius:12px;background:linear-gradient(135deg,#1f4fd8,#163aa8);color:#fff;font-size:15px;font-weight:800;cursor:pointer}
+@media (max-width:760px) { .xd .pagehead .rp-pdf-btn {margin:10px 0;width:100%;justify-content:center} }

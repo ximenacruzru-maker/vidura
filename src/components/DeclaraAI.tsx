@@ -74,7 +74,7 @@ async function answer(qRaw: string, me: StaffAccount | null, ctx: { client?: Acc
     const all = ((await ref<any[]>('markets')) || []).flatMap((g: any) => g.carriers || [])
     const list = n.list ? (((await ref<any[]>('markets')) || []).find((g: any) => g.key === n.list!.key)?.carriers || []).filter((x: any) => !(n.list!.skip || []).some((k) => x.name.toLowerCase().includes(k.toLowerCase()))) : []
     const names = [...(n.carriers || []).map((k) => (all.find((x: any) => x.name.toLowerCase().includes(k.toLowerCase())) || { name: k }).name), ...list.map((x: any) => x.name)]
-    return { body: <>{n.say}{names.length > 0 && <L items={names.map((x, i) => <><b>{list.length ? `${i + 1}. ` : ''}{x}</b></>)} max={12} />}{n.ask && <p><b>{n.ask}</b> {n.options ? n.options.map((o) => o.label).join(' · ') : ''}</p>}</>,
+    return { body: <>{n.say}{names.length > 0 && <L items={names.map((x, i) => <><b>{list.length ? `${i + 1}. ` : ''}{x}</b></>)} max={12} />}{n.checklist && <L items={n.checklist} max={14} />}{n.ask && <p><b>{n.ask}</b> {n.options ? n.options.map((o) => o.label).join(' · ') : ''}</p>}</>,
       go: { to: '/sales-flow?view=ask&ask=' + encodeURIComponent(qRaw), label: n.end ? 'Open the carrier guide' : 'Answer in the carrier guide' } }
   }
 

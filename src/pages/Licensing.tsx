@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuth } from '../auth'
 import { Empty, ErrorBox, Loading, PageHead, Panel, Tabs, Tile, Tiles } from '../components/ui'
 import { daysUntil, getDocs, openDoc } from '../lib/books'
@@ -7,40 +7,40 @@ import { addDays, mdy, money2, todayPacific } from '../lib/format'
 import { downloadSheet } from '../lib/excelExport'
 import { supabase } from '../lib/supabase'
 import { useAsync } from '../lib/useAsync'
+import { AgencyLegal, EmployeeFiles } from './hr/Compliance'
+import Vendors from './hr/Vendors'
+import { useSearchParams } from 'react-router-dom'
 import { RenewPill } from './Books'
 
 interface License { id: number; name: string; role: string | null; state: string | null; authority: string | null; license_type: string | null; number: string | null; effective: string | null; expires: string | null; quals: { q: string; eff: string }[]; verify_url: string | null; document_id: string | null; archived_on: string | null; archived_reason: string | null; kind?: 'person' | 'agency' | 'eo' }
 interface Staff { name: string; role: string | null; hourly: boolean; rate: number | null; active: boolean; hired_on: string | null; left_on: string | null; leave_reason: string | null; salary_annual?: number | null }
 interface Punch { id: number; name: string; work_date: string; start_time: string | null; end_time: string | null; breaks: [string, string][]; edited: boolean }
 
-/** "9:15AM" -> minutes after midnight */
-export function clock(t: string | null) {
-  const m = /^(\d{1,2}):(\d{2})\s*([AP])M$/i.exec((t || '').trim())
-  if (!m) return null
-  let h = Number(m[1]) % 12
-  if (m[3].toUpperCase() === 'P') h += 12
-  return h * 60 + Number(m[2])
-}
-export function workedMinutes(p: Punch) {
-  const s = clock(p.start_time), e = clock(p.end_time)
-  if (s == null || e == null || e <= s) return 0
-  const br = (p.breaks || []).reduce((a, [b1, b2]) => { const x = clock(b1), y = clock(b2); return a + (x != null && y != null && y > x ? y - x : 0) }, 0)
-  return e - s - br
-}
+// the clock math lives with the payroll math, so timesheets, Office Payroll, My Pay and the report PDFs agree
+import { clock, workedMinutes } from '../lib/payrollCalc'
+export { clock, workedMinutes }
 const hm = (m: number) => `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m`
 
 export default function Licensing() {
   const { me } = useAuth()
   const admin = can(me, 'hr')
-  const [tab, setTab] = useState<'licenses' | 'time' | 'staff'>('licenses')
-  const tabs = [{ key: 'licenses' as const, label: 'Licenses' }, ...(admin ? [{ key: 'time' as const, label: 'Timesheets' }, { key: 'staff' as const, label: 'Staff & pay rates' }] : [])]
+  type T = 'licenses' | 'time' | 'staff' | 'files' | 'legal' | 'vendors'
+  const tabs = [{ key: 'licenses' as T, label: 'Licenses' }, ...(admin ? [{ key: 'time' as T, label: 'Timesheets' }, { key: 'staff' as T, label: 'Staff & pay rates' }, { key: 'files' as T, label: 'Employee files' }, { key: 'legal' as T, label: 'Agency legal & tax' }, { key: 'vendors' as T, label: 'Vendors & subscriptions' }] : [])]
+  const [params] = useSearchParams()
+  const asked = params.get('tab') as T | null
+  const [tab, setTab] = useState<T>(asked && tabs.some((t) => t.key === asked) ? asked : 'licenses')
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (asked && tabs.some((t) => t.key === asked)) setTab(asked) }, [asked])
   return (
     <>
-      <PageHead kicker="Team Development" title={admin ? 'HR / Licensing' : 'Licensing'} sub={admin ? 'Licenses for everyone; timesheets and pay rates are visible to admins only.' : undefined} />
+      <PageHead kicker="Team Development" title={admin ? 'HR / Licensing' : 'Licensing'} sub={admin ? 'Licenses for everyone. Timesheets, pay rates, employee files and the agency’s legal & tax records are visible to HR only.' : undefined} />
       <Tabs tabs={tabs} value={tab} onChange={setTab} />
       {tab === 'licenses' && <Licenses admin={admin} />}
       {tab === 'time' && admin && <Timesheets />}
       {tab === 'staff' && admin && <StaffRates />}
+      {tab === 'files' && admin && <EmployeeFiles />}
+      {tab === 'legal' && admin && <AgencyLegal />}
+      {tab === 'vendors' && admin && <Vendors />}
     </>
   )
 }
