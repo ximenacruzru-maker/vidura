@@ -13,6 +13,7 @@ import { ReportsDash, type DashState } from './ReportsDash'
 import { Commissions } from './Commissions'
 import { Sdr } from './Sdr'
 import { LeadSources } from './LeadSources'
+import { RenewalReviews } from './RenewalReviews'
 import ReportsPdfButton from './ReportsPdf'
 import { agencyShort } from '../../lib/data'
 import '../executive/executive.css'
@@ -54,13 +55,14 @@ export function ReportsView({ D, open }: { D: PerfData; open?: string }) {
   useDarkFix(root, look.dark)
 
   const tabs = D.REPORT_TABS || []
-  // Lead Sources is a tab the rebuild adds (the original had none), so it isn't in REPORT_TABS
-  const tab = v.tab === 'leads' || tabs.some((t) => t.key === v.tab) ? v.tab : tabs[0]?.key || 'scorecard'
+  // Lead Sources and Renewal reviews are tabs the rebuild adds (the original had none), so they aren't in REPORT_TABS
+  const tab = v.tab === 'leads' || v.tab === 'reviews' || tabs.some((t) => t.key === v.tab) ? v.tab : tabs[0]?.key || 'scorecard'
   const fk = reportFolioKey(D, v.folio)
   const R: Json = D.AZ_REPORTS[fk] || {}
   const has = !!R.generatedAt
   const leadFolios = wbFolioKeys(D).filter((k) => D.WB_DATA.folio[k]?.start).map((k) => ({ key: k, start: D.WB_DATA.folio[k].start, end: D.WB_DATA.folio[k].end, label: wbFolioLabel(D, k) }))
   const leadSources = <LeadSources folios={leadFolios} current={fk} />
+  const reviews = <RenewalReviews folios={leadFolios} agency={agency} />
   const flt = R.filters || {}
   const openTab = (k: string) => (ELSEWHERE[k] ? go(ELSEWHERE[k]) : set({ tab: k, mode: 'details' }))
 
@@ -70,6 +72,7 @@ export function ReportsView({ D, open }: { D: PerfData; open?: string }) {
 
   let body: ReactNode
   if (tab === 'leads') body = leadSources
+  else if (tab === 'reviews') body = reviews
   else if (!has) body = <ReportEmpty />
   else if (tab === 'scorecard') {
     body = <>
@@ -149,7 +152,7 @@ export function ReportsView({ D, open }: { D: PerfData; open?: string }) {
           <button className={'ptab' + (v.mode === 'details' ? ' on' : '')} onClick={() => set({ mode: 'details' })}>Details</button>
         </div>
       </div>
-      {v.mode === 'dash' ? <ReportsDash D={D} st={v} set={set} onGo={(g) => ('tab' in g ? openTab(g.tab) : go(g.path))} extra={leadSources} /> :
+      {v.mode === 'dash' ? <ReportsDash D={D} st={v} set={set} onGo={(g) => ('tab' in g ? openTab(g.tab) : go(g.path))} extra={<>{leadSources}{reviews}</>} /> :
       <div className="wrap">
         <div className="schead">
           <div className="schead-l">
@@ -160,6 +163,7 @@ export function ReportsView({ D, open }: { D: PerfData; open?: string }) {
           <div className="schead-tabs">
             {tabs.map((t) => <button key={t.key} className={'schead-tab' + (t.key === tab ? ' on' : '')} onClick={() => openTab(t.key)}>{t.label}</button>)}
             <button data-parity="new" className={'schead-tab' + (tab === 'leads' ? ' on' : '')} onClick={() => openTab('leads')}>Lead Sources</button>
+            <button data-parity="new" className={'schead-tab' + (tab === 'reviews' ? ' on' : '')} onClick={() => openTab('reviews')}>Renewal reviews</button>
           </div>
         </div>
         <div className="scbar">
