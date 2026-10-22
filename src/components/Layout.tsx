@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth'
-import { can, commissionsOnly, ROLE_LABEL } from '../lib/access'
+import { can, commissionsOnly, producerPath, ROLE_LABEL } from '../lib/access'
 import { agencyName } from '../lib/data'
 import { COPYRIGHT } from '../lib/format'
 import { bookLabel, getAccounts, getBookPolicies, type Account, type BookPolicy } from '../lib/books'
@@ -44,8 +44,11 @@ export default function Layout({ children }: { children: ReactNode }) {
   const trainee = me?.role === 'new_hire'
   // "My Commissions only": that page is the whole app
   const only = commissionsOnly(me)
+  // on the path to producer: Training (Farmers University) is the first thing in the menu
+  const path = producerPath(me) && c('training')
   const full: Item[] = [
     { h: 'Workspace' },
+    { to: '/training', label: 'Training', icon: 'training', show: path },
     { to: '/today', label: first ? `${first}’s Space` : 'My Space', icon: 'today', show: !trainee },
     { to: '/work', label: 'Work & Tickets', icon: 'tickets', show: c('work') },
     { to: '/chat', label: 'Team Chat', icon: 'chat', show: c('chat') },
@@ -65,7 +68,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     { to: '/payroll', label: 'Office Payroll', icon: 'dollar', show: c('payroll') },
     { to: '/commission-sheet', label: 'Commissions', icon: 'sales', show: c('commission_sheet') },
     { h: 'Team Development' },
-    { to: '/training', label: 'Training', icon: 'training', show: c('training') },
+    { to: '/training', label: 'Training', icon: 'training', show: c('training') && !path },
     { to: '/hr', label: c('hr') ? 'HR / Licensing' : 'Licensing', icon: 'licensing', show: !trainee },
     { to: '/proteges', label: 'Proteges', icon: 'proteges', show: c('proteges') },
     { div: true },

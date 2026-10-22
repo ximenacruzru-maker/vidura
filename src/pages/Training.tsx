@@ -5,7 +5,7 @@ import { getReference } from '../lib/books'
 import { supabase } from '../lib/supabase'
 import { useAsync } from '../lib/useAsync'
 import { agencyShort, isAdmin } from '../lib/data'
-import { commissionsOnly } from '../lib/access'
+import { commissionsOnly, producerPath } from '../lib/access'
 import { HANDBOOK_STEP, getProgress } from '../lib/onboarding'
 import Onboarding from './Onboarding'
 
@@ -35,8 +35,8 @@ export default function Training() {
   const ag = agencyShort(me)
   // a new hire gets their onboarding and Farmers University only; Farmers University opens once the handbook is downloaded
   const trainee = me?.role === 'new_hire'
-  // "My Commissions only" (a new SDR): Farmers University is the only training they see
-  const fuOnly = commissionsOnly(me)
+  // "My Commissions only" (a new SDR) or on the path to producer: Farmers University is the only training they see
+  const fuOnly = commissionsOnly(me) || producerPath(me)
   const [tab, setTab] = useState<'dash' | 'fu' | 'class' | 'onboard'>(trainee ? 'onboard' : fuOnly ? 'fu' : 'dash')
   const [reload, setReload] = useState(0)
   const { data, error } = useAsync(async () => {

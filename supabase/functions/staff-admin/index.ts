@@ -13,7 +13,7 @@ const cors = {
 };
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...cors, "Content-Type": "application/json" } });
 const ROLES = ["owner", "admin", "producer", "protege", "sdr", "csr", "va", "new_hire"];
-const SECTIONS = ["performance", "books", "resources", "work", "chat", "training", "proteges", "passwords", "hr", "work_manager", "retention", "commissions_only", "commission_sheet"];
+const SECTIONS = ["performance", "books", "resources", "work", "chat", "training", "proteges", "passwords", "hr", "work_manager", "retention", "commissions_only", "commission_sheet", "producer_path"];
 
 function cleanAccess(a: unknown) {
   const out: Record<string, boolean> = {};
