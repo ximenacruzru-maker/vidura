@@ -45,7 +45,10 @@ export async function openOptions(r: Review) {
   window.open(data.signedUrl, '_blank', 'noopener')
 }
 
-export default function RenewalReview({ name, day, agency }: { name: string; day: string; agency: string }) {
+/** day: the day to open on; the review has its own date picker so any earlier day's work (and its PDF) can be pulled up */
+export default function RenewalReview({ name, day: start, agency }: { name: string; day: string; agency: string }) {
+  const today = todayPacific()
+  const [day, setDay] = useState(start)
   const [reload, setReload] = useState(0)
   const rows = useAsync(async () => {
     const { data, error } = await supabase.from('renewal_reviews').select('*').eq('name', name).eq('day', day).order('kind').order('id')
@@ -63,7 +66,11 @@ export default function RenewalReview({ name, day, agency }: { name: string; day
   return (
     <section className="rr">
       <div className="rr-h">
-        <div><div className="rr-k">Daily renewal review · {mdy(day)}</div>
+        <div><div className="rr-k rr-day">Daily renewal review ·
+            <button className="rr-step" onClick={() => setDay(workday(day, -1))} aria-label="Previous workday">‹</button>
+            <input type="date" className="fld rr-date" value={day} max={today} onChange={(e) => e.target.value && setDay(e.target.value > today ? today : e.target.value)} aria-label="Review day" />
+            <button className="rr-step" disabled={day >= today} onClick={() => setDay(workday(day, 1) > today ? today : workday(day, 1))} aria-label="Next workday">›</button>
+            {day !== today && <button className="linkbtn" onClick={() => setDay(today)}>Back to today</button>}</div>
           <div className="rr-t">{list.length} of {DAY_GOAL} renewals worked</div>
           <div className="rr-s">{GOAL.negative} negative (premium going up) · {GOAL.positive} positive with a cross-sell · call twice, then email the renewal snapshot · attach the renewal options PDF</div></div>
         <div className="rr-score">
@@ -219,6 +226,8 @@ function BookPicker({ kind, name, day, taken, onDone }: { kind: Kind; name: stri
   )
 }
 
+/** the workday n steps away (weekends skipped) */
+const workday = (iso: string, n: number) => { let d = addDays(iso, n); while ([0, 6].includes(new Date(d + 'T12:00:00Z').getUTCDay())) d = addDays(d, n); return d }
 const addDays = (iso: string, n: number) => { const d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10) }
 
 /** The renewal snapshot email for a client who couldn't be reached: copied to paste into an email. */

@@ -1515,3 +1515,7 @@ tr.cf-off td { opacity: .55; }
 .rr-ob:not(.on):hover { border-color: var(--blue); }
 .rr-tries { display: flex; gap: 8px; flex-wrap: wrap; }
 .rr-tries label { flex: 1 1 120px; }
+.rr-day { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.rr-date { width: auto; padding: 2px 6px; font-size: 12.5px; font-weight: 700; text-transform: none; letter-spacing: 0; }
+.rr-step { border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 7px; width: 26px; height: 26px; font-size: 16px; line-height: 1; cursor: pointer; }
+.rr-step:disabled { opacity: .4; cursor: default; }

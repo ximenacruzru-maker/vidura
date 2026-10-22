@@ -127,7 +127,7 @@ export default function Retention() {
         </div>
       </header>
 
-      <RenewalReview name={name} day={day} agency={agency} />
+      <RenewalReview key={name + day} name={name} day={day} agency={agency} />
 
       {/* Net Book Movement and its four parts */}
       <section className="rp-hero">
