@@ -63,6 +63,8 @@ export function EmployeeFiles() {
   const { data, error, refresh } = useCompliance()
   const [preset, setPreset] = useState<Preset | null>(null)
   const [who, setWho] = useState<string | null>(null)
+  const [sub, setSub] = useState<string | null>(null)
+  const [view, setView] = useState<'folders' | 'grid'>('folders')
   const [former, setFormer] = useState(false)
   const up = useRef<HTMLDivElement>(null)
   if (error) return <ErrorBox error={error} />
@@ -83,35 +85,65 @@ export function EmployeeFiles() {
         <Tile label="Files on file" value={data.files.filter((f) => f.scope === 'person').length} sub="every employee" />
       </Tiles>
       <AuditBar files={data.files} agency={me?.agency?.name || 'Agency'} />
+      <Panel title="Employee files" sub={<Crumbs who={person} sub={sub} onRoot={() => { setWho(null); setSub(null) }} onWho={() => setSub(null)} />}
+        right={<div className="cf-drive-r">
+          <div className="cf-seg" role="tablist"><button className={view === 'folders' ? 'on' : ''} onClick={() => setView('folders')}>Folders</button><button className={view === 'grid' ? 'on' : ''} onClick={() => setView('grid')}>Checklist</button></div>
+          <label className="cf-check"><input type="checkbox" checked={former} onChange={(e) => setFormer(e.target.checked)} /> Former staff</label>
+        </div>}>
+        {view === 'grid' ? <>
+          <div className="sub" style={{ marginBottom: 8 }}>✓ on file · ! expiring · ✕ missing or expired · ◌ marked · – not needed for them. Click a name to open their folder.</div>
+          <div className="tbl-wrap"><table className="tbl cf-grid">
+            <thead><tr><th>Employee</th>{cols.map((t) => <th key={t.key} className="c" title={t.label}>{t.short || t.label}</th>)}</tr></thead>
+            <tbody>{people.map((p) => (
+              <tr key={p.name}>
+                <td><button className="linkbtn strong" onClick={() => { setWho(p.name); setSub(null); setView('folders') }}>{p.name}</button><div className="sub">{p.role || ''}{p.hourly ? ' · hourly' : ''}{!p.active ? ' · former' : ''}</div></td>
+                {cols.map((t) => { const st = statusOf(t, data.files, today, p, data.marks); return (
+                  <td key={t.key} className="c"><button className={'cf-cell pill ' + TONE[st.state]} title={`${t.label}: ${st.text}`} onClick={() => (st.state === 'na' ? null : st.files.length ? (setWho(p.name), setSub(t.group), setView('folders')) : fix({ who: p.name, type: t }))}>{ICON[st.state]}</button></td>
+                ) })}
+              </tr>
+            ))}</tbody>
+          </table></div>
+        </> : !person ? (
+          <div className="cf-folders">{people.map((p) => {
+            const mine = data.files.filter((f) => f.scope === 'person' && f.staff_name === p.name)
+            const open = gaps.filter((g) => g.who === p.name && g.status.state !== 'soon').length
+            return (
+              <button key={p.name} className="cf-folder" onClick={() => { setWho(p.name); setSub(null) }} title={`Open ${p.name}’s folder`}>
+                <FolderIcon />
+                <span className="cf-folder-n">{p.name}</span>
+                <span className="cf-folder-s">{p.role || ''}{!p.active ? ' · former' : ''}</span>
+                <span className="cf-folder-s">{mine.length} file{mine.length === 1 ? '' : 's'}</span>
+                {open ? <span className="cf-badge bad">{open} missing</span> : <span className="cf-badge ok">✓ complete</span>}
+              </button>
+            )
+          })}{!people.length && <Empty>No staff yet — add people under Staff & pay rates.</Empty>}</div>
+        ) : !sub ? (
+          <div className="cf-folders">{PERSON_GROUPS.map((g) => {
+            const types = TYPES.filter((t) => t.scope === 'person' && t.group === g)
+            const sts = types.map((t) => statusOf(t, data.files, today, person, data.marks))
+            const n = sts.reduce((t, x) => t + x.files.length, 0), miss = sts.filter((x) => x.state === 'missing' || x.state === 'expired').length
+            return (
+              <button key={g} className="cf-folder" onClick={() => setSub(g)} title={`Open ${g}`}>
+                <FolderIcon open />
+                <span className="cf-folder-n">{g}</span>
+                <span className="cf-folder-s">{n} file{n === 1 ? '' : 's'}</span>
+                {miss ? <span className="cf-badge bad">{miss} missing</span> : <span className="cf-badge ok">✓</span>}
+              </button>
+            )
+          })}</div>
+        ) : (
+          <div className="cf-list">
+            <div className="cf-in"><button className="btn-primary" onClick={() => fix({ who: person.name, type: TYPES.find((t) => t.scope === 'person' && t.group === sub)! })}>+ Upload to {sub}</button>
+              <span className="sub">{person.role || ''}{person.hired_on ? ` · started ${mdy(person.hired_on)}` : ''}{person.left_on ? ` · left ${mdy(person.left_on)}` : ''}</span></div>
+            {TYPES.filter((t) => t.scope === 'person' && t.group === sub).map((t) => (
+              <Item key={t.key} t={t} s={statusOf(t, data.files, today, person, data.marks)} canDelete={me?.role === 'owner' || me?.role === 'admin'} refresh={refresh}
+                onAdd={() => fix({ who: person.name, type: t })} onMark={async (m) => { await setMark('person', person.name, t.key, m); refresh() }} needed={t.required === false ? undefined : requiredFor(t, person)} />
+            ))}
+          </div>
+        )}
+      </Panel>
       <Gaps gaps={gaps} onFix={fix} onMark={async (g, m) => { await setMark('person', g.who, g.type.key, m); refresh() }} />
       <div ref={up}><Uploader scope="person" people={data.people} preset={preset} onDone={refresh} /></div>
-      <Panel title="Who has what" sub="Click a name to open their file. ✓ on file · ! expiring · ✕ missing or expired · ◌ marked · – not needed for them"
-        right={<label className="cf-check"><input type="checkbox" checked={former} onChange={(e) => setFormer(e.target.checked)} /> Show former staff</label>}>
-        <div className="tbl-wrap"><table className="tbl cf-grid">
-          <thead><tr><th>Employee</th>{cols.map((t) => <th key={t.key} className="c" title={t.label}>{t.short || t.label}</th>)}</tr></thead>
-          <tbody>{people.map((p) => (
-            <tr key={p.name} className={who === p.name ? 'cf-on' : ''}>
-              <td><button className="linkbtn strong" onClick={() => setWho(who === p.name ? null : p.name)}>{p.name}</button><div className="sub">{p.role || ''}{p.hourly ? ' · hourly' : ''}{!p.active ? ' · former' : ''}</div></td>
-              {cols.map((t) => { const s = statusOf(t, data.files, today, p, data.marks); return (
-                <td key={t.key} className="c"><button className={'cf-cell pill ' + TONE[s.state]} title={`${t.label}: ${s.text}`} onClick={() => (s.state === 'na' ? null : s.files.length ? setWho(p.name) : fix({ who: p.name, type: t }))}>{ICON[s.state]}</button></td>
-              ) })}
-            </tr>
-          ))}</tbody>
-        </table></div>
-        {!people.length && <Empty>No staff yet — add people under Staff & pay rates.</Empty>}
-      </Panel>
-      {person && (
-        <Panel title={`${person.name}’s file`} sub={`${person.role || ''}${person.hired_on ? ` · started ${mdy(person.hired_on)}` : ''}${person.left_on ? ` · left ${mdy(person.left_on)}` : ''}`} right={<button className="btn-ghost" onClick={() => setWho(null)}>Close</button>}>
-          {PERSON_GROUPS.map((g) => (
-            <div key={g} className="cf-pg"><div className="cf-h">{g}</div>
-              <div className="cf-list">{TYPES.filter((t) => t.scope === 'person' && t.group === g).map((t) => (
-                <Item key={t.key} t={t} s={statusOf(t, data.files, today, person, data.marks)} canDelete={me?.role === 'owner' || me?.role === 'admin'} refresh={refresh}
-                  onAdd={() => fix({ who: person.name, type: t })} onMark={async (m) => { await setMark('person', person.name, t.key, m); refresh() }} needed={t.required === false ? undefined : requiredFor(t, person)} />
-              ))}</div>
-            </div>
-          ))}
-        </Panel>
-      )}
       <div className="band-note">W-4s, I-9s and other employee records are visible only to people with HR access. I-9s are kept 3 years after hire or 1 year after someone leaves, whichever is later; payroll and time records at least 3 years (4 for the IRS).</div>
     </>
   )
@@ -241,5 +273,21 @@ function Uploader({ scope, people, preset, onDone }: { scope: Scope; people: Per
       {t.why && <div className="sub cf-why">{t.why}</div>}
       {log.length > 0 && <div className="doc-up-log">{log.map((l, i) => <div key={i} className={l.ok ? 'ok' : 'bad'}><b>{l.ok ? '✓' : '✕'} {l.file}</b> — {l.note}</div>)}{!busy && <button className="linkbtn" onClick={() => setLog([])}>Dismiss</button>}</div>}
     </Panel>
+  )
+}
+
+const FolderIcon = ({ open }: { open?: boolean }) => (
+  <svg className="cf-folder-i" viewBox="0 0 48 40" aria-hidden="true">
+    <path d="M4 6a3 3 0 0 1 3-3h11l4 5h19a3 3 0 0 1 3 3v3H4z" fill="var(--cf-tab, #f6c445)" />
+    <path d={open ? 'M2 15h44l-4 21a3 3 0 0 1-3 2H8a3 3 0 0 1-3-2z' : 'M4 12h40v23a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3z'} fill="var(--cf-body, #fbd667)" />
+  </svg>
+)
+function Crumbs({ who, sub, onRoot, onWho }: { who: Person | null | undefined; sub: string | null; onRoot: () => void; onWho: () => void }) {
+  return (
+    <span className="cf-crumbs">
+      {who ? <button className="linkbtn" onClick={onRoot}>All employees</button> : <span>All employees — one folder per person</span>}
+      {who && <><span> › </span>{sub ? <button className="linkbtn" onClick={onWho}>{who.name}</button> : <b>{who.name}</b>}</>}
+      {sub && <><span> › </span><b>{sub}</b></>}
+    </span>
   )
 }

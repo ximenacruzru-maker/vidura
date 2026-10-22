@@ -30,8 +30,9 @@ export default function DocUpload({ onDone }: { onDone: () => void }) {
       const id = `${c.cat}-${hit.id}-${tight(f.name).slice(0, 40)}`
       const ext = (f.name.match(/\.([a-z0-9]+)$/i) || [])[1]?.toLowerCase() || 'pdf'
       // Each agency's files live under its own folder; storage only lets an admin write inside it.
-      const path = `${me?.agency_id}/${c.cat}/${id}.${ext}`
-      const up = await supabase.storage.from('documents').upload(path, f, { upsert: true, contentType: f.type || 'application/pdf' })
+      // a new file name each upload: storage can't replace a file the uploader isn't allowed to read until it's filed
+      const path = `${me?.agency_id}/${c.cat}/${id}-${Date.now()}.${ext}`
+      const up = await supabase.storage.from('documents').upload(path, f, { upsert: false, contentType: f.type || 'application/pdf' })
       if (up.error) { out.push({ file: f.name, ok: false, note: up.error.message }); setLog([...out]); continue }
       const { error } = await supabase.from('documents').upsert({
         id, category: c.cat, account_id: hit.account_id, policy_number: hit.policy_number, title: `${c.label} — ${hit.insured || hit.policy_number}`,
