@@ -1,12 +1,12 @@
 // Reports › Renewal reviews (also on the Reports dashboard): the daily renewal review — 20 renewals a workday, 10
 // negative and 10 positive — day by day, so the owner (and the reviewer herself) can see the work is getting done:
-// how many were worked, how many clients she spoke to, snapshots emailed, renewal options PDFs attached, and any
+// how many were worked (a renewal counts once it has notes), how many clients she spoke to, snapshots emailed, renewal options PDFs attached, and any
 // workday with nothing reported. Open a day for each client's notes and options PDF, or download that day's report.
 import { Fragment, useMemo, useState } from 'react'
 import { mdy, todayPacific } from '../../lib/format'
 import { supabase } from '../../lib/supabase'
 import { useAsync } from '../../lib/useAsync'
-import { DAY_GOAL, GOAL, done, openOptions, reached, reportPdf, signed, type Review } from '../RenewalReview'
+import { DAY_GOAL, GOAL, done, openOptions, reached, reportPdf, signed, worked, type Review } from '../RenewalReview'
 import type { LeadFolio } from './LeadSources'
 
 const addDays = (iso: string, n: number) => { const d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10) }
@@ -49,7 +49,9 @@ export function RenewalReviews({ folios, agency }: { folios: LeadFolio[]; agency
   const workdays = days.filter((d) => d.day < today || d.list.length).length
   const reported = days.filter((d) => d.list.length).length
   const missed = days.filter((d) => !d.list.length && d.day < today)
-  const n = (p: (r: Review) => boolean) => rows.filter(p).length
+  // only renewals with notes count as worked
+  const w = rows.filter(worked)
+  const n = (p: (r: Review) => boolean) => w.filter(p).length
 
   return (
     <div className="panel" data-parity="new">
@@ -74,24 +76,24 @@ export function RenewalReviews({ folios, agency }: { folios: LeadFolio[]; agency
           <div className="scgrid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', marginBottom: 14 }}>
             <div className="sccard"><div className="sccard-l">Days reported</div><div className="sccard-v">{reported} / {workdays}</div>
               <div className="sccard-s">{missed.length ? `${missed.length} workday${missed.length > 1 ? 's' : ''} with nothing reported` : 'every workday reported'}</div></div>
-            <div className="sccard"><div className="sccard-l">Renewals worked</div><div className="sccard-v">{rows.length} / {workdays * DAY_GOAL}</div>
-              <div className="sccard-s">{n((r) => r.kind === 'negative')} negative · {n((r) => r.kind === 'positive')} positive · {pct(rows.length, workdays * DAY_GOAL)} of goal</div></div>
-            <div className="sccard"><div className="sccard-l">Reached the client</div><div className="sccard-v">{n(reached)}</div><div className="sccard-s">{pct(n(reached), rows.length)} of renewals worked</div></div>
-            <div className="sccard"><div className="sccard-l">No contact, emailed</div><div className="sccard-v">{n((r) => !reached(r) && r.emailed)}</div><div className="sccard-s">{n(done)} of {rows.length} renewals fully handled</div></div>
-            <div className="sccard"><div className="sccard-l">Options PDFs attached</div><div className="sccard-v">{n((r) => !!r.options_path)}</div><div className="sccard-s">{pct(n((r) => !!r.options_path), rows.length)} of renewals worked</div></div>
+            <div className="sccard"><div className="sccard-l">Renewals worked</div><div className="sccard-v">{w.length} / {workdays * DAY_GOAL}</div>
+              <div className="sccard-s">{n((r) => r.kind === 'negative')} negative · {n((r) => r.kind === 'positive')} positive · {pct(w.length, workdays * DAY_GOAL)} of goal{rows.length > w.length ? ` · ${rows.length - w.length} on lists without notes` : ''}</div></div>
+            <div className="sccard"><div className="sccard-l">Reached the client</div><div className="sccard-v">{n(reached)}</div><div className="sccard-s">{pct(n(reached), w.length)} of renewals worked</div></div>
+            <div className="sccard"><div className="sccard-l">No contact, emailed</div><div className="sccard-v">{n((r) => !reached(r) && r.emailed)}</div><div className="sccard-s">{n(done)} of {w.length} renewals fully handled</div></div>
+            <div className="sccard"><div className="sccard-l">Options PDFs attached</div><div className="sccard-v">{n((r) => !!r.options_path)}</div><div className="sccard-s">{pct(n((r) => !!r.options_path), w.length)} of renewals worked</div></div>
           </div>
-          <table className="dect"><thead><tr><th>Day</th>{who === 'all' && <th>Person</th>}<th className="tr">Worked</th><th className="tr">Negative</th><th className="tr">Positive</th><th className="tr">Reached</th><th className="tr">Emailed</th><th className="tr">Options PDFs</th><th></th></tr></thead>
+          <table className="dect"><thead><tr><th>Day</th>{who === 'all' && <th>Person</th>}<th className="tr">Worked</th><th className="tr">Negative</th><th className="tr">Positive</th><th className="tr">Reached</th><th className="tr">No contact, emailed</th><th className="tr">Options PDFs</th><th></th></tr></thead>
             <tbody>{days.map((d) => {
-              const k = d.day + '|' + d.name, c = (p: (r: Review) => boolean) => d.list.filter(p).length
+              const k = d.day + '|' + d.name, dw = d.list.filter(worked), c = (p: (r: Review) => boolean) => dw.filter(p).length
               const neg = c((r) => r.kind === 'negative'), pos = c((r) => r.kind === 'positive')
               return (
                 <Fragment key={k}>
                   <tr style={{ cursor: d.list.length ? 'pointer' : undefined }} onClick={() => d.list.length && setOpen(open === k ? null : k)}>
                     <td style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{d.list.length ? (open === k ? '▾ ' : '▸ ') : ''}{mdy(d.day)}</td>{who === 'all' && <td>{d.name}</td>}
                     {d.list.length ? <>
-                      <td className="tr mono" style={{ fontWeight: 700, color: d.list.length >= DAY_GOAL ? '#1F7A4D' : undefined }}>{d.list.length} / {DAY_GOAL}</td>
+                      <td className="tr mono" style={{ fontWeight: 700, color: dw.length >= DAY_GOAL ? '#1F7A4D' : undefined }}>{dw.length} / {DAY_GOAL}</td>
                       <td className="tr mono">{neg} / {GOAL.negative}</td><td className="tr mono">{pos} / {GOAL.positive}</td>
-                      <td className="tr mono">{c(reached)}</td><td className="tr mono">{c((r) => r.emailed)}</td><td className="tr mono">{c((r) => !!r.options_path)}</td>
+                      <td className="tr mono">{c(reached)}</td><td className="tr mono">{c((r) => !reached(r) && r.emailed)}</td><td className="tr mono">{c((r) => !!r.options_path)}</td>
                       <td className="tr"><button className="linkbtn" onClick={(e) => { e.stopPropagation(); reportPdf(d.list, d.name, d.day, agency) }}>Day’s report (PDF)</button></td>
                     </> : <td colSpan={7} style={{ color: d.day < today ? '#B3261E' : 'var(--muted)', fontWeight: 600 }}>{d.day < today ? 'Nothing reported' : 'Not started yet today'}</td>}
                   </tr>
@@ -102,7 +104,7 @@ export function RenewalReviews({ folios, agency }: { folios: LeadFolio[]; agency
                         return (
                           <tr key={r.id}><td>{r.kind === 'negative' ? 'Negative' : 'Positive'}</td><td style={{ fontWeight: 600 }}>{r.client}{r.dnc ? ' · DNC' : ''}</td>
                             <td>{[r.policy, r.renewal_date && mdy(r.renewal_date)].filter(Boolean).join(' · ')}</td><td className="tr mono" style={{ color: ch != null && ch > 0 ? '#B3261E' : undefined }}>{ch == null ? '—' : signed(ch)}</td>
-                            <td>{reached(r) ? 'Yes' : 'No'}</td><td>{r.emailed ? 'Yes' : 'No'}</td>
+                            <td>{!worked(r) ? <span style={{ color: '#B3261E', fontWeight: 600 }}>Not worked</span> : reached(r) ? 'Yes' : 'No'}</td><td>{r.emailed ? 'Yes' : 'No'}</td>
                             <td>{r.options_path ? <button className="linkbtn" onClick={() => openOptions(r)}>Open PDF</button> : '—'}</td>
                             <td style={{ whiteSpace: 'normal', minWidth: 200 }}>{[r.findings && `Findings: ${r.findings}`, r.cross_sell && `Cross-sell: ${r.cross_sell}`, r.notes && `Result: ${r.notes}`].filter(Boolean).join(' — ') || '—'}</td></tr>
                         )
