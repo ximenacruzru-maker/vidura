@@ -1468,7 +1468,7 @@ tr.cf-off td { opacity: .55; }
 .rr-group { margin-top: 14px; }
 .rr-gh { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; margin-bottom: 6px; }
 .rr-gh span { color: var(--muted); font-weight: 700; }
-.rr-row { position: relative; display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.2fr); gap: 12px; padding: 10px 34px 10px 12px; border: 1px solid var(--line); border-left: 4px solid var(--warn); border-radius: 10px; margin-bottom: 8px; background: var(--card); }
+.rr-row { position: relative; display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.2fr) minmax(0, 1.2fr); gap: 12px; padding: 10px 34px 10px 12px; border: 1px solid var(--line); border-left: 4px solid var(--warn); border-radius: 10px; margin-bottom: 8px; background: var(--card); }
 .rr-row.rr-done { border-left-color: var(--good); }
 .rr-c, .rr-calls, .rr-notes { display: flex; flex-direction: column; gap: 4px; min-width: 0; font-size: 13px; }
 .rr-c span { color: var(--muted); overflow-wrap: anywhere; }
@@ -1502,3 +1502,16 @@ tr.cf-off td { opacity: .55; }
 .cf-badge.bad { background: var(--bad-bg); color: var(--bad); }
 .cf-badge.ok { background: var(--good-bg); color: var(--good); }
 .cf-in { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+.rr-dnc { color: var(--bad); font-size: 12px; text-transform: uppercase; letter-spacing: .03em; }
+.rr-spoke { color: var(--ink); }
+.rr-opt { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.rr-attach { font-weight: 700; }
+.rr-pick .cf-seg { align-self: flex-start; max-width: 100%; }
+.rr-lbl { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.rr-out { display: flex; gap: 6px; flex-wrap: wrap; }
+.rr-ob { flex: 1 1 130px; padding: 7px 10px; border-radius: 9px; border: 1.5px solid var(--line); background: var(--card); color: var(--ink); font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; }
+.rr-ob-yes.on { background: var(--good); border-color: var(--good); color: #fff; }
+.rr-ob-no.on { background: var(--blue); border-color: var(--blue); color: #fff; }
+.rr-ob:not(.on):hover { border-color: var(--blue); }
+.rr-tries { display: flex; gap: 8px; flex-wrap: wrap; }
+.rr-tries label { flex: 1 1 120px; }
