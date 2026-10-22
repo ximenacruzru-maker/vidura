@@ -12,6 +12,7 @@ export const SECTIONS: { key: string; label: string; note: string }[] = [
   { key: 'passwords', label: 'Agency passwords', note: 'View and copy the saved logins — on for everyone by default; only admins can add or change them' },
   { key: 'hr', label: 'HR (timesheets, pay rates & employee files)', note: 'Owner and admins only — hours, pay, W-4s, the agency’s legal records' },
   { key: 'retention', label: 'Retention scorecard', note: 'Owns client success and retention: the daily huddle scorecard, saves, losses and cross-sell, Net Book Movement; My Space shows retention instead of the sales pipeline' },
+  { key: 'producer_path', label: 'Path to producer', note: 'Someone training to become a producer: Training sits at the very top of their menu and shows Farmers University only' },
   { key: 'commissions_only', label: 'My Commissions only', note: 'For an SDR who should see nothing but their own commissions: every other page is hidden except Farmers University and their Settings. Turning it on switches the other sections off' },
   { key: 'commission_sheet', label: 'Commission sheet (payroll)', note: 'For whoever runs payroll: a Commissions tab to download each 21st payday’s sheet — every producer’s commission and every SDR’s bonus. No hours, pay rates or salaries' },
   { key: 'work_manager', label: 'Runs the work queue', note: 'Sees every work item and assigns them to anyone; everyone else sees only the work assigned to them (admins see all)' },
@@ -32,6 +33,11 @@ export function can(me: StaffAccount | null | undefined, section: string) {
   const a = me.access || {}
   if (a.commissions_only) return section === 'commissions_only'
   return section in a ? !!a[section] : !!roleDefaults(me.role)[section]
+}
+
+/** On the path to producer: Training first in the menu, Farmers University only. Never applies to admins. */
+export function producerPath(me: StaffAccount | null | undefined) {
+  return !!me && me.role !== 'owner' && me.role !== 'admin' && !!(me.access || {}).producer_path
 }
 
 /** Someone switched to "My Commissions only": the app is just their My Commissions page. Never applies to admins. */
