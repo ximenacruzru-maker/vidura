@@ -1,6 +1,6 @@
 // Retention › Daily renewal review: each workday, 20 renewals — 10 negative (the premium goes up; pulled from the ranked
 // negative call list) and 10 positive (with a cross-sell to offer). For each: call the client (twice if they don't
-// answer; never a do-not-call number). Before the call she writes up her findings on the renewal and attaches the
+// answer; a number marked DNC on the list is still called, the flag just shows). Before the call she writes up her findings on the renewal and attaches the
 // renewal options PDF; after it she marks the result — reached the client, or no contact and the snapshot emailed — and
 // notes what happened. The day's one-page report shows on screen and downloads
 // as a PDF; Reports › Renewal reviews shows every day's work to the owner.
@@ -30,8 +30,8 @@ const dial = (s: string) => (s.match(/\(?\d{3}\)?[\s.-]*\d{3}[\s.-]*\d{4}/)?.[0]
 /** clears a call attempt recorded as reached (older rows), so the outcome buttons decide */
 const unreach = (r: Review) => ({ ...(r.call1 === 'reached' ? { call1: null } : {}), ...(r.call2 === 'reached' ? { call2: null } : {}) })
 export const signed = (n: number) => (n > 0 ? '+' : n < 0 ? '-' : '') + money0(Math.abs(n))
-/** done: spoke to the client, or emailed the snapshot after two tries (or straight away for a do-not-call number) */
-export const done = (r: Review) => reached(r) || (r.emailed && (r.dnc || (!!r.call1 && !!r.call2)))
+/** done: spoke to the client, or emailed the snapshot after two tries */
+export const done = (r: Review) => reached(r) || (r.emailed && !!r.call1 && !!r.call2)
 /** the call list rows are tied to their review by policy_id, so a client is never worked twice */
 const listKey = (l: Pick<Listed, 'policy_number' | 'id'>) => 'call-list:' + (l.policy_number || l.id)
 const fromList = (l: Listed, name: string, day: string) => ({ name, day, kind: l.kind, policy_id: listKey(l), client: l.client,
@@ -120,7 +120,7 @@ function Row({ r, save, refresh, remove }: { r: Review; save: (id: number, p: Pa
     <div className={'rr-row' + (done(r) ? ' rr-done' : '')}>
       <div className="rr-c">
         <b>{r.client}</b><span>{[r.policy, r.renewal_date ? `renews ${mdy(r.renewal_date)}` : ''].filter(Boolean).join(' · ')}</span>
-        {(r.phone || r.dnc) && <span>{r.phone && (r.dnc || !dial(r.phone) ? r.phone : <a href={`tel:${dial(r.phone)}`}>{r.phone}</a>)}{r.dnc && <b className="rr-dnc" title="On the do-not-call list: email the renewal snapshot instead of calling"> Do not call — email</b>}</span>}
+        {(r.phone || r.dnc) && <span>{r.phone && (!dial(r.phone) ? r.phone : <a href={`tel:${dial(r.phone)}`}>{r.phone}</a>)}{r.dnc && <b className="rr-dnc" title="Marked DNC on the call list — still reach out"> DNC on file</b>}</span>}
         <span>Now {r.current_premium != null ? money0(Number(r.current_premium)) : '—'} → renewal <input className="fld rr-in" inputMode="decimal" value={ren} placeholder="amount" onChange={(e) => setRen(e.target.value)}
           onBlur={() => { const v = ren === '' ? null : Number(ren.replace(/[$,]/g, '')); if (v !== r.renewal_premium && (v == null || !isNaN(v))) save(r.id, { renewal_premium: v }) }} aria-label="Renewal premium" />
           {ch != null && <b className={ch > 0 ? 'rr-up' : 'rr-down'}> {signed(ch)}</b>}</span>
@@ -141,10 +141,10 @@ function Row({ r, save, refresh, remove }: { r: Review; save: (id: number, p: Pa
           <button className={'rr-ob rr-ob-yes' + (reached(r) ? ' on' : '')} aria-pressed={reached(r)} onClick={() => save(r.id, reached(r) ? { spoke: false, ...unreach(r) } : { spoke: true })}>✓ Reached client</button>
           <button className={'rr-ob rr-ob-no' + (!reached(r) && r.emailed ? ' on' : '')} aria-pressed={!reached(r) && r.emailed} onClick={() => save(r.id, !reached(r) && r.emailed ? { emailed: false } : { spoke: false, emailed: true, ...unreach(r) })}>✉ No contact — emailed</button>
         </div>
-        {!r.dnc && <div className="rr-tries">{(['call1', 'call2'] as const).map((c, i) => (
+        <div className="rr-tries">{(['call1', 'call2'] as const).map((c, i) => (
           <label key={c}>Call {i + 1}<select className="fld" value={r[c] === 'reached' ? '' : r[c] || ''} onChange={(e) => save(r.id, { [c]: e.target.value || null })}>
             <option value="">—</option>{TRIES.map((k) => <option key={k} value={k}>{CALL[k]}</option>)}</select></label>
-        ))}</div>}
+        ))}</div>
         {!reached(r) && <button className="linkbtn" onClick={() => copySnapshot(r)}>Copy snapshot email</button>}
         <textarea className="fld" rows={2} value={notes} placeholder="What the client said, next step" onChange={(e) => setNotes(e.target.value)} onBlur={() => notes !== (r.notes || '') && save(r.id, { notes: notes || null })} aria-label="Result of the call" />
       </div>
