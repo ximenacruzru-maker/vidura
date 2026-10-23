@@ -12,13 +12,18 @@ import { loadScript } from '../lib/perf/commissionFiles'
 import { supabase } from '../lib/supabase'
 import { useAsync } from '../lib/useAsync'
 
-type Kind = 'negative' | 'positive'
+type Kind = 'negative' | 'positive' | 'commercial'
 type Call = 'no_answer' | 'voicemail' | 'reached'
-export interface Review { id: number; name: string; day: string; kind: Kind; account_id: string | null; policy_id: string | null; client: string; policy: string | null; renewal_date: string | null; current_premium: number | null; renewal_premium: number | null; call1: Call | null; call2: Call | null; emailed: boolean; cross_sell: string | null; notes: string | null; findings: string | null
+export interface Review { id: number; name: string; day: string; kind: Kind; account_id: string | null; policy_id: string | null; client: string; policy: string | null; renewal_date: string | null; current_premium: number | null; renewal_premium: number | null; call1: Call | null; call2: Call | null; emailed: boolean; cross_sell: string | null; notes: string | null; findings: string | null; task: string | null
   phone: string | null; dnc: boolean; spoke: boolean; options_path: string | null; options_file: string | null; carried_from: string | null }
 interface Listed { id: number; kind: Kind; rank: number; client: string; policy_number: string | null; lob: string | null; renewal_date: string | null; current_premium: number | null; renewal_premium: number | null; phone: string | null; phone_type: string | null; dnc: boolean; notes: string | null }
-export const GOAL: Record<Kind, number> = { negative: 10, positive: 10 }
+// commercial renewals are assigned by name (no daily number); a day with commercial renewals assigned is measured
+// against everything on that day's list
+export const GOAL: Record<Kind, number> = { negative: 10, positive: 10, commercial: 0 }
 export const DAY_GOAL = GOAL.negative + GOAL.positive
+export const dayGoal = (list: Pick<Review, 'kind'>[]) => (list.some((r) => r.kind === 'commercial') ? list.length : DAY_GOAL)
+export const KIND_LABEL: Record<Kind, string> = { negative: 'Negative', positive: 'Positive', commercial: 'Commercial' }
+const GROUP_LABEL: Record<Kind, string> = { commercial: 'Commercial renewals — assigned', negative: 'Negative renewals — premium going up', positive: 'Positive renewals — with a cross-sell' }
 const CALL: Record<Call, string> = { no_answer: 'No answer', voicemail: 'Left voicemail', reached: 'Reached' }
 // the call attempts that didn't reach the client (reaching them is the Reached client button)
 const TRIES: Call[] = ['no_answer', 'voicemail']
@@ -75,21 +80,22 @@ export default function RenewalReview({ name, day: start, agency }: { name: stri
             <input type="date" className="fld rr-date" value={day} max={today} onChange={(e) => e.target.value && setDay(e.target.value > today ? today : e.target.value)} aria-label="Review day" />
             <button className="rr-step" disabled={day >= today} onClick={() => setDay(workday(day, 1) > today ? today : workday(day, 1))} aria-label="Next workday">›</button>
             {day !== today && <button className="linkbtn" onClick={() => setDay(today)}>Back to today</button>}</div>
-          <div className="rr-t">{done_.length} of {DAY_GOAL} renewals worked</div>
+          <div className="rr-t">{done_.length} of {dayGoal(list)} renewals worked</div>
           <div className="rr-s">{GOAL.negative} negative (premium going up) · {GOAL.positive} positive with a cross-sell · call twice, then email the renewal snapshot · attach the renewal options PDF · a renewal counts as worked once it has notes · anything without notes at 5 PM carries over to the next workday</div></div>
         <div className="rr-score">
           <span className={wk('negative') >= GOAL.negative ? 'ok' : ''}>Negative {wk('negative')}/{GOAL.negative}</span>
           <span className={wk('positive') >= GOAL.positive ? 'ok' : ''}>Positive {wk('positive')}/{GOAL.positive}</span>
+          {n('commercial') > 0 && <span className={wk('commercial') >= n('commercial') ? 'ok' : ''}>Commercial {wk('commercial')}/{n('commercial')}</span>}
           <span>Reached {done_.filter(reached).length}</span><span>No contact, emailed {done_.filter((r) => !reached(r) && r.emailed).length}</span>
           <span>Options PDFs {list.filter((r) => r.options_path).length}</span>
           <button className="rp-btn" disabled={!list.length} onClick={() => reportPdf(list, name, day, agency)}>Day’s report (PDF)</button>
         </div>
       </div>
       {rows.error ? <div className="rr-err">{String((rows.error as Error).message || rows.error)}</div> : !rows.data ? <div className="rr-s">Loading…</div> : <>
-        {(['negative', 'positive'] as Kind[]).map((k) => (
+        {(['commercial', 'negative', 'positive'] as Kind[]).filter((k) => k !== 'commercial' || n(k)).map((k) => (
           <div key={k} className="rr-group">
-            <div className="rr-gh"><b>{k === 'negative' ? 'Negative renewals — premium going up' : 'Positive renewals — with a cross-sell'}</b><span>{wk(k)} / {GOAL[k]} worked{n(k) > wk(k) ? ` · ${n(k) - wk(k)} on the list without notes` : ''}</span>
-              {n(k) < GOAL[k] && <button className="linkbtn" onClick={() => setAdding(adding === k ? null : k)}>{adding === k ? 'Close' : '+ Add a renewal'}</button>}</div>
+            <div className="rr-gh"><b>{GROUP_LABEL[k]}</b><span>{wk(k)} / {GOAL[k] || n(k)} worked{n(k) > wk(k) ? ` · ${n(k) - wk(k)} on the list without notes` : ''}</span>
+              {(n(k) < GOAL[k] || k === 'commercial') && <button className="linkbtn" onClick={() => setAdding(adding === k ? null : k)}>{adding === k ? 'Close' : '+ Add a renewal'}</button>}</div>
             {adding === k && <Picker kind={k} name={name} day={day} taken={list} onDone={() => { setAdding(null); refresh() }} />}
             {list.filter((r) => r.kind === k).map((r) => <Row key={r.id} r={r} save={save} refresh={refresh} remove={async () => { if (confirm(`Take ${r.client} off today’s list?`)) { if (r.options_path) await supabase.storage.from('documents').remove([r.options_path]); await supabase.from('renewal_reviews').delete().eq('id', r.id); refresh() } }} />)}
             {!n(k) && adding !== k && <div className="rr-empty">None yet — add {GOAL[k]} {k} renewals.</div>}
@@ -123,6 +129,7 @@ function Row({ r, save, refresh, remove }: { r: Review; save: (id: number, p: Pa
   return (
     <div className={'rr-row' + (done(r) ? ' rr-done' : '')}>
       <div className="rr-c">
+        {r.task && <span className="rr-task"><b>Task:</b> {r.task}</span>}
         <b>{r.client}{r.carried_from && <span className="rr-carry" title="Not worked on the day it was on the list, so it moved here at 5 PM"> Carried over from {mdy(r.carried_from)}</span>}</b><span>{[r.policy, r.renewal_date ? `renews ${mdy(r.renewal_date)}` : ''].filter(Boolean).join(' · ')}</span>
         {(r.phone || r.dnc) && <span>{r.phone && (!dial(r.phone) ? r.phone : <a href={`tel:${dial(r.phone)}`}>{r.phone}</a>)}{r.dnc && <b className="rr-dnc" title="Marked DNC on the call list — still reach out"> DNC on file</b>}</span>}
         <span>Now {r.current_premium != null ? money0(Number(r.current_premium)) : '—'} → renewal <input className="fld rr-in" inputMode="decimal" value={ren} placeholder="amount" onChange={(e) => setRen(e.target.value)}
@@ -172,6 +179,7 @@ function Picker({ kind, name, day, taken, onDone }: { kind: Kind; name: string; 
   const [src, setSrc] = useState<'list' | 'book' | null>(null)
   const next = (calls.data || []).filter((l) => !taken.some((r) => r.policy_id === listKey(l)))
   const room = Math.max(0, GOAL[kind] - taken.filter((r) => r.kind === kind).length)
+  if (kind === 'commercial') return <div className="rr-pick"><BookPicker kind={kind} name={name} day={day} taken={taken} onDone={onDone} /></div>
   const addList = async (rows: Listed[]) => {
     if (!rows.length) return
     const { error } = await supabase.from('renewal_reviews').insert(rows.map((l) => fromList(l, name, day)))
@@ -180,7 +188,7 @@ function Picker({ kind, name, day, taken, onDone }: { kind: Kind; name: string; 
   const which = src || (next.length ? 'list' : 'book')
   return (
     <div className="rr-pick">
-      {!!calls.data?.length && <div className="cf-seg"><button className={which === 'list' ? 'on' : ''} onClick={() => setSrc('list')}>{kind === 'negative' ? 'Negative' : 'Positive'} call list ({next.length} left)</button><button className={which === 'book' ? 'on' : ''} onClick={() => setSrc('book')}>Book of business</button></div>}
+      {!!calls.data?.length && <div className="cf-seg"><button className={which === 'list' ? 'on' : ''} onClick={() => setSrc('list')}>{KIND_LABEL[kind]} call list ({next.length} left)</button><button className={which === 'book' ? 'on' : ''} onClick={() => setSrc('book')}>Book of business</button></div>}
       {which === 'list' ? <>
         {room > 0 && next.length > 0 && <button className="rp-btn" onClick={() => addList(next.slice(0, room))}>Add the next {Math.min(room, next.length)} from the list</button>}
         <div className="rr-pick-l">{next.slice(0, 40).map((l) => (
@@ -245,7 +253,8 @@ function copySnapshot(r: Review) {
     r.renewal_date ? `• Renews: ${mdy(r.renewal_date)}` : '',
     r.current_premium != null ? `• Current premium: ${money2(Number(r.current_premium))}` : '',
     r.renewal_premium != null ? `• Renewal premium: ${money2(Number(r.renewal_premium))}${ch != null ? ` (${ch > 0 ? 'up' : 'down'} ${money2(Math.abs(ch))})` : ''}` : '',
-    '', r.kind === 'negative' ? 'Your premium is going up at renewal. I’d like to review your coverage and options with you to make sure you’re getting the best value — it only takes a few minutes.'
+    '', r.kind === 'commercial' ? 'I’d like to go over your business renewal with you — coverage, any changes, and your options — so there are no surprises. It only takes a few minutes.'
+      : r.kind === 'negative' ? 'Your premium is going up at renewal. I’d like to review your coverage and options with you to make sure you’re getting the best value — it only takes a few minutes.'
       : `Good news on your renewal.${r.cross_sell ? ` I’d also love to show you how adding ${r.cross_sell} could protect you further, often with a multi-policy discount.` : ''}`,
     '', 'Give me a call back at your convenience, or reply with a good time to talk.', '', 'Thank you,',
   ].filter((x, i, a) => x !== '' || a[i - 1] !== '')
@@ -266,7 +275,8 @@ export async function reportPdf(list: Review[], name: string, day: string, agenc
   const done = list.filter(worked)
   pdf.setFillColor(...NAVY); pdf.rect(0, 0, W, 70, 'F')
   txt('Daily renewal review', L, 32, 18, true, [255, 255, 255]); txt(`${name} · ${mdy(day)}`, L, 52, 11, false, [220, 228, 255]); txt(agency, R, 32, 11, true, [220, 228, 255], 'right')
-  const kpi = [['Worked (with notes)', `${done.length} / ${DAY_GOAL}`], ['Negative', `${done.filter((r) => r.kind === 'negative').length} / ${GOAL.negative}`], ['Positive', `${done.filter((r) => r.kind === 'positive').length} / ${GOAL.positive}`],
+  const com = list.filter((r) => r.kind === 'commercial').length
+  const kpi = [['Worked (with notes)', `${done.length} / ${dayGoal(list)}`], com ? ['Commercial', `${done.filter((r) => r.kind === 'commercial').length} / ${com}`] : ['Negative', `${done.filter((r) => r.kind === 'negative').length} / ${GOAL.negative}`], com ? ['Personal (neg · pos)', `${done.filter((r) => r.kind === 'negative').length} · ${done.filter((r) => r.kind === 'positive').length}`] : ['Positive', `${done.filter((r) => r.kind === 'positive').length} / ${GOAL.positive}`],
     ['Reached client', String(done.filter(reached).length)], ['No contact, emailed', String(done.filter((r) => !reached(r) && r.emailed).length)], ['Options PDFs', String(list.filter((r) => r.options_path).length)], ['On the list, no notes', String(list.length - done.length)]]
   const bw = (R - L - 60) / 7
   kpi.forEach(([l, v], i) => { const x = L + i * (bw + 10); pdf.setFillColor(245, 247, 252); pdf.roundedRect(x, 84, bw, 44, 5, 5, 'F'); txt(l.toUpperCase(), x + 8, 99, 6.5, true, MUTED); txt(v, x + 8, 120, 15, true) })
@@ -280,10 +290,10 @@ export async function reportPdf(list: Review[], name: string, day: string, agenc
   list.forEach((r, i) => {
     const ch = change(r)
     const client = wrap(r.client, SIZE, cols[0][1] - 12, true)
-    const sub = wrap([r.kind === 'negative' ? 'Negative' : 'Positive', r.policy, r.renewal_date && `renews ${mdy(r.renewal_date)}`, ch != null && signed(ch), r.dnc && 'DNC on file', r.carried_from && `carried over from ${mdy(r.carried_from)}`].filter(Boolean).join(' · '), 7.5, cols[0][1] - 12)
+    const sub = wrap([KIND_LABEL[r.kind], r.policy, r.renewal_date && `renews ${mdy(r.renewal_date)}`, ch != null && signed(ch), r.dnc && 'DNC on file', r.carried_from && `carried over from ${mdy(r.carried_from)}`].filter(Boolean).join(' · '), 7.5, cols[0][1] - 12)
     const result = !worked(r) ? ['Not worked — no notes'] : [reached(r) ? 'Reached client' : r.emailed ? 'No contact, emailed' : 'Not reached yet',
       ...[r.call1, r.call2].map((c, k) => (c ? `Call ${k + 1}: ${CALL[c]}` : '')).filter(Boolean), r.options_path ? 'Options PDF attached' : ''].filter(Boolean)
-    const findings = wrap([r.findings, r.cross_sell && `Cross-sell: ${r.cross_sell}`].filter(Boolean).join('\n') || '—', SIZE, cols[2][1] - 12)
+    const findings = wrap([r.task && `Task: ${r.task}`, r.findings, r.cross_sell && `Cross-sell: ${r.cross_sell}`].filter(Boolean).join('\n') || '—', SIZE, cols[2][1] - 12)
     const notes = wrap(r.notes || '—', SIZE, cols[3][1] - 12)
     const h = 10 + Math.max(client.length * LH + sub.length * 10, result.length * 11, findings.length * LH, notes.length * LH)
     if (y + h > BOTTOM) { pdf.addPage(); y = 32; head() }

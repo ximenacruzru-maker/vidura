@@ -14,7 +14,7 @@ const KIND: Record<RetentionEntry['kind'], string> = { save: 'Save', loss: 'Loss
 const m0 = (n: number) => (n < 0 ? '-$' : '$') + Math.round(Math.abs(n)).toLocaleString('en-US')
 const us = (iso: string) => iso.slice(5, 7) + '/' + iso.slice(8, 10) + '/' + iso.slice(0, 4)
 /** a renewal review row (the daily renewal review), as much as the report needs */
-interface Reviewed { kind: 'negative' | 'positive'; client: string; policy: string | null; current_premium: number | null; renewal_premium: number | null; call1: string | null; call2: string | null; emailed: boolean; spoke: boolean; findings: string | null; cross_sell: string | null; notes: string | null; options_path: string | null }
+interface Reviewed { kind: 'negative' | 'positive' | 'commercial'; task?: string | null; client: string; policy: string | null; current_premium: number | null; renewal_premium: number | null; call1: string | null; call2: string | null; emailed: boolean; spoke: boolean; findings: string | null; cross_sell: string | null; notes: string | null; options_path: string | null }
 const REVIEW_GOAL = 20
 /** a renewal counts as worked only once it has notes (findings before the call or the result) */
 const hasNotes = (r: Reviewed) => !!(r.findings?.trim() || r.notes?.trim())
@@ -36,7 +36,10 @@ export async function downloadRetentionPdf(name: string, folio: Period | null, t
   ])
   const rvWorked = reviews.filter(hasNotes)
   const rvReached = rvWorked.filter(wasReached).length, rvEmailed = rvWorked.filter((x) => !wasReached(x) && x.emailed).length
-  const rvNeg = rvWorked.filter((x) => x.kind === 'negative').length, rvPos = rvWorked.length - rvNeg
+  const rvNeg = rvWorked.filter((x) => x.kind === 'negative').length, rvPos = rvWorked.filter((x) => x.kind === 'positive').length
+  const rvCom = rvWorked.filter((x) => x.kind === 'commercial').length, comListed = reviews.filter((x) => x.kind === 'commercial').length
+  // a day with commercial renewals assigned is measured against everything on that day's list
+  const dayGoal = comListed ? reviews.length : REVIEW_GOAL
   const bonus = folio && !huddle ? await folioBonus(name, staff?.bonus_tiers, folio, today) : null
 
   const w = window as unknown as { jspdf?: { jsPDF: new (o: object) => any } }
@@ -205,9 +208,10 @@ export async function downloadRetentionPdf(name: string, folio: Period | null, t
 
   // ---- huddle: the talk track, filled in from the day's renewal reviews ----
   if (huddle) {
-    const say = `On ${dayName} I worked ${rvWorked.length} of ${REVIEW_GOAL} renewal reviews: ${rvNeg} negative and ${rvPos} positive. ` +
+    const mix = [rvCom || comListed ? `${rvCom} commercial` : '', `${rvNeg} negative`, `${rvPos} positive`].filter(Boolean)
+    const say = `On ${dayName} I worked ${rvWorked.length} of ${dayGoal} renewal reviews: ${mix.slice(0, -1).join(', ')} and ${mix[mix.length - 1]}. ` +
       `I reached ${rvReached} client${rvReached === 1 ? '' : 's'} and emailed the renewal snapshot to ${rvEmailed} I couldn’t reach.` +
-      (rvWorked.length < REVIEW_GOAL ? ` ${REVIEW_GOAL - rvWorked.length} still to go.` : '')
+      (rvWorked.length < dayGoal ? ` ${dayGoal - rvWorked.length} still to go.` : '')
     section('Huddle talk track', `for the ${us(nextWorkday)} huddle`, 80)
     font(10); const lines = pdf.splitTextToSize(`“${say}”`, CW - 36) as string[]
     const th = 22 + lines.length * 14
@@ -217,9 +221,10 @@ export async function downloadRetentionPdf(name: string, folio: Period | null, t
 
   // ---- the day's renewal reviews ----
   if (reviews.length || huddle) {
-    section('Renewal reviews', `${huddle ? dayName : 'Today'} · ${REVIEW_GOAL} a day: 10 negative, 10 positive`, 120)
+    section('Renewal reviews', `${huddle ? dayName : 'Today'} · ${comListed ? `${comListed} commercial assigned` : `${REVIEW_GOAL} a day: 10 negative, 10 positive`}`, 120)
     const cards: [string, string, boolean][] = [
-      ['Worked (with notes)', `${rvWorked.length} / ${REVIEW_GOAL}`, rvWorked.length >= REVIEW_GOAL], ['Negative · positive', `${rvNeg} / 10  ·  ${rvPos} / 10`, rvNeg >= 10 && rvPos >= 10],
+      ['Worked (with notes)', `${rvWorked.length} / ${dayGoal}`, rvWorked.length >= dayGoal],
+      comListed ? ['Commercial · personal', `${rvCom} / ${comListed}  ·  ${rvNeg + rvPos}`, rvCom >= comListed] : ['Negative · positive', `${rvNeg} / 10  ·  ${rvPos} / 10`, rvNeg >= 10 && rvPos >= 10],
       ['Reached client', String(rvReached), false], ['No contact, emailed', String(rvEmailed), false],
     ]
     const cw4 = (CW - 30) / 4, ch = 44
@@ -233,7 +238,7 @@ export async function downloadRetentionPdf(name: string, folio: Period | null, t
       const head = () => { box(L, y, CW, 18, C.navy, 4); cols.forEach((c, i) => txt(c.h, c.h === 'CHANGE' ? xs[i] + c.w - 8 : xs[i] + 8, y + 12, 7, true, [255, 255, 255], c.h === 'CHANGE' ? 'right' : undefined)); y += 18 }
       room(40); head()
       reviews.forEach((rv, i) => {
-        const note = [rv.findings && `Findings: ${rv.findings}`, rv.cross_sell && `Cross-sell: ${rv.cross_sell}`, rv.notes && `Result: ${rv.notes}`, rv.options_path && 'Options PDF attached'].filter(Boolean).join('\n') || '—'
+        const note = [rv.task && `Task: ${rv.task}`, rv.findings && `Findings: ${rv.findings}`, rv.cross_sell && `Cross-sell: ${rv.cross_sell}`, rv.notes && `Result: ${rv.notes}`, rv.options_path && 'Options PDF attached'].filter(Boolean).join('\n') || '—'
         font(8.5); const notes = pdf.splitTextToSize(note, cols[4].w - 14) as string[]
         font(8.5, true); const client = pdf.splitTextToSize(rv.client, cols[1].w - 14) as string[]
         const lines = Math.max(notes.length, client.length + (rv.policy ? 1 : 0), 1)
@@ -241,7 +246,7 @@ export async function downloadRetentionPdf(name: string, folio: Period | null, t
         if (y + h > BOTTOM) { newPage(); head() }
         if (i % 2) { fill(C.soft); pdf.rect(L, y, CW, h, 'F') }
         const base = y + 15
-        pill(rv.kind === 'negative' ? 'Negative' : 'Positive', xs[0] + 8, base, rv.kind === 'negative' ? { fg: C.red, bg: C.redSoft } : { fg: C.green, bg: C.greenSoft })
+        pill(rv.kind === 'commercial' ? 'Commercial' : rv.kind === 'negative' ? 'Negative' : 'Positive', xs[0] + 8, base, rv.kind === 'commercial' ? { fg: C.navy2, bg: C.blueSoft } : rv.kind === 'negative' ? { fg: C.red, bg: C.redSoft } : { fg: C.green, bg: C.greenSoft })
         client.forEach((ln, k) => txt(ln, xs[1] + 8, base + k * 11, 8.5, true, C.ink))
         if (rv.policy) txt(fit(rv.policy, 7.5, cols[1].w - 14), xs[1] + 8, base + client.length * 11, 7.5, false, C.muted)
         const ch2 = rv.current_premium != null && rv.renewal_premium != null ? Number(rv.renewal_premium) - Number(rv.current_premium) : null

@@ -6,7 +6,7 @@ import { Fragment, useMemo, useState } from 'react'
 import { mdy, todayPacific } from '../../lib/format'
 import { supabase } from '../../lib/supabase'
 import { useAsync } from '../../lib/useAsync'
-import { DAY_GOAL, GOAL, done, openOptions, reached, reportPdf, signed, worked, type Review } from '../RenewalReview'
+import { DAY_GOAL, GOAL, KIND_LABEL, done, openOptions, reached, reportPdf, signed, worked, type Review } from '../RenewalReview'
 import type { LeadFolio } from './LeadSources'
 
 const addDays = (iso: string, n: number) => { const d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10) }
@@ -77,7 +77,7 @@ export function RenewalReviews({ folios, agency }: { folios: LeadFolio[]; agency
             <div className="sccard"><div className="sccard-l">Days reported</div><div className="sccard-v">{reported} / {workdays}</div>
               <div className="sccard-s">{missed.length ? `${missed.length} workday${missed.length > 1 ? 's' : ''} with nothing reported` : 'every workday reported'}</div></div>
             <div className="sccard"><div className="sccard-l">Renewals worked</div><div className="sccard-v">{w.length} / {workdays * DAY_GOAL}</div>
-              <div className="sccard-s">{n((r) => r.kind === 'negative')} negative · {n((r) => r.kind === 'positive')} positive · {pct(w.length, workdays * DAY_GOAL)} of goal{rows.length > w.length ? ` · ${rows.length - w.length} on lists without notes` : ''}</div></div>
+              <div className="sccard-s">{n((r) => r.kind === 'negative')} negative · {n((r) => r.kind === 'positive')} positive{n((r) => r.kind === 'commercial') ? ` · ${n((r) => r.kind === 'commercial')} commercial` : ''} · {pct(w.length, workdays * DAY_GOAL)} of goal{rows.length > w.length ? ` · ${rows.length - w.length} on lists without notes` : ''}</div></div>
             <div className="sccard"><div className="sccard-l">Reached the client</div><div className="sccard-v">{n(reached)}</div><div className="sccard-s">{pct(n(reached), w.length)} of renewals worked</div></div>
             <div className="sccard"><div className="sccard-l">No contact, emailed</div><div className="sccard-v">{n((r) => !reached(r) && r.emailed)}</div><div className="sccard-s">{n(done)} of {w.length} renewals fully handled</div></div>
             <div className="sccard"><div className="sccard-l">Options PDFs attached</div><div className="sccard-v">{n((r) => !!r.options_path)}</div><div className="sccard-s">{pct(n((r) => !!r.options_path), w.length)} of renewals worked</div></div>
@@ -102,7 +102,7 @@ export function RenewalReviews({ folios, agency }: { folios: LeadFolio[]; agency
                       <tbody>{d.list.map((r) => {
                         const ch = r.current_premium != null && r.renewal_premium != null ? Number(r.renewal_premium) - Number(r.current_premium) : null
                         return (
-                          <tr key={r.id}><td>{r.kind === 'negative' ? 'Negative' : 'Positive'}</td><td style={{ fontWeight: 600 }}>{r.client}{r.dnc ? ' · DNC' : ''}</td>
+                          <tr key={r.id}><td>{KIND_LABEL[r.kind]}</td><td style={{ fontWeight: 600 }}>{r.client}{r.dnc ? ' · DNC' : ''}</td>
                             <td>{[r.policy, r.renewal_date && mdy(r.renewal_date)].filter(Boolean).join(' · ')}</td><td className="tr mono" style={{ color: ch != null && ch > 0 ? '#B3261E' : undefined }}>{ch == null ? '—' : signed(ch)}</td>
                             <td>{!worked(r) ? <span style={{ color: '#B3261E', fontWeight: 600 }}>Not worked</span> : reached(r) ? 'Yes' : 'No'}</td><td>{r.emailed ? 'Yes' : 'No'}</td>
                             <td>{r.options_path ? <button className="linkbtn" onClick={() => openOptions(r)}>Open PDF</button> : '—'}</td>

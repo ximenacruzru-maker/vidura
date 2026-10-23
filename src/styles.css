@@ -1520,3 +1520,4 @@ tr.cf-off td { opacity: .55; }
 .rr-step { border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 7px; width: 26px; height: 26px; font-size: 16px; line-height: 1; cursor: pointer; }
 .rr-step:disabled { opacity: .4; cursor: default; }
 .rr-carry { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: var(--warn-bg, #fdf0dc); color: var(--warn); font-size: 11px; font-weight: 800; vertical-align: 1px; }
+.rr-task { display: block; padding: 4px 8px; margin-bottom: 4px; border-radius: 7px; background: var(--soft); color: var(--ink) !important; font-size: 12.5px; }
