@@ -1,4 +1,4 @@
-// Supabase Edge Function: agencyzoom-sync (v17)
+// Supabase Edge Function: agencyzoom-sync (v18)
 //
 // Keeps the Ironwood dashboard current from AgencyZoom:
 //   sold   - every policy written (from customer policies) -> daily_sales
@@ -496,38 +496,8 @@ Deno.serve(async (req) => {
       stats.activeLeads = active.length;
     }
 
-    if (parts.includes("quotes") && !outOfTime) {
-      // "Quoted" = still open (not sold/lost/expired) and carrying a quote.
-      const quoted = active.filter((l) => ![2, 3, 5].includes(Number(l.status)) && (Number(l.quoted) > 0 || isoDate(l.quoteDate)));
-      stats.quotedLeads = quoted.length; stats.quoteRows = 0; stats.quoteUnchanged = 0;
-      for (const lead of quoted) {
-        const leadId = String(lead.id || ""); if (!leadId) continue;
-        // Adopt any historical row for this lead so it is updated, not duplicated.
-        await supabase.from("quote_leads").update({ az_ref: leadId }).eq("agency_id", A).eq("lead_id", leadId).is("az_ref", null);
-        const { data: existing } = await supabase.from("quote_leads").select("quoted_premium, quote_count").eq("agency_id", A).eq("az_ref", leadId).maybeSingle();
-        const leadQuoted = Number(lead.quoted || lead.premium || 0);
-        if (existing && existing.quote_count > 0 && leadQuoted && Number(existing.quoted_premium) === leadQuoted) { stats.quoteUnchanged++; continue; }
-        let quotes: any[] = [];
-        try { quotes = await leadQuotes(token, leadId); } catch (e) { if (String(e).includes("__TIME__")) break; err(`quotes ${leadId}: ${e}`); continue; }
-        const firstQuote = pacificDay(lead.quoteDate) || isoDate(lead.quoteDate) || pacificDay(lead.enterStageDate) || isoDate(lead.enterStageDate) || pacificDay(lead.lastActivityDate) || isoDate(lead.lastActivityDate) || end;
-        const shaped = quotes.map((q) => quoteShape(q, firstQuote));
-        const total = shaped.reduce((s, q) => s + q.premium, 0) || leadQuoted;
-        if (!total) continue; // definition: only leads with an actual quoted premium
-        const sdr = tagList(lead).map((t) => SDR_TAGS[t]).filter(Boolean);
-        const { error } = await supabase.from("quote_leads").upsert({
-          agency_id: A, az_ref: leadId, lead_id: leadId, name: personName(lead), created_date: isoDate(lead.createDate) || firstQuote,
-          producer: producerName(lead), pipeline: lead.workflowName || "Pipeline", lead_source: lead.leadSourceName || "",
-          stage_entry: mdy(isoDate(lead.enterStageDate)), quoted_premium: total, sdr_tag: sdr[0] || "",
-          quotes: shaped, quote_count: shaped.length || 1, quote_day: firstQuote,
-          day_basis: isoDate(lead.quoteDate) ? "quote submission" : "entered Quoted",
-          lines: [...new Set(shaped.map((q) => q.product).filter(Boolean))].join(", "),
-          url: `https://app.agencyzoom.com/lead/index?id=${leadId}`,
-        }, { onConflict: "agency_id,az_ref" });
-        if (error) err(`quote_leads ${leadId}: ${error.message}`); else stats.quoteRows++;
-      }
-    }
-
     // ---------------- SDR transfers -> sdr_transfers -------------------------------
+    // Before the quotes: SDR pay depends on these, and a run that re-reads many quotes can run out of time.
     if (parts.includes("sdr") && !outOfTime) {
       // New transfers: leads created in the window carrying an SDR transfer tag.
       const created = await leadsList(token, { startDate: start, endDate: end });
@@ -610,6 +580,38 @@ Deno.serve(async (req) => {
           }).eq("agency_id", A).eq("az_ref", t.az_ref);
           if (error) err(`recheck ${leadId}: ${error.message}`); else if (shaped.length) stats.sdrRecheckQualified.push(leadId);
         }
+      }
+    }
+
+    // ---------------- QUOTES (continued) -------------------------------------------
+    if (parts.includes("quotes") && !outOfTime) {
+      // "Quoted" = still open (not sold/lost/expired) and carrying a quote.
+      const quoted = active.filter((l) => ![2, 3, 5].includes(Number(l.status)) && (Number(l.quoted) > 0 || isoDate(l.quoteDate)));
+      stats.quotedLeads = quoted.length; stats.quoteRows = 0; stats.quoteUnchanged = 0;
+      for (const lead of quoted) {
+        const leadId = String(lead.id || ""); if (!leadId) continue;
+        // Adopt any historical row for this lead so it is updated, not duplicated.
+        await supabase.from("quote_leads").update({ az_ref: leadId }).eq("agency_id", A).eq("lead_id", leadId).is("az_ref", null);
+        const { data: existing } = await supabase.from("quote_leads").select("quoted_premium, quote_count").eq("agency_id", A).eq("az_ref", leadId).maybeSingle();
+        const leadQuoted = Number(lead.quoted || lead.premium || 0);
+        if (existing && existing.quote_count > 0 && leadQuoted && Number(existing.quoted_premium) === leadQuoted) { stats.quoteUnchanged++; continue; }
+        let quotes: any[] = [];
+        try { quotes = await leadQuotes(token, leadId); } catch (e) { if (String(e).includes("__TIME__")) break; err(`quotes ${leadId}: ${e}`); continue; }
+        const firstQuote = pacificDay(lead.quoteDate) || isoDate(lead.quoteDate) || pacificDay(lead.enterStageDate) || isoDate(lead.enterStageDate) || pacificDay(lead.lastActivityDate) || isoDate(lead.lastActivityDate) || end;
+        const shaped = quotes.map((q) => quoteShape(q, firstQuote));
+        const total = shaped.reduce((s, q) => s + q.premium, 0) || leadQuoted;
+        if (!total) continue; // definition: only leads with an actual quoted premium
+        const sdr = tagList(lead).map((t) => SDR_TAGS[t]).filter(Boolean);
+        const { error } = await supabase.from("quote_leads").upsert({
+          agency_id: A, az_ref: leadId, lead_id: leadId, name: personName(lead), created_date: isoDate(lead.createDate) || firstQuote,
+          producer: producerName(lead), pipeline: lead.workflowName || "Pipeline", lead_source: lead.leadSourceName || "",
+          stage_entry: mdy(isoDate(lead.enterStageDate)), quoted_premium: total, sdr_tag: sdr[0] || "",
+          quotes: shaped, quote_count: shaped.length || 1, quote_day: firstQuote,
+          day_basis: isoDate(lead.quoteDate) ? "quote submission" : "entered Quoted",
+          lines: [...new Set(shaped.map((q) => q.product).filter(Boolean))].join(", "),
+          url: `https://app.agencyzoom.com/lead/index?id=${leadId}`,
+        }, { onConflict: "agency_id,az_ref" });
+        if (error) err(`quote_leads ${leadId}: ${error.message}`); else stats.quoteRows++;
       }
     }
 
