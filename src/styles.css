@@ -1521,3 +1521,7 @@ tr.cf-off td { opacity: .55; }
 .rr-step:disabled { opacity: .4; cursor: default; }
 .rr-carry { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: var(--warn-bg, #fdf0dc); color: var(--warn); font-size: 11px; font-weight: 800; vertical-align: 1px; }
 .rr-task { display: block; padding: 4px 8px; margin-bottom: 4px; border-radius: 7px; background: var(--soft); color: var(--ink) !important; font-size: 12.5px; }
+/* Work & Tickets: completed items stay on the list, muted, with when and by whom */
+.tbl tr.wq-done td { color: var(--muted); }
+.tbl tr.wq-done .strong { text-decoration: line-through; text-decoration-color: var(--line); color: var(--muted); }
+.wq-done-by { color: var(--good) !important; font-weight: 700; }
