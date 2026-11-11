@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../auth'
 import { ErrorBox, Loading, PageHead, Panel, Tile, Tiles } from '../components/ui'
 import { daysUntil, getBookPolicies } from '../lib/books'
-import { getFolios, getPolicies, getQuotes, isAdmin, type Policy, type QuoteLead } from '../lib/data'
+import { getFolios, getPolicies, getQuotes, isAdmin, type Folio, type Policy, type QuoteLead } from '../lib/data'
 import { addDays, mdy, money0, todayPacific } from '../lib/format'
 import { supabase } from '../lib/supabase'
 import { useAsync } from '../lib/useAsync'
@@ -30,17 +30,22 @@ export default function MySpace() {
   const rateFrom = today.slice(0, 4) + '-01-01'
   const yearFrom = today.slice(0, 4) + '-01-01' > QUOTES_FROM ? today.slice(0, 4) + '-01-01' : QUOTES_FROM
   const { data, error } = useAsync(async () => {
-    const [items, ticks, work, book, folios, pipe, soldYr, quotesYr, history] = await Promise.all([
+    const folios = await getFolios()
+    // the close-out estimate looks at how the last completed folios finished, so their sales are read too
+    const past = pastFolios(folios, today)
+    const histFrom = past.length ? past[past.length - 1].start_date : yearFrom
+    const [items, ticks, work, book, pipe, soldYr, quotesYr, history, soldPast] = await Promise.all([
       supabase.from('checklist_items').select('*').eq('active', true).order('sort').then((r) => { if (r.error) throw r.error; return r.data as Item[] }),
       supabase.from('checklist_ticks').select('item_id,done').eq('day', today).then((r) => { if (r.error) throw r.error; return r.data as { item_id: number; done: boolean }[] }),
-      getWork(), getBookPolicies(), getFolios(),
+      getWork(), getBookPolicies(),
       supabase.from('az_pipeline').select('lead_id,name,producer,quoted_premium,quote_day,entered_stage,stage,tags,url').then((r) => (r.error ? [] : (r.data as Lead[]))),
       getPolicies(yearFrom, today), getQuotes(yearFrom, today),
       // AgencyZoom leads created since Jan 1 that were quoted or won: the closing rate's base
       supabase.from('az_lead_history').select('producer,quote_date,status').or(`quote_date.gte.${rateFrom},status.eq.2`).limit(10000)
         .then((r) => (r.error ? [] : (r.data as { producer: string; quote_date: string | null; status: number }[]))),
+      histFrom < yearFrom ? getPolicies(histFrom, addDays(yearFrom, -1)) : Promise.resolve([] as Policy[]),
     ])
-    return { items, ticks, work, book, folios, pipe, soldYr, quotesYr, history }
+    return { items, ticks, work, book, folios, pipe, soldYr, quotesYr, history, past, soldAll: [...soldYr, ...soldPast] }
   }, [reload, today, yearFrom, rateFrom])
 
   const date = new Date(today + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' })
@@ -67,7 +72,10 @@ export default function MySpace() {
   const closeRate = rated.length ? won / rated.length : 0
   const soldFolio = folio ? sold.filter((p) => p.sale_date >= folio.start_date && p.sale_date <= folio.end_date) : []
   const writtenFolio = sum(soldFolio.map((p) => ({ v: p.premium })))
-  const estimate = writtenFolio + prem(pipe) * closeRate
+  // Estimated close-out: written so far, plus what the last completed folios typically wrote from this same day of the
+  // folio to their end (the median, so one unusually big or slow finish doesn't swing it). The open pipeline isn't
+  // multiplied in: most of it never closes inside one folio, which made the old pipeline × closing rate figure far too high.
+  const est = folio ? closeOut(folio, data.past, data.soldAll.filter((p) => mineP(p.producer)), today, writtenFolio) : null
   const dayQuotes = quotes.filter((q) => q.quote_day === day), dayAdded = pipe.filter((l) => (l.quote_day || l.entered_stage) === day)
   const daySold = sold.filter((p) => p.sale_date === day)
   const who = owner ? 'Agency' : 'My'
@@ -101,8 +109,8 @@ export default function MySpace() {
         <Tile label="Low confidence" value={money0(prem(low))} sub={`${low.length} lead${low.length === 1 ? '' : 's'} not tagged High Confidence`} tone={low.length ? 'warn' : undefined} />
         <Tile label={owner ? 'Agency closing rate' : 'My closing rate'} value={pctTxt(closeRate)}
           sub={`${won} won of ${rated.length} quoted since ${mdy(rateFrom)}`} />
-        <Tile label="Estimated folio close-out" value={money0(estimate)}
-          sub={`${money0(writtenFolio)} written + ${money0(prem(pipe))} pipeline × ${pctTxt(closeRate)}`} tone="good" />
+        <Tile label="Estimated folio close-out" value={est ? money0(est.estimate) : '—'}
+          sub={!est ? 'no completed folios to compare yet' : !est.daysLeft ? `${money0(writtenFolio)} written · the folio's dates are over` : `${money0(writtenFolio)} written + ${money0(est.typical)} typical for the last ${est.daysLeft} day${est.daysLeft === 1 ? '' : 's'} · range ${money0(est.low)}–${money0(est.high)} from the last ${est.n} folios`} tone="good" />
       </Tiles>
       <Panel title="Look up a day" sub={owner ? 'What the agency quoted, added to the pipeline and sold on the day you pick.' : 'What you quoted, added to your pipeline and sold on the day you pick.'}
         right={<input type="date" className="fld" value={day} max={today} onChange={(e) => setDay(e.target.value || today)} aria-label="Day" />}>
@@ -152,4 +160,22 @@ export default function MySpace() {
       </div>
     </>
   )
+}
+
+const daysBetween = (a: string, b: string) => Math.round((Date.parse(b + 'T12:00:00Z') - Date.parse(a + 'T12:00:00Z')) / 86400000)
+/** the last six completed folios (ended before today), newest first */
+function pastFolios(folios: Folio[], today: string) { return folios.filter((f) => f.end_date < today && !f.in_progress).sort((a, b) => (a.start_date < b.start_date ? 1 : -1)).slice(0, 6) }
+const median = (xs: number[]) => { const s = [...xs].sort((a, b) => a - b), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2 }
+
+/** What the folio in progress is likely to close at: what each past folio wrote after the same number of days in. */
+function closeOut(folio: Folio, past: Folio[], sold: Policy[], today: string, written: number) {
+  const k = Math.max(0, daysBetween(folio.start_date, today < folio.end_date ? today : folio.end_date))
+  const rest = past.map((f) => {
+    const cut = addDays(f.start_date, k), inF = sold.filter((p) => p.sale_date >= f.start_date && p.sale_date <= f.end_date)
+    return inF.filter((p) => p.sale_date > cut).reduce((a, p) => a + p.premium, 0)
+  })
+  if (!rest.length) return null
+  // the folio's dates are over (it just hasn't been closed yet): what's written is what it closes at
+  if (today > folio.end_date) return { estimate: written, typical: 0, low: written, high: written, n: rest.length, daysLeft: 0 }
+  return { estimate: written + median(rest), typical: median(rest), low: written + Math.min(...rest), high: written + Math.max(...rest), n: rest.length, daysLeft: Math.max(0, daysBetween(today, folio.end_date)) }
 }
