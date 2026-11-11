@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '../auth'
-import { Empty, ErrorBox, Loading, PageHead, Panel, Search, Tile, Tiles } from '../components/ui'
+import { Empty, ErrorBox, Loading, PageHead, Panel, Search, Tabs, Tile, Tiles } from '../components/ui'
 import { daysUntil } from '../lib/books'
 import { can } from '../lib/access'
 import { isAdmin } from '../lib/data'
@@ -8,8 +8,9 @@ import { mdy, todayPacific } from '../lib/format'
 import { downloadSheet } from '../lib/excelExport'
 import { supabase } from '../lib/supabase'
 import { useAsync } from '../lib/useAsync'
+import WorkActivity, { doneDay } from './WorkActivity'
 
-export interface WorkItem { id: number; created_by?: string | null; area: string; name: string; kind: string | null; priority: string; entered: string | null; due: string | null; owner: string | null; status: string; note: string | null; source: string }
+export interface WorkItem { id: number; created_by?: string | null; area: string; name: string; kind: string | null; priority: string; entered: string | null; due: string | null; owner: string | null; status: string; note: string | null; source: string; completed_at?: string | null; completed_by?: string | null }
 export const STATUSES = ['Not started', 'In Process', 'Waiting on client', 'Completed']
 const PRIS = ['Critical', 'High', 'Normal', 'Low']
 export const isDone = (w: WorkItem) => /complete|done|resolved|closed/i.test(w.status)
@@ -25,7 +26,9 @@ export default function WorkQueue() {
   const first = (me?.display_name || '').split(' ')[0].toLowerCase()
   const today = todayPacific()
   const [reload, setReload] = useState(0)
-  const [status, setStatus] = useState('open')
+  // a completed item stays on the list (below the open ones) so the work done is on record; the activity report counts it
+  const [status, setStatus] = useState('all')
+  const [tab, setTab] = useState<'queue' | 'activity'>('queue')
   const [area, setArea] = useState('all')
   const [owner, setOwner] = useState('all')
   const [q, setQ] = useState('')
@@ -47,6 +50,8 @@ export default function WorkQueue() {
   const open = data.filter((w) => !isDone(w))
   const overdue = open.filter((w) => { const d = daysUntil(w.due, today); return d != null && d < 0 })
   const dueToday = open.filter((w) => w.due === today)
+  const weekStart = (() => { const d = new Date(today + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return d.toISOString().slice(0, 10) })()
+  const doneThisWeek = data.filter((w) => isDone(w) && (doneDay(w) || '') >= weekStart).length
   const areas = [...new Set(data.map((w) => w.area))].sort()
   const owners = [...new Set([...(people || []), ...(data.map((w) => w.owner).filter(Boolean) as string[])])].sort()
   const rows = data
@@ -54,6 +59,8 @@ export default function WorkQueue() {
     .filter((w) => area === 'all' || w.area === area)
     .filter((w) => owner === 'all' || w.owner === owner)
     .filter((w) => !q || `${w.name} ${w.note} ${w.owner} ${w.area} ${w.kind}`.toLowerCase().includes(q.toLowerCase()))
+    // open work first (by due date), then completed work, most recently completed first
+    .sort((a, b) => (isDone(a) !== isDone(b) ? (isDone(a) ? 1 : -1) : isDone(a) ? (b.completed_at || '').localeCompare(a.completed_at || '') : 0))
 
   const patch = async (id: number, p: Partial<WorkItem>) => {
     const { error } = await supabase.from('work_items').update({ ...p, updated_at: new Date().toISOString() }).eq('id', id)
@@ -79,16 +86,17 @@ export default function WorkQueue() {
         <Tile label="Open" value={open.length} sub={`across ${new Set(open.map((w) => w.area)).size} areas`} />
         <Tile label="Overdue" value={overdue.length} sub={overdue[0]?.due ? 'oldest due ' + mdy(overdue[0].due) : 'nothing past due'} tone={overdue.length ? 'warn' : 'good'} />
         <Tile label="Due today" value={dueToday.length} />
-        <Tile label="Completed" value={data.length - open.length} sub={`of ${data.length} items`} />
+        <Tile label="Completed" value={data.length - open.length} sub={`${doneThisWeek} this week · ${data.length} items on record`} />
       </Tiles>
-      <Panel title="Queue" sub={`${rows.length} shown`} right={
+      <Tabs tabs={[{ key: 'queue' as const, label: 'Queue' }, { key: 'activity' as const, label: 'Activity report' }]} value={tab} onChange={setTab} />
+      {tab === 'activity' ? <WorkActivity work={data} owners={owners} manager={manager} /> : <Panel title="Queue" sub={`${rows.length} shown`} right={
         <div className="filters">
           <select value={status} onChange={(e) => setStatus(e.target.value)}><option value="open">Open</option><option value="all">All</option>{STATUSES.map((s) => <option key={s}>{s}</option>)}</select>
           <select value={area} onChange={(e) => setArea(e.target.value)}><option value="all">All areas</option>{areas.map((a) => <option key={a}>{a}</option>)}</select>
           <select value={owner} onChange={(e) => setOwner(e.target.value)}><option value="all">Everyone</option>{owners.map((a) => <option key={a}>{a}</option>)}</select>
           <Search value={q} onChange={setQ} />
           <button className="btn-primary" onClick={() => setDraft(draft ? null : { priority: 'Normal', status: 'Not started', owner: me?.display_name?.split(' ')[0] })}>{draft ? 'Cancel' : '+ New item'}</button>
-          <button className="btn-ghost" onClick={() => downloadSheet(`work-queue-${today}.xlsx`, [['Area', 'Item', 'Type', 'Priority', 'Entered', 'Due', 'Owner', 'Status', 'Note'], ...rows.map((w) => [w.area, w.name, w.kind, w.priority, w.entered, w.due, w.owner, w.status, w.note])], { sheet: 'Work queue' })}>Export</button>
+          <button className="btn-ghost" onClick={() => downloadSheet(`work-queue-${today}.xlsx`, [['Area', 'Item', 'Type', 'Priority', 'Entered', 'Due', 'Owner', 'Status', 'Completed', 'Completed by', 'Note'], ...rows.map((w) => [w.area, w.name, w.kind, w.priority, w.entered, w.due, w.owner, w.status, doneDay(w), w.completed_by || null, w.note])], { sheet: 'Work queue' })}>Export</button>
         </div>}>
         {draft && (
           <div className="plan">
@@ -115,15 +123,16 @@ export default function WorkQueue() {
                 {rows.map((w) => {
                   const d = daysUntil(w.due, today)
                   return (
-                    <tr key={w.id}>
-                      <td><div className="strong">{w.name}</div><div className="sub">{w.area}{w.kind ? ' · ' + w.kind : ''}{w.note ? ' — ' + w.note : ''}</div></td>
+                    <tr key={w.id} className={isDone(w) ? 'wq-done' : undefined}>
+                      <td><div className="strong">{w.name}</div><div className="sub">{w.area}{w.kind ? ' · ' + w.kind : ''}{w.note ? ' — ' + w.note : ''}</div>
+                        {isDone(w) && <div className="sub wq-done-by">✓ Completed{doneDay(w) ? ' ' + mdy(doneDay(w)!) : ''}{w.completed_by ? ' by ' + w.completed_by : ''}</div>}</td>
                       <td><span className={'pill ' + (/critical|urgent/i.test(w.priority) ? 'pill-bad' : /high/i.test(w.priority) ? 'pill-warn' : 'pill-muted')}>{w.priority}</span></td>
                       <td style={{ whiteSpace: 'nowrap' }}>{w.due ? mdy(w.due) : '—'} {!isDone(w) && d != null && d < 0 && <span className="pill pill-bad">late</span>}</td>
                       <td>{w.owner}{!manager && w.created_by === session?.user.id && !(w.owner || '').toLowerCase().startsWith(first) && <div className="sub">assigned by you</div>}</td>
                       <td><select value={STATUSES.includes(w.status) ? w.status : ''} onChange={(e) => patch(w.id, { status: e.target.value })}>{!STATUSES.includes(w.status) && <option value="">{w.status}</option>}{STATUSES.map((s) => <option key={s}>{s}</option>)}</select></td>
                       <td className="r" style={{ whiteSpace: 'nowrap' }}>
                         <button className="linkbtn" onClick={() => setDraft(w)}>Edit</button>
-                        {admin && <> · <button className="linkbtn" onClick={() => remove(w.id)}>Delete</button></>}
+                        {admin && !isDone(w) && <> · <button className="linkbtn" onClick={() => remove(w.id)}>Delete</button></>}
                       </td>
                     </tr>
                   )
@@ -132,7 +141,7 @@ export default function WorkQueue() {
             </table>
           </div>
         ) : <Empty>Nothing here.</Empty>}
-      </Panel>
+      </Panel>}
     </>
   )
 }
