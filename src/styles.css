@@ -511,6 +511,77 @@ html[data-theme="halloween"] .xd .sc-more { justify-content: center; gap: 6px; b
 /* donuts: purple, orange and slime green with a green glow and the skull in the middle */
 html[data-theme="halloween"] .xd .donut svg { filter: drop-shadow(0 0 6px rgba(107,209,58,.8)); background: url('./assets/halloween/skull.png') center / 36% no-repeat; }
 html[data-theme="halloween"] .xd .donut svg text { display: none; }
+/* Christmas (seasonal, November 2 – January 6): evergreen night with cranberry red and gold. Snow falls slowly behind
+   the page, a string of lights hangs under the top bar over a candy-cane edge, pines stand in snow at the foot of the
+   sidebar, each sidebar section has its own ornament, KPI cards are gold-edged with a holly sprig, and the logo wears
+   a Santa hat. Art is in src/assets/christmas. */
+html[data-theme="christmas"] {
+  --navy: #F7F1E3; --blue: #D4312F; --blue-2: #B02524; --teal: #4FC27A; --gold: #E8C15A; --ink: #F7F1E3; --muted: #B9CDBF;
+  --line: #2C5A41; --line2: #21452F; --bg: #0E2619; --card: #143322; --soft: #173A28; --track: #21452F; --tint: #1D4430;
+  --good-bg: #173a24; --warn-bg: #3a2c10; --bad-bg: #3e1416; --topbar: #0A1D13; --radius: 14px;
+  --sideA: #0D2418; --sideB: #0C2116; --sideC: #0A1D13; --side-ink: #F7F1E3; --side-sub: #E8C15A; --side-active: #D4312F;
+  --shadow: 0 1px 2px rgba(0,0,0,.35), 0 8px 24px rgba(0,0,0,.3);
+  --ch1: #D4312F; --ch2: #E8C15A; --ch3: #4FC27A; --ch4: #6EC3E8; --ch5: #F7F1E3; --ch6: #A8352F; --donut-ink: #F7F1E3; --donut-sub: #E8C15A;
+}
+html[data-theme="christmas"] body { background: radial-gradient(ellipse at 50% -10%, #1F4A33 0%, transparent 60%), var(--bg); }
+/* falling snow, behind everything and never in the way of a click */
+html[data-theme="christmas"] body::before { content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background: url('./assets/christmas/snow.svg') 0 0 / 300px 300px repeat, url('./assets/christmas/snow.svg') 140px 80px / 190px 190px repeat;
+  opacity: .5; animation: xmas-snow 40s linear infinite; }
+@keyframes xmas-snow { from { background-position: 0 0, 140px 80px; } to { background-position: 60px 600px, 200px 460px; } }
+@media (prefers-reduced-motion: reduce) { html[data-theme="christmas"] body::before { animation: none; } }
+html[data-theme="christmas"] .side { background: linear-gradient(180deg, #11301F 0%, #0C2116 55%, #0A1D13 100%); box-shadow: inset -1px 0 0 rgba(232,193,90,.25); }
+html[data-theme="christmas"] .side-brand { border-bottom-color: rgba(232,193,90,.3); }
+html[data-theme="christmas"] .side-foot { padding-bottom: 104px; border-top-color: rgba(232,193,90,.3); background: url('./assets/christmas/pines.svg') center bottom / 100% auto no-repeat; }
+html[data-theme="christmas"] .brand-tile { position: relative; }
+html[data-theme="christmas"] .brand-tile::after { content: ''; position: absolute; top: -22px; left: -16px; width: 64px; height: 52px;
+  background: url('./assets/christmas/hat.svg') center / contain no-repeat; transform: rotate(-18deg); pointer-events: none; }
+html[data-theme="christmas"] .nav-h { display: flex; align-items: center; gap: 9px; font-size: 14px; font-weight: 700; letter-spacing: 0; text-transform: none; color: #F7F1E3; padding: 14px 4px 6px; }
+html[data-theme="christmas"] .nav-h::before { content: ''; flex: none; width: 26px; height: 26px; background: center / contain no-repeat; }
+html[data-theme="christmas"] .nav-h[data-sec="Workspace"] { color: #E8C15A; }
+html[data-theme="christmas"] .nav-h[data-sec="Workspace"]::before { background-image: url('./assets/christmas/tree.svg'); }
+html[data-theme="christmas"] .nav-h[data-sec="Performance"]::before { background-image: url('./assets/christmas/star.svg'); }
+html[data-theme="christmas"] .nav-h[data-sec="Agency Management"]::before { background-image: url('./assets/christmas/gift.svg'); }
+html[data-theme="christmas"] .nav-h[data-sec="Team Development"]::before { background-image: url('./assets/christmas/bell.svg'); }
+html[data-theme="christmas"] .nav button svg { color: #E8C15A; }
+html[data-theme="christmas"] .nav button.active { background: #D4312F; color: #FFF8EC; box-shadow: 0 0 0 1.5px #E8C15A inset, 0 0 16px rgba(212,49,47,.5); }
+html[data-theme="christmas"] .nav button.active svg { color: #FFF8EC; }
+html[data-theme="christmas"] .nav button:hover:not(.active) { background: rgba(232,193,90,.12); }
+/* top bar: deep red with a candy-cane edge and a string of lights hanging below it */
+html[data-theme="christmas"] .topbar { position: relative; background: linear-gradient(180deg, #A3201F, #7E1617); backdrop-filter: none;
+  box-shadow: inset 0 -6px 0 transparent; }
+html[data-theme="christmas"] .topbar::before { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 6px; pointer-events: none;
+  background: repeating-linear-gradient(-45deg, #FBF7EE 0 8px, #D4312F 8px 16px); }
+html[data-theme="christmas"] .topbar::after { content: ''; position: absolute; left: 0; right: 0; top: 100%; height: 30px; pointer-events: none;
+  background: url('./assets/christmas/lights.svg') left top / 160px 30px repeat-x; animation: xmas-twinkle 2.4s ease-in-out infinite alternate; }
+@keyframes xmas-twinkle { from { filter: brightness(.85) drop-shadow(0 0 2px rgba(255,230,150,.4)); } to { filter: brightness(1.25) drop-shadow(0 0 6px rgba(255,230,150,.9)); } }
+@media (prefers-reduced-motion: reduce) { html[data-theme="christmas"] .topbar::after { animation: none; } }
+html[data-theme="christmas"] .page { padding-top: 46px; }
+html[data-theme="christmas"] .gq { background: #FBF7EE; border: 2px solid #E8C15A; border-radius: 999px; color: #2A1A12; }
+html[data-theme="christmas"] .gq::placeholder { color: #8A6E5A; }
+html[data-theme="christmas"] .gsearch-ico { color: #B02524; }
+html[data-theme="christmas"] .tsync-pill { background: #5E1011; border-color: #E8C15A; color: #FBF7EE; }
+html[data-theme="christmas"] .hd-av { background: #0E2619; color: #E8C15A; box-shadow: 0 0 0 2px #E8C15A; }
+html[data-theme="christmas"] .hd-un em { color: #FFD98A; }
+html[data-theme="christmas"] .kicker { color: #E8C15A; }
+html[data-theme="christmas"][data-font="normal"] .page-head h1, html[data-theme="christmas"][data-font="normal"] .panel-t, html[data-theme="christmas"][data-font="normal"] .tile-v,
+html[data-theme="christmas"][data-font="normal"] .xd .ptitle, html[data-theme="christmas"][data-font="normal"] .xd .sc-v { font-family: 'Merriweather', Georgia, serif; font-weight: 900; }
+html[data-theme="christmas"] .panel { background: rgba(20,51,34,.9); border-color: var(--line); }
+html[data-theme="christmas"] .btn-primary { color: #FFF8EC; }
+html[data-theme="christmas"] .legacy-host iframe { background: var(--bg); }
+html[data-theme="christmas"] .login { background: url('./assets/christmas/snow.svg') 0 0 / 300px 300px repeat, url('./assets/christmas/pines.svg') center bottom / 900px auto repeat-x, radial-gradient(ellipse at 50% 0%, #1F4A33, #0A1D13 70%); }
+html[data-theme="christmas"] .set-band { background: linear-gradient(135deg, #0E2619, #1F4A33 55%, #A3201F); }
+html[data-theme="christmas"] .band-note { background: #2b210e; border-color: #6b5410; color: #FFE6A8; }
+/* KPI cards: gold-edged with a holly sprig in the corner */
+html[data-theme="christmas"] .tile, html[data-theme="christmas"] .xd .sc { position: relative; background: linear-gradient(180deg, #18402B, #12301F);
+  border: 1.5px solid rgba(232,193,90,.6); border-top: 3px solid #D4312F; box-shadow: 0 0 0 4px rgba(232,193,90,.08), var(--shadow); }
+html[data-theme="christmas"] .tile::after, html[data-theme="christmas"] .xd .sc::after { content: ''; position: absolute; top: -10px; right: -8px; width: 46px; height: 34px;
+  background: url('./assets/christmas/holly.svg') center / contain no-repeat; pointer-events: none; }
+html[data-theme="christmas"] .tile-l, html[data-theme="christmas"] .xd .sc-l { color: #E8C15A; }
+html[data-theme="christmas"] .tile-v, html[data-theme="christmas"] .xd .sc-v { color: #FBF7EE; text-shadow: 0 0 12px rgba(232,193,90,.35); }
+html[data-theme="christmas"] .tile-s, html[data-theme="christmas"] .xd .sc-s, html[data-theme="christmas"] .xd .sc-gt, html[data-theme="christmas"] .xd .sc-goal { color: #C9DACE; }
+html[data-theme="christmas"] .xd .sc-dv.up { color: #6EE08F; } html[data-theme="christmas"] .xd .sc-dv.down { color: #FF7A6E; }
+html[data-theme="christmas"] .xd .donut svg { filter: drop-shadow(0 0 6px rgba(232,193,90,.6)); }
 
 @media (max-width: 1100px) { .tsync-l, .tsync-btn span, .hd-un { display: none; } }
 @media (max-width: 820px) { .hd-kai span { display: none; } .hd-kai { padding: 0 12px; } .hd-right { gap: 6px; } }
@@ -697,6 +768,11 @@ html[data-theme="dark"] .renew-warn, html[data-theme="halloween"] .renew-warn, h
   html[data-theme="halloween"] .topbar { position: sticky; background: #000; }
   html[data-theme="halloween"] .page { padding-top: 58px; background-size: 130px auto; }
   html[data-theme="halloween"] .side-foot { padding-bottom: 120px; }
+  html[data-theme="christmas"] .topbar { position: sticky; }
+  html[data-theme="christmas"] .side-foot { padding-bottom: 90px; }
+  html[data-theme="christmas"] .tsync-pill { background: transparent; }
+  html[data-theme="christmas"] .page { padding-top: 40px; }
+  html[data-theme="christmas"] .brand-tile::after { top: -16px; left: -10px; width: 48px; height: 40px; }
   html[data-theme="talavera"] .set-tabs { display: flex; flex-direction: column; width: 100%; }
   html[data-theme="talavera"] .set-tabs button { border-right: 0; border-bottom: 2px solid #23359A; text-align: left; }
   html[data-theme="talavera"] .set-tabs button:last-child { border-bottom: 0; }

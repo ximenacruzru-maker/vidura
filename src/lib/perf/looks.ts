@@ -1,4 +1,4 @@
-// The Talavera, Astra and (seasonal) Halloween themes and the extra typefaces for the original screens' colour system (lg:THEMES / lg:FONTS),
+// The Talavera, Astra and (seasonal) Halloween and Christmas themes and the extra typefaces for the original screens' colour system (lg:THEMES / lg:FONTS),
 // which the Executive Dashboard shares. public/perf/engine.js carries the same definitions for the
 // legacy screens; the database copies only hold the four original themes and three typefaces.
 export const EXTRA_THEMES: Record<string, { name: string; swatch: string[]; vars: Record<string, string>; dark?: boolean; season?: { from: string; to: string } }> = {
@@ -80,6 +80,48 @@ export const EXTRA_THEMES: Record<string, { name: string; swatch: string[]; vars
       "--forest3": "#3A1A5E",
       "--blue": "#F07A12",
       "--blue2": "#FF9A2E"
+    }
+  },
+  "christmas": {
+    "name": "Christmas",
+    "dark": true,
+    "season": {
+      "from": "11-02",
+      "to": "01-06"
+    },
+    "swatch": [
+      "#0E2619",
+      "#143322",
+      "#D4312F",
+      "#E8C15A",
+      "#F7F1E3"
+    ],
+    "vars": {
+      "--ink": "#F7F1E3",
+      "--mid": "#D4312F",
+      "--card": "#143322",
+      "--dark": "#0A1D13",
+      "--gold": "#E8C15A",
+      "--gray": "#C9DACE",
+      "--line": "#2C5A41",
+      "--navy": "#0A1D13",
+      "--pale": "#173A28",
+      "--line2": "#21452F",
+      "--muted": "#B9CDBF",
+      "--night": "#0A1D13",
+      "--olive": "#D4312F",
+      "--paper": "#0E2619",
+      "--sideA": "#11301F",
+      "--sideB": "#0C2116",
+      "--sideC": "#0A1D13",
+      "--beaver": "#B9CDBF",
+      "--bistre": "#E8C15A",
+      "--forest": "#143322",
+      "--garnet": "#FF6B5A",
+      "--forest2": "#0A1D13",
+      "--forest3": "#1F4A33",
+      "--blue": "#D4312F",
+      "--blue2": "#E24B48"
     }
   },
   "talavera": {
