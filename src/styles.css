@@ -1601,3 +1601,38 @@ tr.cf-off td { opacity: .55; }
 .tbl tr.wq-done td { color: var(--muted); }
 .tbl tr.wq-done .strong { text-decoration: line-through; text-decoration-color: var(--line); color: var(--muted); }
 .wq-done-by { color: var(--good) !important; font-weight: 700; }
+/* Work & Tickets: the counts and tabs stay pinned at the top of the page while the list scrolls */
+.wq-sticky { position: sticky; top: -8px; z-index: 6; margin: 0 -8px 12px; padding: 10px 8px 8px; background: var(--bg); box-shadow: 0 8px 12px -10px rgba(0,0,0,.25); }
+.wq-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.wq-stat { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; min-width: 0; padding: 9px 14px; border-radius: 12px; border: 1px solid var(--line);
+  border-top: 3px solid var(--blue); background: var(--card); color: var(--ink); font: inherit; text-align: left; cursor: pointer; box-shadow: var(--shadow); }
+.wq-stat:hover { border-color: var(--blue); }
+.wq-stat.on { box-shadow: 0 0 0 2px var(--blue) inset, var(--shadow); }
+.wq-stat.wq-warn { border-top-color: var(--warn, #B7791F); }
+.wq-stat.wq-good { border-top-color: var(--good, #1F7A4D); }
+.wq-stat-l { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.wq-stat-v { font-family: var(--serif); font-size: 24px; line-height: 1.15; color: var(--navy); }
+.wq-stat-s { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.wq-bar { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+.wq-bar .tabs { margin: 0; }
+.wq-tbl { max-height: none; overflow-y: visible; }
+.wq-periods { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.wq-period { border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.wq-period.on { background: var(--blue); border-color: var(--blue); color: #fff; }
+.wq-barfill { height: 8px; border-radius: 999px; background: var(--track, var(--soft)); overflow: hidden; }
+.wq-barfill i { display: block; height: 100%; border-radius: 999px; background: var(--blue); }
+@media (max-width: 860px) {
+  .wq-sticky { top: -16px; margin: 0 -14px 10px; padding: 8px 14px; }
+  .wq-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
+  .wq-stat { padding: 5px 7px; border-radius: 9px; border-top-width: 2px; }
+  .wq-stat-l { font-size: 9px; letter-spacing: .03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  .wq-stat-v { font-size: 17px; }
+  .wq-bar { margin-top: 6px; flex-wrap: nowrap; }
+  .wq-bar .tabs button { padding: 5px 11px; font-size: 13px; }
+  .wq-stats-btn { padding: 6px 10px; font-size: 12.5px; white-space: nowrap; }
+  .wq-stat-s { display: none; }
+  /* on a phone the window scrolls; the page box must not be a scroll container or the counts can't stay pinned */
+  .page:has(.wq-sticky) { overflow-x: clip; overflow-y: visible; }
+}
+/* the Christmas lights hang below the top bar: leave them room above the pinned counts */
+html[data-theme="christmas"] .wq-sticky { padding-top: 32px; }
