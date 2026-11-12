@@ -3,6 +3,11 @@
 // are kept in this browser (the same localStorage keys the original screens use), so both read the same.
 import type { FolioRow, Json, PerfData } from './data'
 import { wbFolioKeys } from './data'
+import { isLife, promoRates } from '../lifePromo'
+
+/** A life policy written during the Year-End Life Promo: its case number and rate (null for anything else). */
+type PromoRate = (r: FolioRow) => { n: number; rate: number } | null
+const mdyIso = (s: string) => { const m = String(s || '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); return m ? `${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}` : String(s || '').slice(0, 10) }
 
 const COMM_KEY = 'declara_comm_plans_v1'
 const RECON_KEY = 'declara_comm_recon_v1'
@@ -58,20 +63,23 @@ function commSplitShare(plan: Json, producer: string) {
   const r = ((plan.splits || {}).rules || []).find((x: Json) => x.producer && x.producer.toLowerCase() === String(producer).toLowerCase())
   return r ? Number(r.share) || 1 : (plan.splits || {}).defaultShare || 1
 }
-/** rows → results per producer. */
-export function commCompute(plan: Json, rows: FolioRow[]) {
+/** rows → results per producer. A life policy written during the life promo is paid the promo rate on its premium
+ *  (whether or not the producer qualifies) instead of its bucket's rate; it still counts toward qualification. */
+export function commCompute(plan: Json, rows: FolioRow[], promo?: PromoRate) {
   const out: Record<string, Json> = {}
   rows.forEach((r) => {
     if (r.confirmed === false) return
     const p = r.producer || 'Unassigned'
-    const res = (out[p] = out[p] || { producer: p, buckets: {}, life: 0, totalPremium: 0, policies: 0, rows: [] })
+    const res = (out[p] = out[p] || { producer: p, buckets: {}, life: 0, totalPremium: 0, policies: 0, rows: [], promo: 0 })
     plan.buckets.forEach((b: Json) => { res.buckets[b.key] = res.buckets[b.key] || { key: b.key, label: b.label, premium: 0, commission: 0, rate: 0 } })
+    const pr = promo ? promo(r) : null
     const b = commBucketOf(plan, r)
-    res.buckets[b.key].premium += Number(r.premium) || 0
+    if (pr) res.promo += (Number(r.premium) || 0) * pr.rate
+    else res.buckets[b.key].premium += Number(r.premium) || 0
     res.totalPremium += Number(r.premium) || 0
     res.policies++
     res.life += commLifeWeight(plan, r)
-    res.rows.push({ bucket: b.key, bucketLabel: b.label, ...r })
+    res.rows.push(pr ? { bucket: 'lifePromo', bucketLabel: `Life promo ${Math.round(pr.rate * 100)}% (case #${pr.n})`, ...r } : { bucket: b.key, bucketLabel: b.label, ...r })
   })
   Object.values(out).forEach((res) => {
     res.qualifies = commQualifies(plan, res); res.tierRate = commTierRate(plan, res); res.bonuses = {}; res.total = 0
@@ -86,6 +94,7 @@ export function commCompute(plan: Json, rows: FolioRow[]) {
       const amt = ok ? basis * (Number(bn.rate) || 0) : 0
       res.bonuses[bn.key] = amt; res.total += amt
     })
+    if (res.promo) { res.bonuses.lifePromo = res.promo; res.total += res.promo }
     const share = commSplitShare(plan, res.producer); res.splitShare = share
     if (share !== 1) { res.totalBeforeSplit = res.total; res.total = res.total * share }
   })
@@ -133,8 +142,15 @@ export function commFolioRows(D: PerfData, k: string): FolioRow[] {
 export function commRecalc(D: PerfData) {
   D.COMM_RESULTS = {}
   D.WB_DATA.commissionsByFolio = D.WB_DATA.commissionsByFolio || {}
+  // the life promo numbers every life policy written during it, across all producers and folios, in date order
+  const P = D.LIFE_PROMO
+  const cases = P ? promoRates(P, wbFolioKeys(D).flatMap((k) => commFolioRows(D, k)).filter((r) => r.confirmed !== false && isLife(r))
+    .map((r) => ({ date: mdyIso(r.when), client: r.client, premium: Number(r.premium) || 0 }))) : null
+  const promo: PromoRate | undefined = cases ? (r) => (r.confirmed !== false && isLife(r) ? cases.get({ date: mdyIso(r.when), client: r.client, premium: Number(r.premium) || 0 }) : null) : undefined
   wbFolioKeys(D).forEach((k) => {
-    const f = D.WB_DATA.folio[k]; const plan = commPlanFor(D, f.start); const res = commCompute(plan, commFolioRows(D, k))
+    const f = D.WB_DATA.folio[k]; const base = commPlanFor(D, f.start); const res = commCompute(base, commFolioRows(D, k), promo)
+    // the promo shows as its own column on folios that have any promo pay
+    const plan = Object.values(res).some((x: Json) => x.promo) ? { ...base, bonuses: [...(base.bonuses || []), { key: 'lifePromo', label: P!.name }] } : base
     D.COMM_RESULTS[k] = { plan, results: res }
     const legacy: Record<string, Json> = {}
     Object.entries(res).forEach(([p, r]) => { legacy[p] = commLegacy(plan, r) })
