@@ -42,6 +42,10 @@ function test(row, col, expr) {
   }
   return not ? !r : r
 }
+// a life promo running today, for the memo at the top of the dashboards
+const LIFE_PROMO = () => { const d = new Date(), iso = (x) => x.toISOString().slice(0, 10)
+  return { today: iso(d), written: 6, promo: { name: 'Year-End Life Promo', headline: 'One policy. Bigger payouts.', from: iso(new Date(d - 3 * 864e5)), to: iso(new Date(+d + 40 * 864e5)), baseline: 31, baselineAsOf: iso(new Date(d - 3 * 864e5)), goal: 70, avgPremium: 835,
+    tiers: [{ after: 0, rate: 0.25, label: 'Starting rate' }, { after: 40, rate: 0.3, label: 'After 40 team I&P' }, { after: 50, rate: 0.35, label: 'After 50 team I&P' }], note: 'Payout on eligible first-year annual premium; not on low-commission IUL excess. Tier changes are prospective.' } } }
 export async function install(page, log = () => {}) {
   // the original screens load supabase-js from a CDN, which this sandbox can't reach: serve the installed copy
   await page.route('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2**', (route) => route.fulfill({ status: 200, contentType: 'application/javascript', body: fs.readFileSync(createRequire(import.meta.url).resolve('@supabase/supabase-js/dist/umd/supabase.js'), 'utf8') }))
@@ -56,6 +60,7 @@ export async function install(page, log = () => {}) {
       if (body.action === 'list') return json({ agencies: [...DB.agencies, { id: 'x', slug: 'ironwood', name: 'Ironwood Insurance Agency', short_name: 'Ironwood', is_demo: false, agencyzoom_sync: true, created_at: '2026-09-25T00:00:00Z' }].map((a) => ({ ...a, created_at: a.created_at || '2026-09-25T00:00:00Z', staff: a.slug === 'ironwood' ? 5 : 1, owners: [{ name: a.slug === 'ironwood' ? 'Owner' : 'Alex Morgan', email: a.slug === 'ironwood' ? 'owner@example.com' : 'demo@declara.app' }] })) })
       return json({ ok: true, agency: { id: 'new', slug: 'harbor', name: body.name } }) }
     if (p.startsWith('/functions/v1/')) { log('fn ' + p); return json({ error: 'Not available in the offline preview' }, 200) }
+    if (p === '/rest/v1/rpc/life_promo_status') return json(LIFE_PROMO()) // so the dashboards' promo memo is laid out too
     if (p.startsWith('/rest/v1/rpc/')) { log('rpc ' + p); return json(null) }
     if (p.startsWith('/storage/')) return json({ error: 'offline' }, 404)
     if (p.startsWith('/rest/v1/')) {

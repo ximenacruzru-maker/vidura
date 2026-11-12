@@ -4,6 +4,7 @@
 import { supabase } from '../supabase'
 import { getBookPolicies, type Account } from '../books'
 import { commRecalc } from './commission'
+import type { LifePromo } from '../lifePromo'
 
 export type Json = Record<string, any>
 
@@ -51,6 +52,7 @@ export interface PerfData {
   DASH_SOURCE: Record<string, string>
   COMM_METRICS: Record<string, string>
   COMM_SEED: Json
+  LIFE_PROMO?: LifePromo
   COMM_RESULTS: Record<string, { plan: Json; results: Record<string, Json> }>
   LIVE_FOLIO_ROWS: Record<string, FolioRow[]>
   METRIC_DEFS: Record<string, [string, string][]>
@@ -62,7 +64,7 @@ export interface PerfData {
 
 const REF_KEYS = ['FARMERS_DECS', 'RETAIL_DOCS', 'RB_LINES', 'CHART', 'BOOK_TAB', 'BOOK_NAME', 'GOALS', 'PERIODS', 'SALES_PERIODS', 'EXEC_PROD_WINDOWS',
   'WB_DATA', 'WB_EXTRA', 'AZ_REPORTS', 'COMM_SEED', 'COMM_RESULTS', 'LIVE_FOLIO_ROWS', 'METRIC_DEFS', 'DASH_DEF_KEY', 'THEMES', 'FONTS', 'S',
-  'REPORT_TABS', 'METRIC_ORDER', 'METRIC_ICON', 'METRIC_TONE', 'REP_BOOKS', 'DASH_TONE', 'DASH_SOURCE', 'COMM_METRICS']
+  'REPORT_TABS', 'METRIC_ORDER', 'METRIC_ICON', 'METRIC_TONE', 'REP_BOOKS', 'DASH_TONE', 'DASH_SOURCE', 'COMM_METRICS', 'LIFE_PROMO']
 /** Saved copies of the books, used only when the live book tables can't be read (same fallback as loader.js). */
 const BOOK_SNAPSHOT_KEYS = ['DATA', 'CB_BINDERS', 'RB']
 

@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuth } from '../auth'
-import { Empty, ErrorBox, Loading, PageHead, Panel, Search, Tabs, Tile, Tiles } from '../components/ui'
+import { Empty, ErrorBox, Loading, PageHead, Panel, Search, Tabs } from '../components/ui'
 import { daysUntil } from '../lib/books'
 import { can } from '../lib/access'
 import { isAdmin } from '../lib/data'
@@ -8,7 +8,7 @@ import { mdy, todayPacific } from '../lib/format'
 import { downloadSheet } from '../lib/excelExport'
 import { supabase } from '../lib/supabase'
 import { useAsync } from '../lib/useAsync'
-import WorkActivity, { doneDay } from './WorkActivity'
+import WorkActivity, { WorkStats, doneDay } from './WorkActivity'
 
 export interface WorkItem { id: number; created_by?: string | null; area: string; name: string; kind: string | null; priority: string; entered: string | null; due: string | null; owner: string | null; status: string; note: string | null; source: string; completed_at?: string | null; completed_by?: string | null }
 export const STATUSES = ['Not started', 'In Process', 'Waiting on client', 'Completed']
@@ -33,6 +33,16 @@ export default function WorkQueue() {
   const [owner, setOwner] = useState('all')
   const [q, setQ] = useState('')
   const [draft, setDraft] = useState<Partial<WorkItem> | null>(null)
+  const [stats, setStats] = useState(false)
+  // on a phone the window scrolls under a pinned top bar, so the pinned counts sit just below it (its height varies by theme)
+  const [pinTop, setPinTop] = useState<number | undefined>(undefined)
+  useEffect(() => {
+    const tb = document.querySelector<HTMLElement>('.topbar')
+    const fit = () => setPinTop(tb && getComputedStyle(tb).position === 'sticky' && window.matchMedia('(max-width: 860px)').matches ? tb.offsetHeight : undefined)
+    fit(); window.addEventListener('resize', fit)
+    const ro = tb ? new ResizeObserver(fit) : null; if (tb) ro!.observe(tb)
+    return () => { window.removeEventListener('resize', fit); ro?.disconnect() }
+  }, [])
   const admin = isAdmin(me?.role)
   const manager = admin || can(me, 'work_manager') // whoever runs the queue sees and assigns everything
   const { data: work, error } = useAsync(getWork, [reload])
@@ -54,13 +64,17 @@ export default function WorkQueue() {
   const doneThisWeek = data.filter((w) => isDone(w) && (doneDay(w) || '') >= weekStart).length
   const areas = [...new Set(data.map((w) => w.area))].sort()
   const owners = [...new Set([...(people || []), ...(data.map((w) => w.owner).filter(Boolean) as string[])])].sort()
+  const late = (w: WorkItem) => { const d = daysUntil(w.due, today); return !isDone(w) && d != null && d < 0 }
   const rows = data
-    .filter((w) => (status === 'open' ? !isDone(w) : status === 'all' ? true : w.status === status))
+    .filter((w) => (status === 'open' ? !isDone(w) : status === 'all' ? true : status === 'overdue' ? late(w) : status === 'today' ? !isDone(w) && w.due === today
+      : status === 'done' ? isDone(w) : w.status === status))
     .filter((w) => area === 'all' || w.area === area)
     .filter((w) => owner === 'all' || w.owner === owner)
     .filter((w) => !q || `${w.name} ${w.note} ${w.owner} ${w.area} ${w.kind}`.toLowerCase().includes(q.toLowerCase()))
-    // open work first (by due date), then completed work, most recently completed first
-    .sort((a, b) => (isDone(a) !== isDone(b) ? (isDone(a) ? 1 : -1) : isDone(a) ? (b.completed_at || '').localeCompare(a.completed_at || '') : 0))
+    // newest first: open work by when it was entered (newest on top), then completed work, most recently completed first
+    .sort((a, b) => (isDone(a) !== isDone(b) ? (isDone(a) ? 1 : -1)
+      : isDone(a) ? (b.completed_at || '').localeCompare(a.completed_at || '') || b.id - a.id
+      : (b.entered || '').localeCompare(a.entered || '') || b.id - a.id))
 
   const patch = async (id: number, p: Partial<WorkItem>) => {
     const { error } = await supabase.from('work_items').update({ ...p, updated_at: new Date().toISOString() }).eq('id', id)
@@ -82,16 +96,27 @@ export default function WorkQueue() {
   return (
     <>
       {head}
-      <Tiles>
-        <Tile label="Open" value={open.length} sub={`across ${new Set(open.map((w) => w.area)).size} areas`} />
-        <Tile label="Overdue" value={overdue.length} sub={overdue[0]?.due ? 'oldest due ' + mdy(overdue[0].due) : 'nothing past due'} tone={overdue.length ? 'warn' : 'good'} />
-        <Tile label="Due today" value={dueToday.length} />
-        <Tile label="Completed" value={data.length - open.length} sub={`${doneThisWeek} this week · ${data.length} items on record`} />
-      </Tiles>
-      <Tabs tabs={[{ key: 'queue' as const, label: 'Queue' }, { key: 'activity' as const, label: 'Activity report' }]} value={tab} onChange={setTab} />
+      {/* the counts stay pinned at the top while the list scrolls; each one filters the queue */}
+      <div className="wq-sticky" style={pinTop != null ? { top: pinTop } : undefined}>
+        <div className="wq-stats">
+          {([['open', 'Open', open.length, `across ${new Set(open.map((w) => w.area)).size} areas`, ''],
+            ['overdue', 'Overdue', overdue.length, overdue.length ? 'oldest due ' + mdy([...overdue].sort((a, b) => (a.due! < b.due! ? -1 : 1))[0].due!) : 'nothing past due', overdue.length ? 'warn' : 'good'],
+            ['today', 'Due today', dueToday.length, dueToday.length ? 'due ' + mdy(today) : 'nothing due today', ''],
+            ['done', 'Completed', data.length - open.length, `${doneThisWeek} this week`, 'good']] as const).map(([k, l, v, sub, tone]) => (
+            <button key={k} className={'wq-stat' + (tone ? ' wq-' + tone : '') + (tab === 'queue' && status === k ? ' on' : '')} onClick={() => { setTab('queue'); setStatus(status === k ? 'all' : k) }} aria-pressed={tab === 'queue' && status === k}>
+              <span className="wq-stat-l">{l}</span><b className="wq-stat-v">{v}</b><span className="wq-stat-s">{sub}</span>
+            </button>
+          ))}
+        </div>
+        <div className="wq-bar">
+          <Tabs tabs={[{ key: 'queue' as const, label: 'Queue' }, { key: 'activity' as const, label: 'Activity report' }]} value={tab} onChange={setTab} />
+          <button className="btn-primary wq-stats-btn" onClick={() => setStats(true)}>📊 Who closed what</button>
+        </div>
+      </div>
+      <WorkStats open={stats} onClose={() => setStats(false)} work={data} manager={manager} />
       {tab === 'activity' ? <WorkActivity work={data} owners={owners} manager={manager} /> : <Panel title="Queue" sub={`${rows.length} shown`} right={
         <div className="filters">
-          <select value={status} onChange={(e) => setStatus(e.target.value)}><option value="open">Open</option><option value="all">All</option>{STATUSES.map((s) => <option key={s}>{s}</option>)}</select>
+          <select value={status} onChange={(e) => setStatus(e.target.value)}><option value="all">All</option><option value="open">Open</option><option value="overdue">Overdue</option><option value="today">Due today</option><option value="done">Completed (all)</option>{STATUSES.map((s) => <option key={s}>{s}</option>)}</select>
           <select value={area} onChange={(e) => setArea(e.target.value)}><option value="all">All areas</option>{areas.map((a) => <option key={a}>{a}</option>)}</select>
           <select value={owner} onChange={(e) => setOwner(e.target.value)}><option value="all">Everyone</option>{owners.map((a) => <option key={a}>{a}</option>)}</select>
           <Search value={q} onChange={setQ} />
@@ -116,7 +141,7 @@ export default function WorkQueue() {
           </div>
         )}
         {rows.length ? (
-          <div className="tbl-wrap">
+          <div className="tbl-wrap wq-tbl">
             <table className="tbl">
               <thead><tr><th>Item</th><th>Priority</th><th>Due</th><th>Owner</th><th>Status</th><th /></tr></thead>
               <tbody>

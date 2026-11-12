@@ -45,15 +45,43 @@ function metric(res: any, m: string) {
   if (m && m.startsWith("bucket:")) return res.buckets[m.slice(7)]?.premium || 0;
   return 0;
 }
+// ---------------- Year-End Life Promo (reference_data lg:LIFE_PROMO; same rules as src/lib/lifePromo.ts) -------
+// A life policy written during the promo is paid a share of its premium set by the team's issued & paid count when
+// it was written (the count on the start date plus every life policy written since, in date order), whether or not
+// the producer qualifies, instead of its bucket's rate. It still counts toward qualification and the tier.
+type Promo = { name: string; from: string; to: string; baseline: number; tiers: { after: number; rate: number }[] };
+const isLife = (r: { line?: string; carrier?: string }) => /life/i.test(String(r.line || "")) || /life/i.test(String(r.carrier || ""));
+const caseKey = (r: { sale_date: string; client: string; premium: number }) => `${r.sale_date}|${String(r.client || "").trim().toLowerCase()}|${Math.round(r.premium * 100)}`;
+function promoCases(p: Promo, life: Row[]) {
+  const tiers = [...p.tiers].sort((a, b) => a.after - b.after);
+  const out = new Map<string, { n: number; rate: number }>();
+  [...life].filter((r) => r.sale_date >= p.from && r.sale_date <= p.to)
+    .sort((a, b) => a.sale_date.localeCompare(b.sale_date) || String(a.client).localeCompare(String(b.client)) || a.premium - b.premium)
+    .forEach((r, i) => {
+      const n = (Number(p.baseline) || 0) + i + 1;
+      let rate = 0; for (const t of tiers) if (n > Number(t.after)) rate = Number(t.rate) || 0;
+      out.set(caseKey(r), { n, rate });
+    });
+  return out;
+}
+type PromoRate = { label: string; cases: Map<string, { n: number; rate: number }> };
+
 const test = (op: string, a: number, b: number) => op === ">=" ? a >= b : op === ">" ? a > b : op === "<=" ? a <= b : op === "<" ? a < b : a === b;
 
-function compute(plan: any, rows: Row[]) {
+function compute(plan: any, rows: Row[], promo?: PromoRate) {
   const out: Record<string, any> = {};
   for (const r of rows) {
     const p = r.producer || "Unassigned";
-    const res = out[p] ||= { producer: p, buckets: {}, life: 0, totalPremium: 0, policies: 0, rows: [] as any[] };
+    const res = out[p] ||= { producer: p, buckets: {}, life: 0, totalPremium: 0, policies: 0, rows: [] as any[], promo: 0 };
     for (const b of plan.buckets) res.buckets[b.key] ||= { key: b.key, label: b.label, premium: 0, commission: 0, rate: 0 };
     const b = bucketOf(plan, r);
+    const pr = promo && isLife(r) ? promo.cases.get(caseKey(r)) : undefined;
+    if (pr) {
+      res.promo += r.premium * pr.rate;
+      res.totalPremium += r.premium; res.policies++; res.life += lifeWeight(plan, r);
+      res.rows.push({ ...r, bucket: `Life promo ${Math.round(pr.rate * 100)}% (case #${pr.n})` });
+      continue;
+    }
     res.buckets[b.key].premium += r.premium;
     res.totalPremium += r.premium;
     res.policies++;
@@ -79,6 +107,7 @@ function compute(plan: any, rows: Row[]) {
       const amt = ok ? basisV * (Number(bn.rate) || 0) : 0;
       res.bonuses[bn.label || bn.key] = amt; res.total += amt;
     }
+    if (res.promo) { res.bonuses[promo!.label] = res.promo; res.total += res.promo; }
     const rule = (plan.splits?.rules || []).find((x: any) => x.producer && x.producer.toLowerCase() === res.producer.toLowerCase());
     res.splitShare = rule ? Number(rule.share) || 1 : plan.splits?.defaultShare || 1;
     if (res.splitShare !== 1) { res.totalBeforeSplit = res.total; res.total *= res.splitShare; }
@@ -133,7 +162,24 @@ Deno.serve(async (req) => {
     if (!data || data.length < 1000) break;
   }
 
-  let results = compute(planRow.plan, rows);
+  // the life promo numbers every life policy written during it, across all producers, so read them all from its start
+  let promo: PromoRate | undefined;
+  const { data: pref } = await admin.from("reference_data").select("data").eq("agency_id", A).eq("key", "lg:LIFE_PROMO").maybeSingle();
+  const P = pref?.data as Promo | undefined;
+  if (P && P.from && P.to && P.from <= end && P.to >= folio.start_date) {
+    const life: Row[] = [];
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await admin.from("policies_sold").select("client, carrier, line, premium, producer, sale_date")
+        .eq("agency_id", A).gte("sale_date", P.from).lte("sale_date", end < P.to ? end : P.to)
+        .or("line.ilike.%life%,carrier.ilike.%life%").range(from, from + 999);
+      if (error) return json({ error: error.message }, 500);
+      for (const r of data || []) life.push({ ...r, premium: Number(r.premium) || 0 } as Row);
+      if (!data || data.length < 1000) break;
+    }
+    promo = { label: P.name || "Life promo", cases: promoCases(P, life) };
+  }
+
+  let results = compute(planRow.plan, rows, promo);
   if (!seesAll) results = results.filter((r: any) => r.producer.toLowerCase() === String(me.producer_name || "").toLowerCase());
 
   return json({

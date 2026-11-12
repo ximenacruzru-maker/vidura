@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../auth'
 import ironwoodLogo from '../../assets/ironwood-logo.png'
 import { ErrorBox, Loading } from '../../components/ui'
+import LifePromoBanner from '../../components/LifePromoBanner'
 import { loadPerfData, saveGoals, type PerfData } from '../../lib/perf/data'
 import { useSyncStamp } from '../../lib/syncEvents'
 import { farmersRevenue } from '../../lib/perf/farmersRevenue'
@@ -77,6 +78,7 @@ export function Dashboard({ D }: { D: PerfData }) {
 
   return (
     <div ref={root} className={'xd' + (components ? ' dr-open' : '')} style={look.style} data-mode={look.dark ? 'dark' : 'light'}>
+      <LifePromoBanner />
       <div className="pagehead">
         {brand && <div className="xd-brand"><img src={brand} alt={me?.agency?.name || 'Agency logo'} /></div>}
         <div className="hd-titles">
