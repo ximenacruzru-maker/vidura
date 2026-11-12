@@ -1704,3 +1704,46 @@ html[data-theme="christmas"] .wq-sticky { padding-top: 32px; }
 /* the executive dashboard sets its own type; keep the memo's */
 .xd .lp { margin: 18px 34px 0; font-family: inherit; }
 @container xd (max-width: 820px) { .xd .lp { margin: 12px 18px 0; } }
+
+/* ---------- life-sale celebration: balloons, confetti and the producer's name over every page ---------- */
+.lc { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: flex-start; justify-content: center; padding: 70px 16px 16px;
+  background: radial-gradient(ellipse at top, rgba(20, 16, 60, .55), rgba(10, 8, 30, .35) 60%, rgba(10, 8, 30, .15)); animation: lc-fade .35s ease-out; cursor: pointer; }
+.lc-sky { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.lc-balloon { position: absolute; bottom: -140px; width: var(--s); height: calc(var(--s) * 1.22); border-radius: 50% 50% 48% 52% / 55% 55% 45% 45%;
+  background: radial-gradient(circle at 32% 28%, rgba(255, 255, 255, .75) 0 7%, transparent 18%), var(--c); box-shadow: inset -6px -10px 0 rgba(0, 0, 0, .12);
+  animation: lc-rise linear forwards; }
+.lc-knot { position: absolute; left: 50%; bottom: -5px; width: 10px; height: 8px; transform: translateX(-50%); background: var(--c); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.lc-string { position: absolute; left: 50%; top: 100%; width: 1.5px; height: 70px; background: rgba(255, 255, 255, .7); transform-origin: top; animation: lc-string 1.4s ease-in-out infinite alternate; }
+.lc-conf { position: absolute; top: -20px; height: 12px; border-radius: 2px; opacity: .95; animation: lc-fall linear forwards; }
+.lc-card { position: relative; z-index: 1; width: min(520px, 100%); padding: 26px 28px 22px; border-radius: 22px; text-align: center; color: #1b1440; cursor: default;
+  background: linear-gradient(160deg, #fffdf5, #fff4d6); box-shadow: 0 24px 60px rgba(0, 0, 0, .35), 0 0 0 4px #ffd60a, 0 0 0 9px rgba(255, 214, 10, .35);
+  animation: lc-pop .6s cubic-bezier(.2, 1.4, .4, 1); }
+.lc-kicker { margin: 0; font-size: 15px; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; color: #e63972; animation: lc-wiggle 1s ease-in-out infinite; }
+.lc-name { margin: 8px 0 2px; font-size: 38px; line-height: 1.05; font-weight: 900; letter-spacing: -.01em;
+  background: linear-gradient(90deg, #6b2fa3, #e63972, #ff8a00, #6b2fa3); background-size: 300% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: lc-shimmer 3s linear infinite; }
+.lc-what { margin: 0; font-size: 16px; font-weight: 600; color: #4a3f6b; }
+.lc-earn { display: grid; gap: 2px; margin: 16px auto 4px; padding: 12px 16px; max-width: 320px; border-radius: 16px; background: #1b1440; color: #fff; }
+.lc-earn b { font-size: 40px; font-weight: 900; line-height: 1.05; color: #7dffb5; animation: lc-count .9s cubic-bezier(.2, 1.4, .4, 1) .3s both; }
+.lc-earn small { font-size: 12.5px; color: rgba(255, 255, 255, .78); }
+.lc-team { margin: 12px 0 0; font-size: 14px; color: #4a3f6b; }
+.lc-close { margin-top: 16px; padding: 10px 22px; border: 0; border-radius: 999px; font-weight: 800; font-size: 15px; color: #3a2300; cursor: pointer;
+  background: linear-gradient(90deg, #ffd76a, #ffb347); box-shadow: 0 4px 0 #d18a1f; }
+.lc-close:active { transform: translateY(2px); box-shadow: 0 2px 0 #d18a1f; }
+@keyframes lc-fade { from { opacity: 0; } }
+@keyframes lc-pop { 0% { opacity: 0; transform: scale(.4) translateY(-40px); } 100% { opacity: 1; transform: none; } }
+@keyframes lc-rise { 0% { transform: translate(0, 0); } 25% { transform: translate(calc(var(--sway) * 18px), -30vh); } 50% { transform: translate(calc(var(--sway) * -14px), -62vh); } 100% { transform: translate(calc(var(--sway) * 22px), -125vh); } }
+@keyframes lc-string { from { transform: rotate(-8deg); } to { transform: rotate(8deg); } }
+@keyframes lc-fall { 0% { transform: translateY(0) rotate(0); } 100% { transform: translateY(110vh) rotate(720deg); } }
+@keyframes lc-wiggle { 0%, 100% { transform: rotate(-2deg); } 50% { transform: rotate(2deg) scale(1.05); } }
+@keyframes lc-shimmer { to { background-position: 300% 0; } }
+@keyframes lc-count { from { opacity: 0; transform: scale(.3); } }
+@media (prefers-reduced-motion: reduce) {
+  .lc, .lc-card, .lc-kicker, .lc-name, .lc-earn b, .lc-string { animation: none; }
+  .lc-balloon, .lc-conf { display: none; }
+}
+@media (max-width: 760px) {
+  .lc { padding-top: 40px; }
+  .lc-card { padding: 22px 18px 18px; }
+  .lc-name { font-size: 30px; }
+  .lc-earn b { font-size: 34px; }
+}
