@@ -15,6 +15,7 @@ import SyncControl from './SyncControl'
 import DeclaraAI from './DeclaraAI'
 import { ViewAsBanner, ViewAsSwitcher } from './ViewAs'
 import ForesightAI from './ForesightAI'
+import LifeCelebration from './LifeCelebration'
 
 type Item = { h: string } | { div: true } | { to: string; label: string; icon: string; show: boolean; also?: string[] }
 
@@ -89,6 +90,7 @@ export default function Layout({ children }: { children: ReactNode }) {
 
   return (
     <div className="shell">
+      <LifeCelebration />
       {drawer && <div className="side-scrim" onClick={() => setDrawer(false)} aria-hidden="true" />}
       <aside className={'side' + (drawer ? ' open' : '')} id="side-nav">
         <div className="side-brand">
