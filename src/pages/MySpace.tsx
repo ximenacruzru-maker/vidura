@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth'
 import LifePromoBanner from '../components/LifePromoBanner'
+import ReportsMemo from '../components/ReportsMemo'
+import { MyCallList } from './CallLists'
 import { ErrorBox, Loading, PageHead, Panel, Tile, Tiles } from '../components/ui'
 import { daysUntil, getBookPolicies } from '../lib/books'
 import { getFolios, getPolicies, getQuotes, isAdmin, type Folio, type Policy, type QuoteLead } from '../lib/data'
@@ -103,6 +105,8 @@ export default function MySpace() {
     <>
       <LifePromoBanner />
       {head}
+      {admin && <ReportsMemo />}
+      <MyCallList name={me?.producer_name || me?.display_name || ''} />
       {retentionRole ? <RetentionTiles name={me?.producer_name || me?.display_name || ''} /> : <>
       <Tiles>
         <Tile label={`${who} quoted pipeline · this folio`} value={money0(prem(pipeFolio))}
