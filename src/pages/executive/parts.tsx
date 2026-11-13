@@ -247,3 +247,48 @@ export function Donut({ rows, colors = DONUT, center, centerSub }: { rows: { lab
     </div>
   )
 }
+
+/** Premium written so far, added up day by day across the window, against the goal: the running total, a dashed line
+ *  at the goal, and a dotted "on pace" line from nothing on the first day to the goal on the last. */
+export function RunningChart({ title, start, end, points, goal, noGoal }: { title: string; start: string; end: string; points: { date: string; value: number }[]; goal: number | null; noGoal?: string }) {
+  const day = (iso: string) => Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)) / 864e5
+  const d0 = day(start), d1 = Math.max(day(end), d0 + 1)
+  let run = 0
+  const pts = [...points].sort((a, b) => a.date.localeCompare(b.date)).filter((p) => p.date >= start && p.date <= end).map((p) => ({ x: day(p.date), y: (run += p.value || 0) }))
+  const total = run
+  const last = pts.length ? pts[pts.length - 1].x : d0
+  const top = Math.max(total, goal || 0, 1) * 1.1
+  const W = 560, H = 210, L = 54, R = 16, T = 14, B = 26
+  const X = (x: number) => L + ((x - d0) / (d1 - d0)) * (W - L - R), Y = (y: number) => T + (1 - y / top) * (H - T - B)
+  const line = [`${X(d0)},${Y(0)}`, ...pts.flatMap((p, i) => [`${X(p.x)},${Y(i ? pts[i - 1].y : 0)}`, `${X(p.x)},${Y(p.y)}`]), `${X(last)},${Y(total)}`].join(' ')
+  const area = `${line} ${X(last)},${Y(0)}`
+  const k = (v: number) => (v >= 1000 ? '$' + (Math.round(v / 100) / 10).toString().replace(/\.0$/, '') + 'k' : '$' + Math.round(v))
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => f * top)
+  const elapsed = Math.max(1, last - d0 + 1), span = d1 - d0 + 1
+  const projected = total && last < d1 ? (total / elapsed) * span : null
+  const label = (iso: string) => iso.slice(5).replace('-', '/')
+  const mid = new Date((d0 + (d1 - d0) / 2) * 864e5).toISOString().slice(0, 10)
+  return (
+    <div className="panel">
+      <div className="panel-h"><div><div className="panel-t">{title}</div>
+        <div className="panel-s">{money0(total)} written{goal ? ` of ${money0(goal)} · ${Math.round((total / goal) * 100)}% of goal` : ''}{projected ? ` · on pace for ${money0(projected)}` : ''}</div></div></div>
+      <div className="panel-b">
+        <svg className="rchart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Running total ${money0(total)}${goal ? ' against a goal of ' + money0(goal) : ''}`}>
+          <defs><linearGradient id="rc-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="var(--mid, #4d60ff)" stopOpacity=".35" /><stop offset="1" stopColor="var(--mid, #4d60ff)" stopOpacity="0" /></linearGradient></defs>
+          {ticks.map((t, i) => <g key={i}><line x1={L} x2={W - R} y1={Y(t)} y2={Y(t)} className="rc-grid" /><text x={L - 8} y={Y(t) + 3.5} textAnchor="end" className="rc-ax">{k(t)}</text></g>)}
+          {goal ? <>
+            <line x1={X(d0)} y1={Y(0)} x2={X(d1)} y2={Y(goal)} className="rc-pace" />
+            <line x1={L} x2={W - R} y1={Y(goal)} y2={Y(goal)} className="rc-goal" />
+            <text x={W - R} y={Y(goal) - 6} textAnchor="end" className="rc-goal-t">Goal {money0(goal)}</text>
+          </> : null}
+          <polygon points={area} fill="url(#rc-fill)" />
+          <polyline points={line} className="rc-line" />
+          <circle cx={X(last)} cy={Y(total)} r="5" className="rc-dot" />
+          <text x={Math.min(X(last) + 8, W - R - 60)} y={Y(total) - 9} className="rc-val">{money0(total)}</text>
+          {[start, mid, end].map((d, i) => <text key={i} x={i === 0 ? L : i === 2 ? W - R : X(day(d))} y={H - 7} textAnchor={i === 0 ? 'start' : i === 2 ? 'end' : 'middle'} className="rc-ax">{label(d)}</text>)}
+        </svg>
+        {!goal && <div className="rc-note">{noGoal || 'No premium goal is set: set one with Edit Goals to see the goal and the pace.'}</div>}
+      </div>
+    </div>
+  )
+}

@@ -9,7 +9,7 @@ import { useSyncStamp } from '../../lib/syncEvents'
 import { farmersRevenue } from '../../lib/perf/farmersRevenue'
 import { computeExecutive, execProduction, folioOptions, execRows, isFarmersCarrier, money0, today, type Book, type Client, type Drill, type Filters, type Row } from '../../lib/perf/executive'
 import { useAsync } from '../../lib/useAsync'
-import { Bars, DayChart, Donut, ICO, Meter, RenewalChart, ScoreCard } from './parts'
+import { Bars, DayChart, Donut, ICO, Meter, RenewalChart, RunningChart, ScoreCard } from './parts'
 import { useDarkFix, useFitFigures, useLegacyLook } from './look'
 import VsLastYear from './VsLastYear'
 import RetentionReport from './RetentionReport'
@@ -312,6 +312,8 @@ function Production({ D, win, setWin, range, setRange, goals }: {
   if (byC.length > 6) { const tail = byC.slice(5); byC = byC.slice(0, 5).concat([{ label: 'Other (' + tail.length + ')', value: tail.reduce((a, s) => a + s.value, 0) }]) }
   const byP = Object.entries(P.byP).sort((a, b) => b[1].p - a[1].p).map(([label, v]) => ({ label, value: v.p }))
   const rep = D.AZ_REPORTS[D.REPORT_DEFAULT_FOLIO] || {}
+  // a single-folio window: the goal and the pace run to the folio's last day
+  const oneFolio = P.folios.length === 1 ? (D.WB_DATA.folio[P.folios[0]] as { start: string; end: string } | undefined) : undefined
   return (
     <div className="panel" style={{ marginBottom: 16 }}>
       <div className="panel-h">
@@ -354,7 +356,13 @@ function Production({ D, win, setWin, range, setRange, goals }: {
           <div className="panel"><div className="panel-h"><div><div className="panel-t">Premium by producer</div><div className="panel-s">Share of written premium</div></div></div>
             <div className="panel-b">{byP.length ? <Donut rows={byP} colors={['#4d60ff', '#01BCAF', '#F79009', '#12B76A', '#8b5cf6', '#FE454E']} /> : <div className="empty">No sales in this window.</div>}</div></div>
         </div>
-        <div style={{ marginTop: 14 }}><DayChart title="Written by day" sub={P.r.label} money series={P.byDay.slice(-31)} /></div>
+        {/* left: the running total against the folio goal; right: each day's premium */}
+        <div className="p2 xd-written" style={{ marginTop: 14 }}>
+          <RunningChart title="Running total vs goal" start={P.r.start} end={oneFolio?.end && oneFolio.end > P.r.end ? oneFolio.end : P.r.end} goal={oneFolio ? gPrem || null : null}
+            noGoal={oneFolio ? undefined : 'The premium goal is a folio goal: pick a single folio in Window to see it and the pace.'}
+            points={P.sales.reduce((m: { date: string; value: number }[], x) => { const l = m[m.length - 1]; if (l && l.date === x.date) l.value += x.premium || 0; else m.push({ date: x.date, value: x.premium || 0 }); return m }, [])} />
+          <DayChart title="Written by day" sub={P.r.label} money series={P.byDay.slice(-31)} />
+        </div>
       </div>
     </div>
   )
