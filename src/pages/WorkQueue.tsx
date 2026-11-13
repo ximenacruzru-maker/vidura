@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { useAuth } from '../auth'
 import { Empty, ErrorBox, Loading, PageHead, Panel, Search, Tabs } from '../components/ui'
 import { daysUntil } from '../lib/books'
@@ -9,11 +9,20 @@ import { downloadSheet } from '../lib/excelExport'
 import { supabase } from '../lib/supabase'
 import { useAsync } from '../lib/useAsync'
 import WorkActivity, { WorkStats, doneDay } from './WorkActivity'
+import TeamRecap from '../components/TeamRecap'
 
 export interface WorkItem { id: number; created_by?: string | null; area: string; name: string; kind: string | null; priority: string; entered: string | null; due: string | null; owner: string | null; status: string; note: string | null; source: string; completed_at?: string | null; completed_by?: string | null }
 export const STATUSES = ['Not started', 'In Process', 'Waiting on client', 'Completed']
 const PRIS = ['Critical', 'High', 'Normal', 'Low']
 export const isDone = (w: WorkItem) => /complete|done|resolved|closed/i.test(w.status)
+
+/** a note on a work item: the running thread of what was done */
+export interface WorkNote { id: number; item_id: number; body: string; author: string | null; created_by: string | null; created_at: string }
+export async function getWorkNotes() {
+  const { data, error } = await supabase.from('work_item_notes').select('id, item_id, body, author, created_by, created_at').order('created_at').limit(5000)
+  return error ? [] : (data as WorkNote[])
+}
+const when = (iso: string) => new Date(iso).toLocaleString('en-US', { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 
 export async function getWork() {
   const { data, error } = await supabase.from('work_items').select('*').order('due', { ascending: true, nullsFirst: false }).limit(2000)
@@ -46,6 +55,10 @@ export default function WorkQueue() {
   const admin = isAdmin(me?.role)
   const manager = admin || can(me, 'work_manager') // whoever runs the queue sees and assigns everything
   const { data: work, error } = useAsync(getWork, [reload])
+  const [noteTick, setNoteTick] = useState(0)
+  const { data: notes } = useAsync(getWorkNotes, [reload, noteTick])
+  const [opened, setOpened] = useState<number | null>(null)
+  const notesOf = (id: number) => (notes || []).filter((n) => n.item_id === id)
   const { data: people } = useAsync(async () => {
     const { data } = await supabase.from('staff_directory').select('display_name')
     return ((data || []) as { display_name: string }[]).map((x) => x.display_name.split(' ')[0]).filter(Boolean)
@@ -110,7 +123,10 @@ export default function WorkQueue() {
         </div>
         <div className="wq-bar">
           <Tabs tabs={[{ key: 'queue' as const, label: 'Queue' }, { key: 'activity' as const, label: 'Activity report' }]} value={tab} onChange={setTab} />
-          <button className="btn-primary wq-stats-btn" onClick={() => setStats(true)}>📊 Who closed what</button>
+          <div className="wq-bar-r">
+            {manager && <TeamRecap className="btn-ghost wq-stats-btn" label="📧 Team recap" />}
+            <button className="btn-primary wq-stats-btn" onClick={() => setStats(true)}>📊 Who closed what</button>
+          </div>
         </div>
       </div>
       <WorkStats open={stats} onClose={() => setStats(false)} work={data} manager={manager} />
@@ -147,19 +163,24 @@ export default function WorkQueue() {
               <tbody>
                 {rows.map((w) => {
                   const d = daysUntil(w.due, today)
+                  const ns = notesOf(w.id), last = ns[ns.length - 1]
                   return (
-                    <tr key={w.id} className={isDone(w) ? 'wq-done' : undefined}>
+                    <Fragment key={w.id}>
+                    <tr className={isDone(w) ? 'wq-done' : undefined}>
                       <td><div className="strong">{w.name}</div><div className="sub">{w.area}{w.kind ? ' · ' + w.kind : ''}{w.note ? ' — ' + w.note : ''}</div>
+                        {last && opened !== w.id && <button type="button" className="wq-last" onClick={() => setOpened(w.id)}>💬 <b>{(last.author || 'Someone').split(' ')[0]}</b> {when(last.created_at)}: {last.body.length > 120 ? last.body.slice(0, 119) + '…' : last.body}</button>}
                         {isDone(w) && <div className="sub wq-done-by">✓ Completed{doneDay(w) ? ' ' + mdy(doneDay(w)!) : ''}{w.completed_by ? ' by ' + w.completed_by : ''}</div>}</td>
                       <td><span className={'pill ' + (/critical|urgent/i.test(w.priority) ? 'pill-bad' : /high/i.test(w.priority) ? 'pill-warn' : 'pill-muted')}>{w.priority}</span></td>
                       <td style={{ whiteSpace: 'nowrap' }}>{w.due ? mdy(w.due) : '—'} {!isDone(w) && d != null && d < 0 && <span className="pill pill-bad">late</span>}</td>
                       <td>{w.owner}{!manager && w.created_by === session?.user.id && !(w.owner || '').toLowerCase().startsWith(first) && <div className="sub">assigned by you</div>}</td>
                       <td><select value={STATUSES.includes(w.status) ? w.status : ''} onChange={(e) => patch(w.id, { status: e.target.value })}>{!STATUSES.includes(w.status) && <option value="">{w.status}</option>}{STATUSES.map((s) => <option key={s}>{s}</option>)}</select></td>
                       <td className="r" style={{ whiteSpace: 'nowrap' }}>
-                        <button className="linkbtn" onClick={() => setDraft(w)}>Edit</button>
+                        <button className={'linkbtn wq-nbtn' + (opened === w.id ? ' on' : '')} onClick={() => setOpened(opened === w.id ? null : w.id)} aria-expanded={opened === w.id}>💬 Notes{ns.length ? ` (${ns.length})` : ''}</button> · <button className="linkbtn" onClick={() => setDraft(w)}>Edit</button>
                         {admin && !isDone(w) && <> · <button className="linkbtn" onClick={() => remove(w.id)}>Delete</button></>}
                       </td>
                     </tr>
+                    {opened === w.id && <tr className="wq-notes-row"><td colSpan={6}><NotesThread item={w} notes={ns} me={session?.user.id} admin={admin} onChange={() => setNoteTick((n) => n + 1)} /></td></tr>}
+                    </Fragment>
                   )
                 })}
               </tbody>
@@ -168,5 +189,39 @@ export default function WorkQueue() {
         ) : <Empty>Nothing here.</Empty>}
       </Panel>}
     </>
+  )
+}
+
+/** The notes on one item: who wrote what and when, and a box to add one. */
+function NotesThread({ item, notes, me, admin, onChange }: { item: WorkItem; notes: WorkNote[]; me?: string; admin: boolean; onChange: () => void }) {
+  const [text, setText] = useState('')
+  const [busy, setBusy] = useState(false)
+  const add = async () => {
+    if (!text.trim()) return
+    setBusy(true)
+    const { error } = await supabase.from('work_item_notes').insert({ item_id: item.id, body: text.trim() })
+    setBusy(false)
+    if (error) alert(error.message); else { setText(''); onChange() }
+  }
+  const del = async (id: number) => {
+    if (!confirm('Delete this note?')) return
+    const { error } = await supabase.from('work_item_notes').delete().eq('id', id)
+    if (error) alert(error.message); else onChange()
+  }
+  return (
+    <div className="wq-notes">
+      {notes.length ? notes.map((n) => (
+        <div key={n.id} className="wq-note">
+          <div className="wq-note-h"><b>{n.author || 'Someone'}</b><span>{when(n.created_at)}</span>
+            {(admin || n.created_by === me) && <button type="button" className="linkbtn" onClick={() => del(n.id)} aria-label="Delete note">×</button>}</div>
+          <div className="wq-note-b">{n.body}</div>
+        </div>
+      )) : <div className="sub">No notes yet. Write what you did, what you’re waiting on, or the next step.</div>}
+      <div className="wq-note-add">
+        <textarea className="fld" rows={2} value={text} placeholder="Add a note: what you did, who you spoke to, what’s next" onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) add() }} aria-label={`Add a note to ${item.name}`} />
+        <button type="button" className="btn-primary" onClick={add} disabled={busy || !text.trim()}>{busy ? 'Saving…' : 'Add note'}</button>
+      </div>
+    </div>
   )
 }

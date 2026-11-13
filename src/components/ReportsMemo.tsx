@@ -6,6 +6,7 @@ import { callStats, getCallItems, groupLists } from '../pages/CallLists'
 import { addDays, mdy, todayPacific } from '../lib/format'
 import { supabase } from '../lib/supabase'
 import { useAsync } from '../lib/useAsync'
+import TeamRecap from './TeamRecap'
 
 interface RetCard { name: string; day: string; reviews: number; worked: number; reached: number; logged: number; kinds: Record<string, number> }
 const hasNotes = (r: { findings: string | null; notes: string | null }) => !!(r.findings?.trim() || r.notes?.trim())
@@ -47,6 +48,7 @@ export default function ReportsMemo() {
         <span className="rm-live"><i />Live</span>
         <p className="rm-title">📊 Team reports</p>
         <p className="rm-sub">Tap a card for the full report</p>
+        <span className="rm-recap"><TeamRecap className="rm-recap-btn" /></span>
       </div>
       <div className="rm-cards">
         {data.ret.map((r) => {
