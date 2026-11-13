@@ -5,8 +5,9 @@ import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../auth'
 import { Empty, ErrorBox, Loading, PageHead, Tile, Tiles } from '../components/ui'
-import { isAdmin } from '../lib/data'
-import { mdy } from '../lib/format'
+import { agencyName, isAdmin } from '../lib/data'
+import { mdy, todayPacific } from '../lib/format'
+import { downloadCallListPdf } from '../lib/callListPdf'
 import { supabase } from '../lib/supabase'
 import { useAsync } from '../lib/useAsync'
 
@@ -75,7 +76,13 @@ export function MyCallList({ name }: { name: string }) {
 }
 
 function CallListBlock({ list, onChange, report, compact }: { list: ReturnType<typeof groupLists>[number]; onChange: () => void; report?: boolean; compact?: boolean }) {
+  const { me } = useAuth()
   const s = callStats(list.rows)
+  const [busy, setBusy] = useState(false)
+  const pdf = async () => {
+    setBusy(true)
+    try { await downloadCallListPdf(list, todayPacific(), agencyName(me)) } catch (e) { alert('The report could not be made: ' + String((e as Error)?.message || e)) } finally { setBusy(false) }
+  }
   const [show, setShow] = useState<'todo' | 'done' | 'all'>(compact ? 'todo' : report ? 'all' : 'todo')
   const rows = list.rows.filter((r) => (show === 'all' ? true : show === 'todo' ? !r.result : !!r.result))
   const pct = s.total ? Math.round((s.called / s.total) * 100) : 0
@@ -86,7 +93,8 @@ function CallListBlock({ list, onChange, report, compact }: { list: ReturnType<t
           <div className="panel-t">📞 {list.name}</div>
           <div className="panel-s">{list.assignee} · list of {mdy(list.date)} · {s.called} of {s.total} called · {s.by.reached} reached{s.lastCall ? ` · last call ${new Date(s.lastCall).toLocaleString('en-US', { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })}` : ''}</div>
         </div>
-        <div className="cf-seg">{(['todo', 'done', 'all'] as const).map((k) => <button key={k} className={show === k ? 'on' : ''} onClick={() => setShow(k)}>{k === 'todo' ? `To call (${s.left})` : k === 'done' ? `Called (${s.called})` : `All (${s.total})`}</button>)}</div>
+        <div className="cl-acts"><button type="button" className="btn-ghost" onClick={pdf} disabled={busy}>{busy ? 'Making…' : '⬇ Download PDF'}</button>
+        <div className="cf-seg">{(['todo', 'done', 'all'] as const).map((k) => <button key={k} className={show === k ? 'on' : ''} onClick={() => setShow(k)}>{k === 'todo' ? `To call (${s.left})` : k === 'done' ? `Called (${s.called})` : `All (${s.total})`}</button>)}</div></div>
       </div>
       <div className="cl-bar" role="img" aria-label={`${pct}% called`}><i style={{ width: pct + '%' }} /></div>
       {report && (

@@ -1800,3 +1800,4 @@ html[data-theme="christmas"] .wq-sticky { padding-top: 32px; }
 @keyframes rm-ping { 0% { box-shadow: 0 0 0 0 rgba(125, 255, 181, .7); } 100% { box-shadow: 0 0 0 9px rgba(125, 255, 181, 0); } }
 @media (prefers-reduced-motion: reduce) { .rm, .rm-shine, .rm-card, .rm-bar i, .rm-live i { animation: none; } .rm-shine { display: none; } }
 @media (max-width: 760px) { .rm { padding: 14px 14px 16px; border-radius: 14px; } }
+.cl-acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
