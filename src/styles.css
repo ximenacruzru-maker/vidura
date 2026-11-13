@@ -1627,7 +1627,7 @@ tr.cf-off td { opacity: .55; }
   .wq-stat { padding: 5px 7px; border-radius: 9px; border-top-width: 2px; }
   .wq-stat-l { font-size: 9px; letter-spacing: .03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
   .wq-stat-v { font-size: 17px; }
-  .wq-bar { margin-top: 6px; flex-wrap: nowrap; }
+  .wq-bar { margin-top: 6px; flex-wrap: wrap; row-gap: 6px; }
   .wq-bar .tabs button { padding: 5px 11px; font-size: 13px; }
   .wq-stats-btn { padding: 6px 10px; font-size: 12.5px; white-space: nowrap; }
   .wq-stat-s { display: none; }
@@ -1801,3 +1801,30 @@ html[data-theme="christmas"] .wq-sticky { padding-top: 32px; }
 @media (prefers-reduced-motion: reduce) { .rm, .rm-shine, .rm-card, .rm-bar i, .rm-live i { animation: none; } .rm-shine { display: none; } }
 @media (max-width: 760px) { .rm { padding: 14px 14px 16px; border-radius: 14px; } }
 .cl-acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+/* ---------- Work & Tickets notes thread, and the team recap ---------- */
+.wq-bar-r { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.wq-last { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; max-width: 520px; margin-top: 4px; padding: 0; border: 0; background: none; text-align: left; font: inherit; font-size: 12.5px; color: var(--muted); cursor: pointer; overflow: hidden; white-space: normal; overflow-wrap: anywhere; }
+.wq-last b { color: var(--ink); }
+.wq-nbtn.on { font-weight: 800; }
+.wq-notes-row > td { background: var(--soft); padding: 10px 14px 14px; }
+.wq-notes { position: sticky; left: 14px; display: grid; gap: 8px; width: min(860px, calc(100vw - 72px)); white-space: normal; }
+.wq-note { padding: 8px 12px; border: 1px solid var(--line); border-left: 3px solid var(--blue); border-radius: 10px; background: var(--card); }
+.wq-note-h { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+.wq-note-h span { color: var(--muted); }
+.wq-note-h .linkbtn { margin-left: auto; font-size: 15px; line-height: 1; }
+.wq-note-b { margin-top: 3px; font-size: 13.5px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.wq-note-add { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; }
+@media (max-width: 860px) { .wq-note-add { grid-template-columns: 1fr; } }
+.tr-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-bottom: 10px; }
+.tr-day { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--muted); }
+.tr-day .fld { width: auto; }
+.tr-meta { font-size: 13px; color: var(--muted); }
+.tr-people { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.tr-chip { padding: 3px 10px; border-radius: 999px; font-size: 12.5px; background: var(--tint, var(--soft)); border: 1px solid var(--line); }
+.tr-text { min-height: 340px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; line-height: 1.45; white-space: pre; overflow: auto; }
+.tr-acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+.tr-note { margin: 8px 0 0; font-size: 12.5px; color: var(--muted); }
+.rm-recap { margin-left: auto; }
+.rm-recap-btn { border: 0; border-radius: 999px; padding: 7px 14px; font: inherit; font-size: 13px; font-weight: 800; color: #06302b; background: #7dffb5; cursor: pointer; box-shadow: 0 4px 12px rgba(0, 0, 0, .18); }
+.rm-recap-btn:hover { background: #a6ffcc; }
