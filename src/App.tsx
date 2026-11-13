@@ -31,6 +31,7 @@ const Agencies = lazy(() => import('./pages/Agencies'))
 const SalesKPIs = lazy(() => import('./pages/sales/SalesKPIs'))
 const DailyHuddle = lazy(() => import('./pages/huddle/DailyHuddle'))
 const Reports = lazy(() => import('./pages/reports/Reports'))
+const CallLists = lazy(() => import('./pages/CallLists'))
 const ClientPortal = lazy(() => import('./pages/client/ClientPortal'))
 const ClientPreview = lazy(() => import('./pages/client/ClientPreview'))
 
@@ -55,6 +56,7 @@ function Gate() {
             <Route path="/my-commissions" element={<MyCommissions />} />
             <Route path="/training" element={<Training />} />
             <Route path="/settings" element={<Settings />} />
+          {!trainee && <Route path="/call-lists" element={<CallLists />} />}
             <Route path="/password" element={<ChangePassword />} />
             <Route path="*" element={<Navigate to="/my-commissions" replace />} />
           </Routes>
@@ -79,6 +81,7 @@ function Gate() {
           {can(me, 'performance') && <Route path="/sdr" element={<Reports open="sdr" />} />}
           {can(me, 'performance') && <Route path="/foresight" element={<Foresight />} />}
           <Route path="/settings" element={<Settings />} />
+          {!trainee && <Route path="/call-lists" element={<CallLists />} />}
           {me.platform_admin && <Route path="/agencies" element={<Agencies />} />}
           <Route path="/team" element={<Navigate to="/settings" replace />} />
           <Route path="/password" element={<ChangePassword />} />
