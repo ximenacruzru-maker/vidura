@@ -1,8 +1,8 @@
 // The retention & book growth report as a PDF: what was done today, in the folio, in the month and in the year to date
 // — Net Book Movement, saves, cross-sell, new business, losses, service notes and the huddle numbers — with today's and the folio's
 // entries in full, the folio bonus and its gates, and the year month by month. For the person in the role and admins.
-// The daily huddle report (huddle: true) is the same report for one workday — the day before the huddle — with that
-// day's numbers, entries and talk track, and the folio, month and year as of that day; no bonus or yearly pages.
+// The daily huddle report (huddle: true) is the same full report for one workday — the day before the huddle — with
+// that day's numbers, entries and talk track, and the folio (bonus and gates), month and year as of that day.
 // Both show the day's renewal reviews (Retention › Daily renewal review): how many were completed, each client, the
 // result of the call and the notes.
 import { supabase } from './supabase'
@@ -40,7 +40,7 @@ export async function downloadRetentionPdf(name: string, folio: Period | null, t
   const rvCom = rvWorked.filter((x) => x.kind === 'commercial').length, comListed = reviews.filter((x) => x.kind === 'commercial').length
   // a day with commercial renewals assigned is measured against everything on that day's list
   const dayGoal = comListed ? reviews.length : REVIEW_GOAL
-  const bonus = folio && !huddle ? await folioBonus(name, staff?.bonus_tiers, folio, today) : null
+  const bonus = folio ? await folioBonus(name, staff?.bonus_tiers, folio, today) : null
 
   const w = window as unknown as { jspdf?: { jsPDF: new (o: object) => any } }
   if (!w.jspdf) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js')
@@ -122,7 +122,7 @@ export async function downloadRetentionPdf(name: string, folio: Period | null, t
   // ================= page 1 =================
   band(true); y = 140
 
-  if (!huddle) {
+  {
     // hero: Net Book Movement + the three parts
     const heroH = 104
     box(L, y, CW, heroH, C.soft, 10)
@@ -146,11 +146,10 @@ export async function downloadRetentionPdf(name: string, folio: Period | null, t
       txt(`${p.n} polic${p.n === 1 ? 'y' : 'ies'}`, x + 14, y + 74, 8, false, C.muted)
     })
     y += heroH + 8
-  } else y -= 10
+  }
 
-  // the huddle report is the renewal reviews only; the full report has the day's scorecard and log
-  if (!huddle) {
-  // today: goals as progress cards
+  {
+  // the day: goals as progress cards
   section(huddle ? `${dayName}’s work` : 'Today', us(today))
   const td = days.find((d) => d.day === today)
   const goals: { label: string; now: number; goal: number; show: string; good: boolean; c: RGB }[] = [
@@ -204,7 +203,7 @@ export async function downloadRetentionPdf(name: string, folio: Period | null, t
     })
     stroke(C.line); pdf.setLineWidth(0.8); pdf.line(L, y, R, y); y += 12
   }
-  if (!huddle) entries(log.filter((e) => e.day === today), 'Nothing logged today yet.')
+  entries(log.filter((e) => e.day === today), huddle ? `Nothing logged on ${dayName}.` : 'Nothing logged today yet.')
 
   // ---- huddle: the talk track, filled in from the day's renewal reviews ----
   if (huddle) {
@@ -262,7 +261,7 @@ export async function downloadRetentionPdf(name: string, folio: Period | null, t
   }
 
   // the periods side by side
-  if (!huddle) {
+  {
   section('At a glance', `${huddle ? dayName.toLowerCase() : 'today'} · folio · month · year to date`, 200)
   {
     const labelW = 168, cw = (CW - labelW) / periods.length
@@ -336,7 +335,7 @@ export async function downloadRetentionPdf(name: string, folio: Period | null, t
   }
 
   // ---- the year: a bar chart of Net Book Movement by month, then the numbers ----
-  if (!huddle) {
+  {
     section(`${year} month by month`, '', 180)
     const months = [...new Set([...log.map((e) => e.day.slice(0, 7)), ...days.map((d) => d.day.slice(0, 7))])].filter((m) => m.startsWith(year)).sort()
     if (!months.length) { box(L, y, CW, 22, C.soft, 6); txt('Nothing logged this year yet.', L + 12, y + 14.5, 9, false, C.muted); y += 30 }
