@@ -41,7 +41,8 @@ function Huddle({ D }: { D: PerfData }) {
 
   // the day
   const sales: Json[] = useMemo(() => [...((daily[day] || {}).sales || [])].sort((a, b) => (b.premium || 0) - (a.premium || 0)), [daily, day])
-  const quotes: Json[] = useMemo(() => [...((quotesByDay[day] || {}).leads || [])].sort((a, b) => (b.quotedPremium || 0) - (a.quotedPremium || 0)), [quotesByDay, day])
+  // quotes grouped by producer (A–Z), largest quote first within each producer
+  const quotes: Json[] = useMemo(() => [...((quotesByDay[day] || {}).leads || [])].sort((a, b) => String(a.producer || 'Unassigned').localeCompare(String(b.producer || 'Unassigned')) || (b.quotedPremium || 0) - (a.quotedPremium || 0)), [quotesByDay, day])
   const written = sales.reduce((s, r) => s + (Number(r.premium) || 0), 0)
   const quoted = quotes.reduce((s, r) => s + (Number(r.quotedPremium) || 0), 0)
   const customers = new Set(sales.map((r) => r.customerId || r.name)).size
@@ -56,15 +57,16 @@ function Huddle({ D }: { D: PerfData }) {
   const monthEnd = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10)
   let left = 0; for (let d = step(day, 1); d <= monthEnd; d = step(d, 1)) left++
 
-  // by producer: the day's quotes and sales, and the month to date
+  // by producer: the day's quotes and sales, and the folio to date (the month to date when no folio covers the day)
+  const ftdFrom = folio ? folio.start : monthFrom
   const producers = useMemo(() => {
-    const p: Record<string, { q: number; qp: number; n: number; prem: number; mtd: number }> = {}
-    const row = (k: string) => (p[k || 'Unassigned'] = p[k || 'Unassigned'] || { q: 0, qp: 0, n: 0, prem: 0, mtd: 0 })
+    const p: Record<string, { q: number; qp: number; n: number; prem: number; ftd: number }> = {}
+    const row = (k: string) => (p[k || 'Unassigned'] = p[k || 'Unassigned'] || { q: 0, qp: 0, n: 0, prem: 0, ftd: 0 })
     quotes.forEach((q) => { const r = row(q.producer); r.q++; r.qp += Number(q.quotedPremium) || 0 })
     sales.forEach((s) => { const r = row(s.producer); r.n++; r.prem += Number(s.premium) || 0 })
-    Object.entries(daily).filter(([d]) => d >= monthFrom && d <= day).forEach(([, v]) => (v.sales || []).forEach((s: Json) => { row(s.producer).mtd += Number(s.premium) || 0 }))
-    return Object.entries(p).sort((a, b) => b[1].prem - a[1].prem || b[1].mtd - a[1].mtd)
-  }, [quotes, sales, daily, monthFrom, day])
+    Object.entries(daily).filter(([d]) => d >= ftdFrom && d <= day).forEach(([, v]) => (v.sales || []).forEach((s: Json) => { row(s.producer).ftd += Number(s.premium) || 0 }))
+    return Object.entries(p).sort((a, b) => b[1].prem - a[1].prem || b[1].ftd - a[1].ftd)
+  }, [quotes, sales, daily, ftdFrom, day])
 
   // the month by day
   const days = Object.keys(daily).filter((d) => d >= monthFrom && d <= day)
@@ -136,16 +138,16 @@ function Huddle({ D }: { D: PerfData }) {
         {!calls.data ? <Loading what="Loading calls" /> : <PhoneActivity calls={calls.data} day={day} />}
       </Section>
 
-      <Section title="By producer" sub={`${weekday(day)} · and the month to date`}>
+      <Section title="By producer" sub={`${weekday(day)} · and the ${folio ? `folio to date (${mdy(folio.start).slice(0, 5)} – ${mdy(day).slice(0, 5)})` : 'month to date'}`}>
         {producers.length ? (
           <div className="tbl-wrap"><table className="rp-tbl">
-            <thead><tr><th>Producer</th><th className="r">Quotes</th><th className="r">Quoted $</th><th className="r">Policies</th><th className="r">Premium written</th><th className="r">MTD premium</th></tr></thead>
+            <thead><tr><th>Producer</th><th className="r">Quotes</th><th className="r">Quoted $</th><th className="r">Policies</th><th className="r">Premium written</th><th className="r">{folio ? 'Folio-to-date premium' : 'MTD premium'}</th></tr></thead>
             <tbody>
               {producers.map(([n, r]) => (
                 <tr key={n}><td className="strong">{n}</td><td className="r mono">{r.q}</td><td className="r mono">{money0(r.qp)}</td><td className="r mono">{r.n}</td>
-                  <td className={'r mono strong' + (r.prem ? ' up' : '')}>{money0(r.prem)}</td><td className="r mono">{money0(r.mtd)}</td></tr>
+                  <td className={'r mono strong' + (r.prem ? ' up' : '')}>{money0(r.prem)}</td><td className="r mono">{money0(r.ftd)}</td></tr>
               ))}
-              <tr className="rp-strong"><td>Total</td><td className="r mono">{quotes.length}</td><td className="r mono">{money0(quoted)}</td><td className="r mono">{sales.length}</td><td className="r mono up">{money0(written)}</td><td className="r mono">{money0(mtd.p)}</td></tr>
+              <tr className="rp-strong"><td>Total</td><td className="r mono">{quotes.length}</td><td className="r mono">{money0(quoted)}</td><td className="r mono">{sales.length}</td><td className="r mono up">{money0(written)}</td><td className="r mono">{money0((ftd || mtd).p)}</td></tr>
             </tbody>
           </table></div>
         ) : <div className="rp-empty">No quotes or sales on {mdy(day)}.</div>}
@@ -162,7 +164,7 @@ function Huddle({ D }: { D: PerfData }) {
         ) : <div className="rp-empty">Nothing written on {mdy(day)}.</div>}
       </Section>
 
-      <Section title="Quotes" sub={`${quotes.length} leads quoted on ${mdy(day)}`}>
+      <Section title="Quotes" sub={`${quotes.length} leads quoted on ${mdy(day)} · by producer`}>
         {quotes.length ? (
           <div className="tbl-wrap"><table className="rp-tbl">
             <thead><tr><th>Lead</th><th>Producer</th><th>Lines</th><th>Source</th><th className="r">Quoted</th></tr></thead>

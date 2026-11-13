@@ -730,3 +730,21 @@
 .xd .opp-tag-risk {background:#fde8e6;color:#b42318}
 .xd .opp-tag-quote {background:#e7efff;color:#1f4fd8}
 .xd tr.opp-risk td {background:rgba(220,38,38,.04)}
+/* running total vs goal (Production, left of Written by day) */
+.xd .xd-written {margin-bottom:0}
+.xd .xd-written > .panel {margin-bottom:0;height:100%}
+.xd .rchart {display:block;width:100%;height:auto;margin-top:6px;overflow:visible}
+.xd .rc-grid {stroke:#e7eff9;stroke-width:1}
+.xd .rc-ax {font-size:10px;fill:#4864ca}
+.xd .rc-line {fill:none;stroke:var(--dark,#2b48f3);stroke-width:2.5;stroke-linejoin:round}
+.xd .rc-dot {fill:var(--dark,#2b48f3);stroke:#fff;stroke-width:2}
+.xd .rc-val {font-size:12px;font-weight:800;fill:var(--dark,#2b48f3)}
+.xd .rc-goal {stroke:#12B76A;stroke-width:2;stroke-dasharray:7 5}
+.xd .rc-goal-t {font-size:11px;font-weight:800;fill:#0e9f57}
+.xd .rc-pace {stroke:#F79009;stroke-width:1.5;stroke-dasharray:2 4}
+.xd .rc-note {margin-top:6px;font-size:12px;color:var(--muted)}
+.xd[data-mode="dark"] .rc-grid {stroke:rgba(255,255,255,.08)}
+.xd[data-mode="dark"] .rc-ax {fill:#9fb0e8}
+.xd[data-mode="dark"] .rc-line, .xd[data-mode="dark"] .rc-dot {stroke:#8ea2ff}
+.xd[data-mode="dark"] .rc-dot {fill:#8ea2ff;stroke:#0f1530}
+.xd[data-mode="dark"] .rc-val {fill:#c8d2ff}
