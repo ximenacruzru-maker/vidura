@@ -249,44 +249,76 @@ export function Donut({ rows, colors = DONUT, center, centerSub }: { rows: { lab
 }
 
 /** Premium written so far, added up day by day across the window, against the goal: the running total, a dashed line
- *  at the goal, and a dotted "on pace" line from nothing on the first day to the goal on the last. */
-export function RunningChart({ title, start, end, points, goal, noGoal }: { title: string; start: string; end: string; points: { date: string; value: number }[]; goal: number | null; noGoal?: string }) {
+ *  at the goal, a dotted "on pace" line from nothing on the first day to the goal on the last, and the projection —
+ *  each working day left counts as the average day so far with the largest and smallest days left out (the plain
+ *  average when there are too few days; the same rule as the folio worksheet), so it moves every day as sales come in. */
+export function RunningChart({ title, start, end, today, points, goal, noGoal }: { title: string; start: string; end: string; today: string; points: { date: string; value: number }[]; goal: number | null; noGoal?: string }) {
   const day = (iso: string) => Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)) / 864e5
+  const iso = (n: number) => new Date(n * 864e5).toISOString().slice(0, 10)
   const d0 = day(start), d1 = Math.max(day(end), d0 + 1)
+  // each day's premium
+  const sums = new Map<string, number>()
+  points.filter((p) => p.date >= start && p.date <= end).forEach((p) => sums.set(p.date, (sums.get(p.date) || 0) + (Number(p.value) || 0)))
+  // the folio's working days (Monday–Friday, and any other day something was sold); a day has happened once it's
+  // before today, or it's today and something has been sold
+  const days: string[] = []
+  for (let n = d0; n <= d1; n++) { const s = iso(n), wd = new Date(n * 864e5).getUTCDay(); if ((wd !== 0 && wd !== 6) || sums.has(s)) days.push(s) }
+  const happened = (s: string) => s < today || (s === today && sums.has(s))
+  const done = days.filter(happened), left = days.filter((s) => !happened(s))
+  const vals = done.map((s) => sums.get(s) || 0)
+  const mx = Math.max(...vals), mn = Math.min(...vals)
+  const mid = vals.filter((v) => v < mx && v > mn)
+  const avg = mid.length ? mid.reduce((a, v) => a + v, 0) / mid.length : vals.length ? vals.reduce((a, v) => a + v, 0) / vals.length : 0
   let run = 0
-  const pts = [...points].sort((a, b) => a.date.localeCompare(b.date)).filter((p) => p.date >= start && p.date <= end).map((p) => ({ x: day(p.date), y: (run += p.value || 0) }))
+  const pts = done.filter((s) => sums.has(s)).map((s) => ({ x: day(s), y: (run += sums.get(s) || 0) }))
   const total = run
-  const last = pts.length ? pts[pts.length - 1].x : d0
-  const top = Math.max(total, goal || 0, 1) * 1.1
+  const last = done.length ? day(done[done.length - 1]) : d0
+  let proj = total
+  const fut = left.map((s) => ({ x: day(s), y: (proj += avg) }))
+  const projected = left.length ? proj : null
+  const need = goal && left.length ? Math.max(0, goal - total) / left.length : null
+  const top = Math.max(total, projected || 0, goal || 0, 1) * 1.1
   const W = 560, H = 210, L = 54, R = 16, T = 14, B = 26
   const X = (x: number) => L + ((x - d0) / (d1 - d0)) * (W - L - R), Y = (y: number) => T + (1 - y / top) * (H - T - B)
-  const line = [`${X(d0)},${Y(0)}`, ...pts.flatMap((p, i) => [`${X(p.x)},${Y(i ? pts[i - 1].y : 0)}`, `${X(p.x)},${Y(p.y)}`]), `${X(last)},${Y(total)}`].join(' ')
+  const step = (from: { x: number; y: number }, list: { x: number; y: number }[]) => [`${X(from.x)},${Y(from.y)}`, ...list.flatMap((p, i) => [`${X(p.x)},${Y(i ? list[i - 1].y : from.y)}`, `${X(p.x)},${Y(p.y)}`])].join(' ')
+  const line = step({ x: d0, y: 0 }, pts) + ` ${X(last)},${Y(total)}`
   const area = `${line} ${X(last)},${Y(0)}`
+  const projLine = fut.length ? step({ x: last, y: total }, fut) : ''
   const k = (v: number) => (v >= 1000 ? '$' + (Math.round(v / 100) / 10).toString().replace(/\.0$/, '') + 'k' : '$' + Math.round(v))
   const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => f * top)
-  const elapsed = Math.max(1, last - d0 + 1), span = d1 - d0 + 1
-  const projected = total && last < d1 ? (total / elapsed) * span : null
-  const label = (iso: string) => iso.slice(5).replace('-', '/')
-  const mid = new Date((d0 + (d1 - d0) / 2) * 864e5).toISOString().slice(0, 10)
+  const label = (d: string) => d.slice(5).replace('-', '/')
+  const middle = iso(Math.round(d0 + (d1 - d0) / 2))
   return (
     <div className="panel">
       <div className="panel-h"><div><div className="panel-t">{title}</div>
-        <div className="panel-s">{money0(total)} written{goal ? ` of ${money0(goal)} · ${Math.round((total / goal) * 100)}% of goal` : ''}{projected ? ` · on pace for ${money0(projected)}` : ''}</div></div></div>
+        <div className="panel-s">{money0(total)} written{goal ? ` of ${money0(goal)} · ${Math.round((total / goal) * 100)}% of goal` : ''}{projected != null ? ` · projected ${money0(projected)}` : ''}</div></div></div>
       <div className="panel-b">
-        <svg className="rchart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Running total ${money0(total)}${goal ? ' against a goal of ' + money0(goal) : ''}`}>
+        {left.length > 0 && (
+          <div className="rc-stats">
+            <div><b>{left.length}</b><span>working day{left.length === 1 ? '' : 's'} left</span></div>
+            <div><b>{money0(avg)}</b><span>average day{mid.length ? ' (largest & smallest left out)' : ''}</span></div>
+            <div><b>{money0(projected || 0)}</b><span>projected finish{goal ? ` · ${Math.round(((projected || 0) / goal) * 100)}% of goal` : ''}</span></div>
+            {need != null && <div className={need <= avg ? 'ok' : 'warn'}><b>{need ? money0(need) : '✓'}</b><span>{need ? 'needed a day for the goal' : 'goal reached'}</span></div>}
+          </div>
+        )}
+        <svg className="rchart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Running total ${money0(total)}${projected != null ? ', projected ' + money0(projected) : ''}${goal ? ' against a goal of ' + money0(goal) : ''}`}>
           <defs><linearGradient id="rc-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="var(--mid, #4d60ff)" stopOpacity=".35" /><stop offset="1" stopColor="var(--mid, #4d60ff)" stopOpacity="0" /></linearGradient></defs>
           {ticks.map((t, i) => <g key={i}><line x1={L} x2={W - R} y1={Y(t)} y2={Y(t)} className="rc-grid" /><text x={L - 8} y={Y(t) + 3.5} textAnchor="end" className="rc-ax">{k(t)}</text></g>)}
           {goal ? <>
             <line x1={X(d0)} y1={Y(0)} x2={X(d1)} y2={Y(goal)} className="rc-pace" />
             <line x1={L} x2={W - R} y1={Y(goal)} y2={Y(goal)} className="rc-goal" />
-            <text x={W - R} y={Y(goal) - 6} textAnchor="end" className="rc-goal-t">Goal {money0(goal)}</text>
+            <text x={L + 6} y={Y(goal) - 6} className="rc-goal-t">Goal {money0(goal)}</text>
           </> : null}
           <polygon points={area} fill="url(#rc-fill)" />
+          {projLine && <polyline points={projLine} className="rc-proj" />}
           <polyline points={line} className="rc-line" />
           <circle cx={X(last)} cy={Y(total)} r="5" className="rc-dot" />
-          <text x={Math.min(X(last) + 8, W - R - 60)} y={Y(total) - 9} className="rc-val">{money0(total)}</text>
-          {[start, mid, end].map((d, i) => <text key={i} x={i === 0 ? L : i === 2 ? W - R : X(day(d))} y={H - 7} textAnchor={i === 0 ? 'start' : i === 2 ? 'end' : 'middle'} className="rc-ax">{label(d)}</text>)}
+          <text x={Math.min(X(last) + 8, W - R - 60)} y={Y(total) + (projLine ? 16 : -9)} className="rc-val">{money0(total)}</text>
+          {fut.length > 0 && <><circle cx={X(fut[fut.length - 1].x)} cy={Y(proj)} r="4.5" className="rc-pdot" />
+            <text x={X(fut[fut.length - 1].x) - 8} y={Y(proj) - 9} textAnchor="end" className="rc-pval">Projected {money0(proj)}</text></>}
+          {[start, middle, end].map((d, i) => <text key={i} x={i === 0 ? L : i === 2 ? W - R : X(day(d))} y={H - 7} textAnchor={i === 0 ? 'start' : i === 2 ? 'end' : 'middle'} className="rc-ax">{label(d)}</text>)}
         </svg>
+        <div className="rc-key"><span className="k-act">Written</span>{left.length > 0 && <span className="k-proj">Projected (average day)</span>}{goal ? <><span className="k-goal">Goal</span><span className="k-pace">Even pace to the goal</span></> : null}</div>
         {!goal && <div className="rc-note">{noGoal || 'No premium goal is set: set one with Edit Goals to see the goal and the pace.'}</div>}
       </div>
     </div>
