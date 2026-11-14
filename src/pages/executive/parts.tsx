@@ -2,6 +2,8 @@
 // original screen one-for-one so the scoped legacy stylesheet (executive.css) styles them unchanged.
 import { Fragment, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { money0, type Bar, type Month } from '../../lib/perf/executive'
+import { createPortal } from 'react-dom'
+import { Drawer } from '../../components/ui'
 
 /* ---------- icons ---------- */
 const V = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round', viewBox: '0 0 24 24' } as const
@@ -288,10 +290,41 @@ export function RunningChart({ title, start, end, today, points, goal, noGoal }:
   const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => f * top)
   const label = (d: string) => d.slice(5).replace('-', '/')
   const middle = iso(Math.round(d0 + (d1 - d0) / 2))
+  // the worksheet, day by day: written or projected, the running total and the even pace to the goal
+  const [open, setOpen] = useState(false)
+  let cum = 0
+  const sheet = days.map((d, i) => {
+    const real = happened(d), v = real ? sums.get(d) || 0 : avg
+    cum += v
+    const out = real && vals.length > 2 && mid.length ? (v === mx ? 'largest' : v === mn ? 'smallest' : '') : ''
+    return { d, real, v, cum, pace: goal ? (goal * (i + 1)) / days.length : null, out, today: d === today }
+  })
   return (
     <div className="panel">
       <div className="panel-h"><div><div className="panel-t">{title}</div>
-        <div className="panel-s">{money0(total)} written{goal ? ` of ${money0(goal)} · ${Math.round((total / goal) * 100)}% of goal` : ''}{projected != null ? ` · projected ${money0(projected)}` : ''}</div></div></div>
+        <div className="panel-s">{money0(total)} written{goal ? ` of ${money0(goal)} · ${Math.round((total / goal) * 100)}% of goal` : ''}{projected != null ? ` · projected ${money0(projected)}` : ''}</div></div>
+        <button type="button" className="rc-open" onClick={() => setOpen(true)}>📋 Day by day</button></div>
+      {/* drawn at the page's top level so it takes the app's theme, not the dashboard's own look */}
+      {open && createPortal(<Drawer open onClose={() => setOpen(false)} title="Day by day" sub={`${label(start)} – ${label(end)} · ${days.length} working days · written so far, then the average day for each day left`}>
+        <div className="rc-sheet-sum">
+          <div><b>{money0(total)}</b><span>written · {done.length} day{done.length === 1 ? '' : 's'}</span></div>
+          <div><b>{money0(avg)}</b><span>average day{mid.length ? `: ${mid.length} days, largest (${money0(mx)}) & smallest (${money0(mn)}) left out` : vals.length ? `: all ${vals.length} days` : ''}</span></div>
+          <div><b>{left.length ? money0(projected || 0) : money0(total)}</b><span>{left.length ? `projected finish · ${left.length} day${left.length === 1 ? '' : 's'} left` : 'final'}</span></div>
+          {goal ? <div><b>{money0(goal)}</b><span>goal{need != null ? ` · ${need ? money0(need) + ' needed a day' : 'reached'}` : ''}</span></div> : null}
+        </div>
+        <div className="tbl-wrap"><table className="tbl rc-sheet">
+          <thead><tr><th>Day</th><th className="r">Premium</th><th className="r">Running total</th>{goal ? <><th className="r">Even pace</th><th className="r">vs pace</th></> : null}</tr></thead>
+          <tbody>{sheet.map((x) => (
+            <tr key={x.d} className={(x.real ? '' : 'proj') + (x.today ? ' today' : '')}>
+              <td>{new Date(x.d + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric', timeZone: 'UTC' })}{x.today ? <span className="rc-tag">today</span> : null}{!x.real ? <span className="rc-tag p">projected</span> : null}{x.out ? <span className="rc-tag o">{x.out}, left out</span> : null}</td>
+              <td className="r mono">{money0(x.v)}</td>
+              <td className="r mono strong">{money0(x.cum)}</td>
+              {goal ? <><td className="r mono">{money0(x.pace || 0)}</td><td className={'r mono ' + (x.cum >= (x.pace || 0) ? 'up' : 'down')}>{(x.cum >= (x.pace || 0) ? '+' : '-') + money0(Math.abs(x.cum - (x.pace || 0)))}</td></> : null}
+            </tr>
+          ))}</tbody>
+        </table></div>
+        <p className="rc-sheet-note">A day that has happened shows what was written ($0 if nothing was). Each day left counts as the average day: the average of the days so far without the largest and smallest (the plain average when there are only one or two days). It moves every day as sales come in.</p>
+      </Drawer>, document.body)}
       <div className="panel-b">
         {left.length > 0 && (
           <div className="rc-stats">

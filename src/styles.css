@@ -1828,3 +1828,18 @@ html[data-theme="christmas"] .wq-sticky { padding-top: 32px; }
 .rm-recap { margin-left: auto; }
 .rm-recap-btn { border: 0; border-radius: 999px; padding: 7px 14px; font: inherit; font-size: 13px; font-weight: 800; color: #06302b; background: #7dffb5; cursor: pointer; box-shadow: 0 4px 12px rgba(0, 0, 0, .18); }
 .rm-recap-btn:hover { background: #a6ffcc; }
+/* Running total vs goal › Day by day (slide-out) */
+.rc-open { border: 1px solid var(--line); background: var(--card); color: var(--blue); border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 12.5px; font-weight: 800; cursor: pointer; white-space: nowrap; }
+.rc-open:hover { border-color: var(--blue); }
+.rc-sheet-sum { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-bottom: 12px; }
+.rc-sheet-sum > div { display: grid; gap: 2px; padding: 10px 12px; border-radius: 10px; background: var(--soft); border: 1px solid var(--line); }
+.rc-sheet-sum b { font-size: 18px; color: var(--navy); }
+.rc-sheet-sum span { font-size: 12px; color: var(--muted); line-height: 1.35; }
+.rc-sheet tr.proj td { color: var(--muted); font-style: italic; }
+.rc-sheet tr.today td { background: var(--tint, var(--soft)); font-weight: 700; }
+.rc-sheet td.up { color: var(--good, #1F7A4D); }
+.rc-sheet td.down { color: var(--bad, #c53030); }
+.rc-tag { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; font-size: 10.5px; font-weight: 800; font-style: normal; background: var(--soft); color: var(--muted); border: 1px solid var(--line); }
+.rc-tag.p { color: var(--blue); }
+.rc-tag.o { color: #b45309; }
+.rc-sheet-note { margin: 10px 0 0; font-size: 12px; color: var(--muted); line-height: 1.45; }
