@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../auth'
 import { useFolio } from '../components/FolioPicker'
 import { Empty, ErrorBox, Loading, PageHead, Tile, Tiles } from '../components/ui'
@@ -28,9 +28,12 @@ const longDay = (day: string) => new Date(day + 'T12:00:00Z').toLocaleDateString
 export default function Retention() {
   const { me } = useAuth()
   const today = todayPacific()
-  const [month, setMonth] = useState(today.slice(0, 7))
+  // ?day= opens a given day (the owner's Team reports card links to the last day the person worked)
+  const [params] = useSearchParams()
+  const asked = /^\d{4}-\d{2}-\d{2}$/.test(params.get('day') || '') && params.get('day')! <= today ? params.get('day')! : today
+  const [month, setMonth] = useState(asked.slice(0, 7))
   // the day shown in the daily section (switching to a day in another month shows that month)
-  const [day, setDay] = useState(today)
+  const [day, setDay] = useState(asked)
   const goDay = (d: string) => { const c = d > today ? today : d < ROLE_FROM ? ROLE_FROM : d; setDay(c); setMonth(c.slice(0, 7)) }
   const [reload, setReload] = useState(0)
   const [adding, setAdding] = useState(false)
