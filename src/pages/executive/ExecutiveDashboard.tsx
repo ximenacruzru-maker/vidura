@@ -6,6 +6,7 @@ import { ErrorBox, Loading } from '../../components/ui'
 import LifePromoBanner from '../../components/LifePromoBanner'
 import { loadPerfData, saveGoals, type PerfData } from '../../lib/perf/data'
 import { useSyncStamp } from '../../lib/syncEvents'
+import { todayPacific } from '../../lib/format'
 import { farmersRevenue } from '../../lib/perf/farmersRevenue'
 import { computeExecutive, execProduction, folioOptions, execRows, isFarmersCarrier, money0, today, type Book, type Client, type Drill, type Filters, type Row } from '../../lib/perf/executive'
 import { useAsync } from '../../lib/useAsync'
@@ -358,7 +359,7 @@ function Production({ D, win, setWin, range, setRange, goals }: {
         </div>
         {/* left: the running total against the folio goal; right: each day's premium */}
         <div className="p2 xd-written" style={{ marginTop: 14 }}>
-          <RunningChart title="Running total vs goal" start={P.r.start} end={oneFolio?.end && oneFolio.end > P.r.end ? oneFolio.end : P.r.end} goal={oneFolio ? gPrem || null : null}
+          <RunningChart title="Running total vs goal" today={todayPacific()} start={P.r.start} end={oneFolio?.end && oneFolio.end > P.r.end ? oneFolio.end : P.r.end} goal={oneFolio ? gPrem || null : null}
             noGoal={oneFolio ? undefined : 'The premium goal is a folio goal: pick a single folio in Window to see it and the pace.'}
             points={P.sales.reduce((m: { date: string; value: number }[], x) => { const l = m[m.length - 1]; if (l && l.date === x.date) l.value += x.premium || 0; else m.push({ date: x.date, value: x.premium || 0 }); return m }, [])} />
           <DayChart title="Written by day" sub={P.r.label} money series={P.byDay.slice(-31)} />
