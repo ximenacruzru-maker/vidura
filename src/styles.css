@@ -1843,3 +1843,45 @@ html[data-theme="christmas"] .wq-sticky { padding-top: 32px; }
 .rc-tag.p { color: var(--blue); }
 .rc-tag.o { color: #b45309; }
 .rc-sheet-note { margin: 10px 0 0; font-size: 12px; color: var(--muted); line-height: 1.45; }
+/* Reports › Commissions › Projected for this folio */
+.pj-one { margin-bottom: 14px; padding: 14px 16px; border-radius: 12px; background: var(--paper, var(--soft)); border: 1px solid var(--line); }
+.pj-one .fb-g { max-width: 320px; margin-bottom: 10px; }
+.pj-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.pj-cards > div { display: grid; gap: 2px; padding: 10px 12px; border-radius: 10px; background: var(--card); border: 1px solid var(--line); }
+.pj-cards span { font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.pj-cards b { font-size: 22px; color: var(--navy); }
+.pj-cards em { font-style: normal; font-size: 12px; color: var(--muted); }
+.pj-cards .hl { border-color: var(--good, #1F7A4D); box-shadow: inset 0 0 0 1px var(--good, #1F7A4D); }
+.pj-cards .hl b { color: var(--good, #1F7A4D); }
+.pj-say { margin: 12px 0 0; font-size: 14px; line-height: 1.55; }
+.dect tr.pj-on td { background: var(--tint, var(--soft)); }
+
+/* ---------- Team today (the owner's My Space) ---------- */
+.tt { position: relative; overflow: hidden; margin: 0 0 18px; padding: 16px 20px 18px; border-radius: 18px; color: #fff;
+  background: linear-gradient(125deg, #10224f 0%, #1d3b8f 50%, #0f6b62 100%); background-size: 220% 220%; animation: lp-bg 16s ease-in-out infinite; box-shadow: 0 10px 28px rgba(15, 30, 70, .25); }
+.tt-shine { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, .14) 50%, transparent 65%); transform: translateX(-100%); animation: lp-shine 6s ease-in-out infinite; }
+.tt-head { position: relative; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; margin-bottom: 12px; }
+.tt-title { margin: 0; font-size: 20px; font-weight: 900; }
+.tt-title span { font-size: 14px; font-weight: 600; color: rgba(255, 255, 255, .75); }
+.tt-sum { margin: 0; font-size: 13.5px; color: rgba(255, 255, 255, .88); }
+.tt-sum b { color: #ffe08a; }
+.tt-life { color: #7dffb5 !important; font-weight: 800; margin-right: 6px; }
+.tt-grid { position: relative; display: grid; grid-template-columns: repeat(auto-fill, minmax(255px, 1fr)); gap: 10px; }
+.tt-p { display: grid; gap: 8px; padding: 12px 14px; border-radius: 14px; background: rgba(255, 255, 255, .1); border: 1px solid rgba(255, 255, 255, .18); animation: rm-in .5s cubic-bezier(.2, .8, .2, 1) both; }
+.tt-p.out { background: rgba(0, 0, 0, .18); border-style: dashed; }
+.tt-p.out .tt-who b, .tt-p.out .tt-av { opacity: .6; }
+.tt-top { display: flex; align-items: center; gap: 10px; }
+.tt-av { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; font-size: 13px; font-weight: 900; color: #fff; box-shadow: 0 0 0 2px rgba(255, 255, 255, .35); }
+.tt-who { display: grid; gap: 2px; min-width: 0; flex: 1; }
+.tt-who b { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tt-focus { justify-self: start; max-width: 100%; border: 0; border-radius: 999px; padding: 2px 8px; font: inherit; font-size: 11.5px; font-weight: 800; color: #06302b; background: #7dffb5; cursor: pointer; }
+.tt-out { flex: none; border: 1px solid rgba(255, 255, 255, .35); border-radius: 999px; padding: 4px 10px; font: inherit; font-size: 12px; font-weight: 800; color: #fff; background: rgba(255, 255, 255, .08); cursor: pointer; }
+.tt-out.on { background: #ffd76a; border-color: #ffd76a; color: #3a2300; }
+.tt-line { font-size: 12.5px; line-height: 1.45; color: rgba(255, 255, 255, .9); }
+.tt-line .muted, .tt-line.muted { color: rgba(255, 255, 255, .6); }
+@media (prefers-reduced-motion: reduce) { .tt, .tt-shine, .tt-p { animation: none; } .tt-shine { display: none; } }
+@media (max-width: 760px) { .tt { padding: 14px 14px 16px; border-radius: 14px; } .tt-grid { grid-template-columns: 1fr; } }
+.tt-p { min-width: 0; }
+.tt-top { min-width: 0; }
+.tt-who { overflow: hidden; }
+.tt-focus { width: auto; max-width: 100%; min-width: 0; text-overflow: ellipsis; }

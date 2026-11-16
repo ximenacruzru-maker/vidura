@@ -2,7 +2,8 @@
 // under the plan in force on its first day, with the Excel / PDF / CSV files, and the carrier-statement check that
 // holds back sales the carrier never paid on.
 import { useState } from 'react'
-import { commRecalc, reconExcluded, reconSave, reconStore } from '../../lib/perf/commission'
+import { commProjection, commRecalc, reconExcluded, reconSave, reconStore } from '../../lib/perf/commission'
+import { todayPacific } from '../../lib/format'
 import {
   commDisplayBuckets, commPlanSummary, downloadCommissionCsv, downloadCommissionExcel, printCommissionStatements,
   reconAggregate, reconMatch, reconParse, reconReadFile,
@@ -87,8 +88,68 @@ export function Commissions({ D, folio, setFolio, agency, agencyShort }: { D: Pe
         </table>
       </div>
     </div>
+    <Projected D={D} k={k} />
     <Recon D={D} k={k} msg={msg} setMsg={setMsg} onChange={refresh} />
   </>
+}
+
+const pct = (r: number) => (100 * r).toFixed(r * 100 % 1 ? 1 : 0) + '%'
+const md = (iso: string) => iso.slice(5).replace('-', '/')
+
+/** The folio in progress, projected to its last day for each producer: what they'd make if the rest of the folio goes
+ *  like their average day so far (largest and smallest days left out). For one-on-ones. */
+function Projected({ D, k }: { D: PerfData; k: string }) {
+  const P = commProjection(D, k, todayPacific())
+  const [who, setWho] = useState('')
+  if (!P || !P.rows.length) return null
+  const one = P.rows.find((x) => x.producer === who) || P.rows[0]
+  const first = one.producer.split(' ')[0]
+  return (
+    <div className="panel">
+      <div className="panel-h"><div><div className="panel-t">Projected for this folio</div>
+        <div className="panel-s">{md(P.start)} – {md(P.end)} · {P.left} of {P.days} working days left · each day left counts as the producer’s average day so far, without their largest and smallest days</div></div></div>
+      <div className="panel-b">
+        <div className="pj-one">
+          <div className="fb-g"><label className="fl">1-on-1 with</label>
+            <select className="f" value={one.producer} onChange={(e) => setWho(e.target.value)}>{P.rows.map((x) => <option key={x.producer}>{x.producer}</option>)}</select></div>
+          <div className="pj-cards">
+            <div><span>Written so far</span><b>{money0(one.written)}</b></div>
+            <div><span>Average day</span><b>{money0(one.avg)}</b><em>{one.trimmed ? 'largest & smallest left out' : 'all days'}</em></div>
+            <div><span>Projected premium</span><b>{money0(one.projPrem)}</b><em>by {md(P.end)}</em></div>
+            <div className="hl"><span>Projected commission</span><b>{money0(one.projected)}</b><em>{one.qualifies ? `${pct(one.tierRate)} tier` : 'not qualified at this pace'} · now {money0(one.now)}</em></div>
+          </div>
+          <p className="pj-say">{first} has written <b>{money0(one.written)}</b> so far. At {first}’s average day of <b>{money0(one.avg)}</b>, that’s <b>{money0(one.projPrem)}</b> by {md(P.end)}
+            {one.qualifies ? <>, which pays about <b>{money0(one.projected)}</b> at the {pct(one.tierRate)} tier</> : <>, which doesn’t qualify under {P.plan.name} yet (about <b>{money0(one.projected)}</b> from the parts that pay without qualifying)</>}.
+            {one.nextTier ? <> Another <b>{money0(one.nextTier.need)}</b> in premium reaches the {pct(one.nextTier.rate)} tier ({money0(one.nextTier.min)}).</> : <> That’s the top tier.</>}
+            {one.nextBonus ? <> <b>{money0(one.nextBonus.need)}</b> more unlocks the {one.nextBonus.label} (+{pct(one.nextBonus.rate)} over {money0(one.nextBonus.min)}).</> : null}</p>
+        </div>
+        <div style={{ overflowX: 'auto' }}>
+          <table className="dect">
+            <thead><tr><th>Producer</th><th className="tr">Written so far</th><th className="tr">Average day</th><th className="tr">Projected premium</th><th className="tr">Tier</th><th className="tr">Commission now</th><th className="tr">Projected commission</th><th className="tr">To the next tier</th></tr></thead>
+            <tbody>
+              {P.rows.map((x) => (
+                <tr key={x.producer} className={x.producer === one.producer ? 'pj-on' : undefined} onClick={() => setWho(x.producer)} style={{ cursor: 'pointer' }}>
+                  <td style={{ fontWeight: 600, color: 'var(--bistre)' }}>{x.producer}</td>
+                  <td className="tr mono">{money0(x.written)}</td><td className="tr mono">{money0(x.avg)}</td>
+                  <td className="tr mono" style={{ fontWeight: 700 }}>{money0(x.projPrem)}</td>
+                  <td className="tr">{x.qualifies ? <span style={{ color: '#1F7A4D', fontWeight: 700 }}>{pct(x.tierRate)}</span> : <span style={{ color: 'var(--muted)' }}>Not qualified</span>}</td>
+                  <td className="tr mono">{money0(x.now)}</td>
+                  <td className="tr mono" style={{ fontWeight: 700 }}>{money0(x.projected)}</td>
+                  <td className="tr mono">{x.nextTier ? `${money0(x.nextTier.need)} → ${pct(x.nextTier.rate)}` : 'Top tier'}{x.nextBonus ? <div className="wk-note">{money0(x.nextBonus.need)} → {x.nextBonus.label}</div> : null}</td>
+                </tr>
+              ))}
+              <tr style={{ fontWeight: 700, borderTop: '2px solid var(--line)' }}>
+                <td>TOTAL</td><td className="tr mono">{money0(P.rows.reduce((t, x) => t + x.written, 0))}</td><td className="tr mono">{money0(P.rows.reduce((t, x) => t + x.avg, 0))}</td>
+                <td className="tr mono">{money0(P.rows.reduce((t, x) => t + x.projPrem, 0))}</td><td />
+                <td className="tr mono">{money0(P.rows.reduce((t, x) => t + x.now, 0))}</td><td className="tr mono">{money0(P.rows.reduce((t, x) => t + x.projected, 0))}</td><td />
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p className="an-fn" style={{ marginBottom: 0 }}>An estimate, not pay: the rest of the folio is added in the same mix of business the producer has written so far. Life promo pay counts only on life policies already written, and projected business doesn’t add life policies toward qualifying. Pay is figured on the closed folio.</p>
+      </div>
+    </div>
+  )
 }
 
 const ORDER: Record<string, number> = { cancelled: 0, nonrenewal: 0, missing: 1, matched: 2 }
