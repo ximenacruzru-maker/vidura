@@ -42,7 +42,7 @@ export default function TeamToday() {
   const people = d.staff.filter((x) => x.role !== 'owner').map((x, i) => {
     const name = (x.display || x.producer || '').trim()
     const keys = new Set([x.display, x.producer, x.display?.split(' ')[0], x.producer?.split(' ')[0]].filter(Boolean).map((k) => k!.trim().toLowerCase()))
-    const mine = (n: string | null | undefined) => !!n && keys.has(n.trim().toLowerCase())
+    const mine = (n: string | null | undefined) => !!n && keys.has(n.trim().replace(/\s+/g, ' ').toLowerCase())
     const sales = d.sales.filter((r) => mine(r.producer)), life = sales.filter((r) => isLife({ line: r.line, carrier: r.carrier })).length
     const quotes = d.quotes.filter((r) => mine(r.producer))
     const reviews = d.reviews.filter((r) => mine(r.name)), worked = reviews.filter((r) => (r.findings || '').trim() || (r.notes || '').trim())

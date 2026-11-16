@@ -32,7 +32,7 @@ export async function getTeamDay(day: string) {
     return { name, keys, role: s.role }
   }).filter((p) => p.name)
   const who = (n: string | null | undefined) => {
-    const k = (n || '').trim().toLowerCase()
+    const k = (n || '').trim().replace(/\s+/g, ' ').toLowerCase()
     if (!k) return null
     return people.find((p) => p.keys.has(k)) || people.find((p) => [...p.keys].some((x) => x.includes(' ') && k.startsWith(x))) || null
   }

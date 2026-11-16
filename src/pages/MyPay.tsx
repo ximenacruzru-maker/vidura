@@ -32,7 +32,7 @@ const hm = (m: number) => `${Math.floor(m / 60)}h ${String(Math.round(m % 60)).p
 export default function MyPay() {
   const { me } = useAuth()
   const names = useMemo(() => new Set([me?.display_name, me?.producer_name].filter(Boolean).flatMap((n) => [n!.trim().toLowerCase(), n!.trim().split(/\s+/)[0].toLowerCase()])), [me])
-  const mine = (n: string | null | undefined) => !!n && names.has(n.trim().toLowerCase())
+  const mine = (n: string | null | undefined) => !!n && names.has(n.trim().replace(/\s+/g, ' ').toLowerCase())
   const [pay, setPay] = useState(() => nextPay(todayPacific()))
   const check = checkFor(pay)
   const { folios } = useFolio()
@@ -52,7 +52,8 @@ export default function MyPay() {
   }, [check.from, check.to, names])
   // salaried staff are paid a salary and cash bonuses instead of commission
   const salaried = !!hours.data?.row?.salary_annual
-  const earnsCommission = !!hours.data && !salaried && ['producer', 'protege', 'admin'].includes(me?.role || '')
+  // an SDR who writes policies (on the path to producer) earns commission on them too
+  const earnsCommission = !!hours.data && !salaried && ['producer', 'protege', 'admin', 'sdr'].includes(me?.role || '')
   const tiers = hours.data?.row?.bonus_tiers
   // the cash bonus is on the folio paid that day; a gated one (the retention role) also needs the four gates met
   const gated = hours.data?.row?.bonus_period === 'folio_gated'
@@ -112,7 +113,7 @@ export default function MyPay() {
       : gb.eligible ? `Agency wrote ${money0(gb.premium)} in the ${folioName} folio · all 4 gates met`
       : `Agency wrote ${money0(gb.premium)} in the ${folioName} folio (${money0(gb.tier.amount)} level) · on hold, ${met} of 4 gates met` })
   }
-  if (check.commission && earnsCommission && (c || folio)) lines.push({ label: 'Commission', detail: !folio ? 'Folio not set up yet' : c ? `${c.policies} policies sold ${folioName}` : `No sales credited to you ${folioName}`, amount: c?.total || 0 })
+  if (check.commission && earnsCommission && (c || (folio && me?.role !== 'sdr'))) lines.push({ label: 'Commission', detail: !folio ? 'Folio not set up yet' : c ? `${c.policies} policies sold ${folioName}` : `No sales credited to you ${folioName}`, amount: c?.total || 0 })
   if (check.commission && (sdr.data?.length || me?.role === 'sdr' || me?.role === 'va')) lines.push({ label: 'SDR bonus', detail: period ? `${period.period_label}: ${qualified} qualified, ${bound} bound` : 'No SDR month for this payday', amount: bonus })
   for (const a of adjs) lines.push({ label: a.amount < 0 ? 'Adjustment (taken off)' : 'Adjustment (added)', detail: a.reason, amount: a.amount })
   const upcoming = pay > todayPacific()
