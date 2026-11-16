@@ -54,7 +54,7 @@ export default function ReportsMemo() {
         {data.ret.map((r) => {
           const pct = Math.min(100, Math.round((r.worked / 20) * 100))
           return (
-            <Link key={'r' + r.name} to="/retention" className="rm-card" style={{ animationDelay: (k++) * 0.12 + 's' }}>
+            <Link key={'r' + r.name} to={`/retention?day=${r.day}`} className="rm-card" style={{ animationDelay: (k++) * 0.12 + 's' }}>
               <span className="rm-tag">🛡️ Retention</span>
               <b className="rm-name">{r.name}</b>
               <span className="rm-when">{r.day === data.today ? 'Today' : mdy(r.day)}</span>
