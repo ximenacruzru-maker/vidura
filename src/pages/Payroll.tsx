@@ -11,7 +11,7 @@ import { useAsync } from '../lib/useAsync'
 import { agencyBonus, checkFor, folioFor, nextPay, stepPay } from '../lib/payday'
 import { workedMinutes } from './Licensing'
 import { bonusCounts, folioBonus } from '../lib/retention'
-import { payrollLines, type Comm, type Punch, type Staff } from '../lib/payrollCalc'
+import { getPayAdjustments, payrollLines, type Comm, type PayAdjustment, type Punch, type Staff } from '../lib/payrollCalc'
 
 /** Office payroll: what everyone in the office is owed on one payday, downloaded as one workbook, with the payroll
  *  files (the provider's report, a signed copy) uploaded back to that payday. Payroll is paid twice a month:
@@ -88,9 +88,12 @@ export default function Payroll() {
   }, [prefix, reload])
 
   const qb = Number(period?.qualified_transfer_bonus) || 0, bb = Number(period?.bound_policy_bonus) || 0
+  // one-off changes to someone's check on this payday: a clawback for unpaid time off, an approved bonus, a correction
+  const adj = useAsync(() => getPayAdjustments(pay), [pay, reload])
 
-  const lines = useMemo(() => (hours.data ? payrollLines({ staff: hours.data.staff, punches: hours.data.punches, comm: comm.data || [], sdr: sdr.data || [], qb, bb, check, agencyPrem: agencyPrem.data ?? null, gated: gated.data || {} }) : null),
-    [hours.data, comm.data, sdr.data, qb, bb, check, agencyPrem.data, gated.data])
+  const lines = useMemo(() => (hours.data ? payrollLines({ staff: hours.data.staff, punches: hours.data.punches, comm: comm.data || [], sdr: sdr.data || [], qb, bb, check, agencyPrem: agencyPrem.data ?? null, gated: gated.data || {}, adjust: adj.data || [] }) : null),
+    [hours.data, comm.data, sdr.data, qb, bb, check, agencyPrem.data, gated.data, adj.data])
+  const hasAdj = !!adj.data?.length
 
   const hoursLabel = `${shortDate(check.from)} – ${shortDate(check.to, true)}`
   const folioLabel = folio ? `${shortDate(folio.start_date)} – ${shortDate(folio.end_date, true)}` : ''
@@ -99,8 +102,9 @@ export default function Payroll() {
     if (!lines) return
     const r2 = (n: number) => (Math.round(n * 100) / 100).toFixed(2)
     downloadSheet(`Office_Payroll_${pay}.xlsx`, [
-      ['Name', 'Role', 'Hours', 'Hourly pay', 'Salary', 'Commission', 'SDR bonus', 'Agency bonus', 'Total pay'],
-      ...lines.who.map((p) => [p.name, p.role, r2(p.hours), r2(p.pay), r2(p.salary), r2(p.comm), r2(p.bonus), r2(p.cash), r2(p.total)]),
+      ['Name', 'Role', 'Hours', 'Hourly pay', 'Salary', 'Commission', 'SDR bonus', 'Agency bonus', 'Adjustments', 'Total pay', 'Adjustment reasons'],
+      ...lines.who.map((p) => [p.name, p.role, r2(p.hours), r2(p.pay), r2(p.salary), r2(p.comm), r2(p.bonus), r2(p.cash), r2(p.adj), r2(p.total), p.adjNotes.join('; ')]),
+      ...(hasAdj ? [[], [`Adjustments · ${mdy(pay)}`], ['Name', 'Amount', 'Reason'], ...(adj.data || []).map((a) => [a.name, r2(a.amount), a.reason])] : []),
       [], [`Hours · ${hoursLabel}`],
       ['Name', 'Role', 'Days', 'Hours', 'Rate', 'Hourly pay'],
       ...lines.hourly.map((h) => [h.name, h.role, h.days, r2(h.mins / 60), h.rate != null ? r2(h.rate) : '', r2(h.pay)]),
@@ -154,19 +158,22 @@ export default function Payroll() {
               {lines.salaried.length > 0 && <Tile label="Salary" value={money2(lines.who.reduce((s, p) => s + p.salary, 0))} sub={`${lines.salaried.length} salaried · 1/24 of the year`} />}
               {check.commission && lines.salaried.length > 0 && <Tile label="Agency bonus" value={agencyPrem.data == null ? '…' : money2(lines.who.reduce((s, p) => s + p.cash, 0))} sub={agencyPrem.data == null ? folioLabel : `agency wrote ${money2(agencyPrem.data)}`} />}
               {check.commission && <Tile label="SDR bonus" value={money2(lines.who.reduce((s, p) => s + p.bonus, 0))} sub={period ? `${period.period_label} transfers` : 'no SDR month for this payday'} />}
+              {hasAdj && <Tile label="Adjustments" value={(() => { const t = lines.who.reduce((s, p) => s + p.adj, 0); return (t < 0 ? '-' : '+') + money2(Math.abs(t)) })()} sub={`${adj.data!.length} on this payday`} tone="warn" />}
             </Tiles>
             <div className="tbl-wrap">
               <table className="tbl">
-                <thead><tr><th>Name</th><th>Role</th><th className="r">Hours</th><th className="r">Hourly pay</th><th className="r">Salary</th>{check.commission && <><th className="r">Commission</th><th className="r">SDR bonus</th><th className="r">Agency bonus</th></>}<th className="r">Total pay</th></tr></thead>
+                <thead><tr><th>Name</th><th>Role</th><th className="r">Hours</th><th className="r">Hourly pay</th><th className="r">Salary</th>{check.commission && <><th className="r">Commission</th><th className="r">SDR bonus</th><th className="r">Agency bonus</th></>}{hasAdj && <th className="r">Adjustments</th>}<th className="r">Total pay</th></tr></thead>
                 <tbody>{lines.who.map((p) => (
                   <tr key={p.name}><td className="strong">{p.name}</td><td>{p.role}</td><td className="r">{p.hours ? hm(p.hours * 60) : '—'}</td>
                     <td className="r mono">{p.pay ? money2(p.pay) : '—'}</td><td className="r mono">{p.salary ? money2(p.salary) : '—'}</td>
                     {check.commission && <><td className="r mono">{p.comm ? money2(p.comm) : '—'}</td><td className="r mono">{p.bonus ? money2(p.bonus) : '—'}</td><td className="r mono">{p.cash ? money2(p.cash) : '—'}</td></>}
+                    {hasAdj && <td className="r mono">{p.adj ? <><span className={p.adj < 0 ? 'pa-neg' : 'pa-pos'}>{p.adj < 0 ? '-' : '+'}{money2(Math.abs(p.adj))}</span>{p.adjNotes.map((n, i) => <div key={i} className="sub pa-note">{n}</div>)}</> : '—'}</td>}
                     <td className="r mono strong">{money2(p.total)}</td></tr>
                 ))}</tbody>
               </table>
             </div>
             {!lines.who.length && <Empty>Nobody has pay on this payday yet.</Empty>}
+            <Adjustments pay={pay} list={adj.data || []} names={(hours.data?.staff || []).filter((s) => s.active).map((s) => s.name)} onChange={() => setReload((n) => n + 1)} />
             <div className="sub" style={{ marginTop: 8 }}>Hours come from the timesheets. Someone whose last day falls in the period still gets their final hours here. The download has each part in detail, with the daily punches.</div>
           </>
         )}
@@ -214,5 +221,47 @@ function PayrollFiles({ files, error, prefix, label, range, onDone }: { files: P
         </table>
       ) : <Empty>No payroll files for this period yet. Upload the payroll provider’s report or the signed payroll here.</Empty>}
     </Panel>
+  )
+}
+
+/** One-off changes to checks on this payday, with the reason: a clawback for unpaid time off, an approved bonus, a
+ *  correction. They're added into each person's total above, the download and the report PDFs; the person sees their
+ *  own on My Pay. */
+function Adjustments({ pay, list, names, onChange }: { pay: string; list: PayAdjustment[]; names: string[]; onChange: () => void }) {
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState('')
+  const [amount, setAmount] = useState('')
+  const [sign, setSign] = useState<'-' | '+'>('-')
+  const [reason, setReason] = useState('')
+  const add = async () => {
+    const n = Math.abs(Number(amount.replace(/[$,\s]/g, '')))
+    if (!name || !n || !reason.trim()) { alert('Pick the person, the amount and the reason.'); return }
+    const { error } = await supabase.from('hr_pay_adjustments').insert({ name, pay_date: pay, amount: sign === '-' ? -n : n, reason: reason.trim() })
+    if (error) alert(error.message); else { setAmount(''); setReason(''); setOpen(false); onChange() }
+  }
+  const remove = async (a: PayAdjustment) => {
+    if (!confirm(`Remove the ${a.amount < 0 ? '-' : '+'}${money2(Math.abs(a.amount))} adjustment for ${a.name}?`)) return
+    const { error } = await supabase.from('hr_pay_adjustments').delete().eq('id', a.id)
+    if (error) alert(error.message); else onChange()
+  }
+  return (
+    <div className="pa">
+      <div className="pa-h"><b>Adjustments</b><span className="sub">one-off changes to a check on {mdy(pay)}: a clawback for unpaid time off, an approved bonus, a correction</span>
+        <button type="button" className="linkbtn" onClick={() => setOpen(!open)}>{open ? 'Close' : '+ Add an adjustment'}</button></div>
+      {list.map((a) => (
+        <div key={a.id} className="pa-row"><b>{a.name}</b><span className={'mono ' + (a.amount < 0 ? 'pa-neg' : 'pa-pos')}>{a.amount < 0 ? '-' : '+'}{money2(Math.abs(a.amount))}</span><span className="pa-why">{a.reason}</span>
+          <button type="button" className="linkbtn" onClick={() => remove(a)} aria-label={`Remove the adjustment for ${a.name}`}>Remove</button></div>
+      ))}
+      {!list.length && !open && <div className="sub">None on this payday.</div>}
+      {open && (
+        <div className="pa-form">
+          <select className="fld" value={name} onChange={(e) => setName(e.target.value)} aria-label="Who"><option value="">Who…</option>{names.map((n) => <option key={n}>{n}</option>)}</select>
+          <div className="cf-seg"><button type="button" className={sign === '-' ? 'on' : ''} onClick={() => setSign('-')}>− Take off</button><button type="button" className={sign === '+' ? 'on' : ''} onClick={() => setSign('+')}>+ Add</button></div>
+          <input className="fld" inputMode="decimal" placeholder="Amount" value={amount} onChange={(e) => setAmount(e.target.value)} aria-label="Amount" />
+          <input className="fld" placeholder="Reason (e.g. unpaid leave 10/27–11/10)" value={reason} onChange={(e) => setReason(e.target.value)} aria-label="Reason" />
+          <button type="button" className="btn-primary" onClick={add}>Save</button>
+        </div>
+      )}
+    </div>
   )
 }

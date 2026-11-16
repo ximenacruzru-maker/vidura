@@ -198,14 +198,16 @@ export async function buildReportsPdf(o: { D: PerfData; period: PdfPeriod; secti
     h2('Payroll register', `${pays.length} payday${pays.length === 1 ? '' : 's'} in the period, worked out the way Office Payroll does: hours × rate, 1/24 of salaries, producers’ commission and SDR bonuses on the 21st, and agency bonuses. Compare with your payroll provider’s reports (listed under Payroll files).`)
     kpis([['Total payroll', m0(col('total'))], ['Hourly pay', m0(col('pay'))], ['Salaries', m0(col('salary'))], ['Commission + bonuses', m0(col('comm') + col('bonus') + col('cash'))]])
     const per = new Map<string, PayLine>()
-    for (const p of payrolls) for (const l of p.lines) { const x = per.get(l.name) || { ...l, hours: 0, pay: 0, salary: 0, comm: 0, bonus: 0, cash: 0, total: 0 }; x.hours += l.hours; x.pay += l.pay; x.salary += l.salary; x.comm += l.comm; x.bonus += l.bonus; x.cash += l.cash; x.total += l.total; per.set(l.name, x) }
+    for (const p of payrolls) for (const l of p.lines) { const x = per.get(l.name) || { ...l, hours: 0, pay: 0, salary: 0, comm: 0, bonus: 0, cash: 0, adj: 0, total: 0 }; x.hours += l.hours; x.pay += l.pay; x.salary += l.salary; x.comm += l.comm; x.bonus += l.bonus; x.cash += l.cash; x.adj += l.adj || 0; x.total += l.total; per.set(l.name, x) }
     txt('By person, for the whole period', L, y, 10, true); y += 14
-    const pc = [{ h: 'Name', w: 2.4 }, { h: 'Hours', w: 0.9, r: true }, { h: 'Hourly pay', w: 1.2, r: true }, { h: 'Salary', w: 1.2, r: true }, { h: 'Commission', w: 1.2, r: true }, { h: 'SDR bonus', w: 1.1, r: true }, { h: 'Agency bonus', w: 1.4, r: true }, { h: 'Total', w: 1.2, r: true }]
-    table(pc, [...per.values()].sort((a, b) => b.total - a.total).map((l) => [l.name, l.hours.toFixed(1), m2(l.pay), m2(l.salary), m2(l.comm), m2(l.bonus), m2(l.cash), m2(l.total)]),
-      ['Total', col('hours').toFixed(1), m2(col('pay')), m2(col('salary')), m2(col('comm')), m2(col('bonus')), m2(col('cash')), m2(col('total'))])
+    const pc = [{ h: 'Name', w: 2.2 }, { h: 'Hours', w: 0.8, r: true }, { h: 'Hourly pay', w: 1.1, r: true }, { h: 'Salary', w: 1.1, r: true }, { h: 'Commission', w: 1.1, r: true }, { h: 'SDR bonus', w: 1, r: true }, { h: 'Agency bonus', w: 1.2, r: true }, { h: 'Adjustments', w: 1.2, r: true }, { h: 'Total', w: 1.1, r: true }]
+    table(pc, [...per.values()].sort((a, b) => b.total - a.total).map((l) => [l.name, l.hours.toFixed(1), m2(l.pay), m2(l.salary), m2(l.comm), m2(l.bonus), m2(l.cash), l.adj ? m2(l.adj) : '—', m2(l.total)]),
+      ['Total', col('hours').toFixed(1), m2(col('pay')), m2(col('salary')), m2(col('comm')), m2(col('bonus')), m2(col('cash')), m2(col('adj')), m2(col('total'))])
+    const adjRows = payrolls.flatMap((p) => p.lines.filter((l) => l.adj).flatMap((l) => (l.adjNotes || []).map((n) => [us(p.pay), l.name, n])))
+    if (adjRows.length) { txt('Adjustments', L, y, 10, true); y += 14; table([{ h: 'Payday', w: 1.4 }, { h: 'Name', w: 2 }, { h: 'Adjustment', w: 5 }], adjRows) }
     txt('By payday', L, y, 10, true); y += 14
-    table([{ h: 'Payday', w: 1.4 }, { h: 'People', w: 0.9, r: true }, { h: 'Hourly pay', w: 1.3, r: true }, { h: 'Salary', w: 1.3, r: true }, { h: 'Commission', w: 1.3, r: true }, { h: 'Bonuses', w: 1.3, r: true }, { h: 'Total', w: 1.3, r: true }],
-      payrolls.map((p) => { const s = (k: keyof PayLine) => p.lines.reduce((t, l) => t + (Number(l[k]) || 0), 0); return [us(p.pay), p.lines.length, m2(s('pay')), m2(s('salary')), m2(s('comm')), m2(s('bonus') + s('cash')), m2(s('total'))] }))
+    table([{ h: 'Payday', w: 1.4 }, { h: 'People', w: 0.9, r: true }, { h: 'Hourly pay', w: 1.3, r: true }, { h: 'Salary', w: 1.3, r: true }, { h: 'Commission', w: 1.3, r: true }, { h: 'Bonuses & adj.', w: 1.3, r: true }, { h: 'Total', w: 1.3, r: true }],
+      payrolls.map((p) => { const s = (k: keyof PayLine) => p.lines.reduce((t, l) => t + (Number(l[k]) || 0), 0); return [us(p.pay), p.lines.length, m2(s('pay')), m2(s('salary')), m2(s('comm')), m2(s('bonus') + s('cash') + s('adj')), m2(s('total'))] }))
   }
   if (want.has('commissions')) {
     h2('Commissions paid to producers', 'Paid on the 21st for the folio that closed the month before.')
