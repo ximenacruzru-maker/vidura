@@ -7,6 +7,7 @@ import { getSdrPeriods, getSdrTransfers } from '../lib/data'
 import { mdy, money0, money2, pct, shortDate, todayPacific } from '../lib/format'
 import { agencyBonus, checkFor, folioFor, nextPay, salaryCheck, stepPay, type BonusTier } from '../lib/payday'
 import { supabase } from '../lib/supabase'
+import { getPayAdjustments } from '../lib/payrollCalc'
 import { useAsync } from '../lib/useAsync'
 import { useSyncStamp } from '../lib/syncEvents'
 import { takeHome, type FilingStatus } from '../lib/takeHome'
@@ -74,6 +75,10 @@ export default function MyPay() {
   const periods = useAsync(getSdrPeriods, [])
   const period = check.commission ? periods.data?.find((p) => p.pay_date === pay) : undefined
   const sdr = useAsync(async () => (period ? (await getSdrTransfers(period.month)).filter((t) => mine(t.sdr)) : []), [period?.month, names])
+  // one-off changes to this check (a clawback for unpaid time off, an approved bonus), your own only
+  const adjust = useAsync(async () => (await getPayAdjustments(pay)).filter((a) => mine(a.name)), [pay, names])
+  const adjs = adjust.data || []
+  const adjDown = adjs.filter((a) => a.amount < 0).reduce((s, a) => s + a.amount, 0), adjUp = adjs.filter((a) => a.amount > 0).reduce((s, a) => s + a.amount, 0)
 
   const row = hours.data?.row
   const mins = (hours.data?.punches || []).reduce((a, p) => a + workedMinutes(p), 0)
@@ -86,10 +91,10 @@ export default function MyPay() {
   const salary = salaried ? salaryCheck(row?.salary_annual) : 0
   const cash = gated ? { amount: gatedBon.data?.amount || 0, min: gatedBon.data?.tier.min || 0 }
     : check.commission && agencyPrem.data != null ? agencyBonus(tiers, agencyPrem.data) : { amount: 0, min: 0 }
-  const total = hourlyPay + salary + (c?.total || 0) + bonus + cash.amount
+  const total = hourlyPay + salary + (c?.total || 0) + bonus + cash.amount + adjDown + adjUp
 
   // estimated take-home for salaried staff: salary as regular pay, the cash bonus as a supplemental payment
-  const net = salaried ? takeHome(hourlyPay + salary, (c?.total || 0) + bonus + cash.amount, filing) : null
+  const net = salaried ? takeHome(Math.max(0, hourlyPay + salary + adjDown), (c?.total || 0) + bonus + cash.amount + adjUp, filing) : null
   const err = hours.error || comm.error || periods.error || sdr.error || agencyPrem.error || gatedBon.error
   const loading = !hours.data || (check.commission && earnsCommission && folio && comm.loading && !comm.data) || (check.commission && tiers?.length && !gated && folio && agencyPrem.loading && agencyPrem.data == null) || (gatedBon.loading && !gatedBon.data)
   // what's in the check, one short line each
@@ -109,6 +114,7 @@ export default function MyPay() {
   }
   if (check.commission && earnsCommission && (c || folio)) lines.push({ label: 'Commission', detail: !folio ? 'Folio not set up yet' : c ? `${c.policies} policies sold ${folioName}` : `No sales credited to you ${folioName}`, amount: c?.total || 0 })
   if (check.commission && (sdr.data?.length || me?.role === 'sdr' || me?.role === 'va')) lines.push({ label: 'SDR bonus', detail: period ? `${period.period_label}: ${qualified} qualified, ${bound} bound` : 'No SDR month for this payday', amount: bonus })
+  for (const a of adjs) lines.push({ label: a.amount < 0 ? 'Adjustment (taken off)' : 'Adjustment (added)', detail: a.reason, amount: a.amount })
   const upcoming = pay > todayPacific()
   const weekday = new Date(pay + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })
 

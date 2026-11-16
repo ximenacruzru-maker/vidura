@@ -13,7 +13,9 @@ import { shortDate } from './format'
 export interface Staff { name: string; role: string | null; hourly: boolean; rate: number | null; active: boolean; hired_on?: string | null; left_on: string | null; salary_annual: number | null; bonus_tiers: BonusTier[] | null; bonus_period?: string | null }
 export interface Punch { id: number; name: string; work_date: string; start_time: string | null; end_time: string | null; breaks: [string, string][]; edited: boolean }
 export interface Comm { producer: string; totalPremium: number; policies: number; qualifies: boolean; tierRate: number; total: number }
-export interface PayLine { name: string; role: string; hours: number; pay: number; salary: number; comm: number; bonus: number; cash: number; total: number }
+export interface PayLine { name: string; role: string; hours: number; pay: number; salary: number; comm: number; bonus: number; cash: number; adj: number; adjNotes: string[]; total: number }
+/** a one-off change to someone's check on a payday (hr_pay_adjustments): a clawback, an approved bonus, a correction */
+export interface PayAdjustment { id: number; name: string; pay_date: string; amount: number; reason: string }
 type Check = ReturnType<typeof checkFor>
 type Gated = Record<string, { amount: number } | undefined>
 
@@ -35,8 +37,8 @@ export function workedMinutes(p: Pick<Punch, 'start_time' | 'end_time' | 'breaks
   return e - s - br
 }
 
-export function payrollLines(x: { staff: Staff[]; punches: Punch[]; comm: Comm[]; sdr: SdrTransfer[]; qb: number; bb: number; check: Check; agencyPrem: number | null; gated: Gated }) {
-  const { staff, punches, comm, sdr, qb, bb, check, agencyPrem, gated } = x
+export function payrollLines(x: { staff: Staff[]; punches: Punch[]; comm: Comm[]; sdr: SdrTransfer[]; qb: number; bb: number; check: Check; agencyPrem: number | null; gated: Gated; adjust?: PayAdjustment[] }) {
+  const { staff, punches, comm, sdr, qb, bb, check, agencyPrem, gated, adjust = [] } = x
   // hourly staff on the books in the period, including anyone whose last day falls in it (their final check)
   const hourly = staff.filter((s) => s.hourly && (s.active || (s.left_on && s.left_on >= check.from))).map((s) => {
     const ps = punches.filter((p) => p.name === s.name)
@@ -54,7 +56,7 @@ export function payrollLines(x: { staff: Staff[]; punches: Punch[]; comm: Comm[]
   const people = new Map<string, Omit<PayLine, 'total'>>()
   const person = (name: string, role = '') => {
     const k = first(name)
-    const p = people.get(k) || { name, role, hours: 0, pay: 0, salary: 0, comm: 0, bonus: 0, cash: 0 }
+    const p = people.get(k) || { name, role, hours: 0, pay: 0, salary: 0, comm: 0, bonus: 0, cash: 0, adj: 0, adjNotes: [] as string[] }
     if (name.length > p.name.length) p.name = name
     if (!p.role) p.role = role
     people.set(k, p); return p
@@ -71,7 +73,9 @@ export function payrollLines(x: { staff: Staff[]; punches: Punch[]; comm: Comm[]
   }
   for (const c of comm) if (c.total && !noComm.has(first(c.producer))) person(c.producer, 'Producer').comm += c.total
   for (const [n, o] of sdrs) person(n, 'SDR').bonus += o.qOnly * qb + o.bound * bb
-  const who: PayLine[] = [...people.values()].map((p) => ({ ...p, total: p.pay + p.salary + p.comm + p.bonus + p.cash })).filter((p) => p.total || p.hours).sort((a, b) => b.total - a.total)
+  // one-off adjustments on this payday (a clawback for unpaid time off, an approved bonus), with their reasons
+  for (const a of adjust) { const p = person(a.name); p.adj += Number(a.amount) || 0; p.adjNotes.push(`${Number(a.amount) < 0 ? '-' : '+'}$${Math.abs(Number(a.amount)).toFixed(2)} ${a.reason}`) }
+  const who: PayLine[] = [...people.values()].map((p) => ({ ...p, total: p.pay + p.salary + p.comm + p.bonus + p.cash + p.adj })).filter((p) => p.total || p.hours || p.adj).sort((a, b) => b.total - a.total)
   return { hourly, sdrs, who, salaried }
 }
 
@@ -80,15 +84,22 @@ export async function loadPayday(pay: string, folios: Folio[], periods: SdrPerio
   const check = checkFor(pay)
   const folio = folioFor(pay, folios)
   const period = check.commission ? periods.find((p) => p.pay_date === pay) : undefined
-  const [punches, comm, sdr, agencyPrem] = await Promise.all([
+  const [punches, comm, sdr, agencyPrem, adjust] = await Promise.all([
     supabase.from('hr_punches').select('*').gte('work_date', check.from).lte('work_date', check.to).then((r) => { if (r.error) throw r.error; return r.data as Punch[] }),
     folio ? supabase.functions.invoke('commissions', { body: { folio: folio.start_date, scope: 'office' } }).then((r) => (r.error ? [] : ((r.data?.results || []) as Comm[]))) : Promise.resolve([] as Comm[]),
     period ? getSdrTransfers(period.month) : Promise.resolve([] as SdrTransfer[]),
     folio ? supabase.rpc('agency_premium', { p_from: folio.start_date, p_to: folio.end_date }).then((r) => (r.error ? null : Number(r.data) || 0)) : Promise.resolve(null),
+    getPayAdjustments(pay),
   ])
   const gated: Gated = {}
   if (folio && bonusCounts(folio)) for (const s of staff.filter((x) => x.salary_annual && x.bonus_period === 'folio_gated' && x.bonus_tiers?.length && x.active)) gated[s.name] = await folioBonus(s.name, s.bonus_tiers, folio, today).catch(() => undefined)
   const qb = Number(period?.qualified_transfer_bonus) || 0, bb = Number(period?.bound_policy_bonus) || 0
-  return { pay, check, folio, period, lines: payrollLines({ staff, punches, comm, sdr, qb, bb, check, agencyPrem, gated }) }
+  return { pay, check, folio, period, lines: payrollLines({ staff, punches, comm, sdr, qb, bb, check, agencyPrem, gated, adjust }) }
+}
+
+/** the adjustments on one payday (an admin sees everyone's; anyone else only their own) */
+export async function getPayAdjustments(pay: string) {
+  const { data, error } = await supabase.from('hr_pay_adjustments').select('id, name, pay_date, amount, reason').eq('pay_date', pay).order('id')
+  return error ? [] : ((data || []) as PayAdjustment[]).map((a) => ({ ...a, amount: Number(a.amount) || 0 }))
 }
 export const loadSdrPeriods = getSdrPeriods
