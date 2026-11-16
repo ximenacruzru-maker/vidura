@@ -8,7 +8,7 @@ import { supabase } from '../lib/supabase'
 import { useAsync } from '../lib/useAsync'
 import TeamRecap from './TeamRecap'
 
-interface RetCard { name: string; day: string; reviews: number; worked: number; reached: number; logged: number; kinds: Record<string, number> }
+interface RetCard { name: string; day: string; reviews: number; goal: number; worked: number; reached: number; logged: number; kinds: Record<string, number> }
 const hasNotes = (r: { findings: string | null; notes: string | null }) => !!(r.findings?.trim() || r.notes?.trim())
 const KIND: Record<string, string> = { save: 'save', loss: 'loss', cross_sell: 'cross-sell', new_business: 'new business', review: 'service note' }
 const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : w.endsWith('s') ? 'es' : 's'}`
@@ -19,16 +19,16 @@ async function load() {
   const names = ((ppl || []) as { producer_name: string | null; display_name: string | null }[]).map((p) => p.producer_name || p.display_name).filter(Boolean) as string[]
   const ret: RetCard[] = await Promise.all(names.map(async (name) => {
     const [rv, lg] = await Promise.all([
-      supabase.from('renewal_reviews').select('day, findings, notes, spoke, call1, call2').eq('name', name).gte('day', since).lte('day', today),
+      supabase.from('renewal_reviews').select('day, kind, findings, notes, spoke, call1, call2').eq('name', name).gte('day', since).lte('day', today),
       supabase.from('retention_log').select('day, kind').eq('name', name).gte('day', since).lte('day', today),
     ])
-    const rows = (rv.data || []) as { day: string; findings: string | null; notes: string | null; spoke: boolean; call1: string | null; call2: string | null }[]
+    const rows = (rv.data || []) as { day: string; kind: string; findings: string | null; notes: string | null; spoke: boolean; call1: string | null; call2: string | null }[]
     const log = (lg.data || []) as { day: string; kind: string }[]
     // today, or the last day they worked if nothing is in yet today
     const day = [...rows.map((r) => r.day), ...log.map((r) => r.day)].includes(today) ? today : [...rows.map((r) => r.day), ...log.map((r) => r.day)].sort().pop() || today
     const d = rows.filter((r) => r.day === day), w = d.filter(hasNotes), l = log.filter((r) => r.day === day)
     const kinds: Record<string, number> = {}; l.forEach((x) => { kinds[x.kind] = (kinds[x.kind] || 0) + 1 })
-    return { name, day, reviews: d.length, worked: w.length, reached: w.filter((r) => r.spoke || r.call1 === 'reached' || r.call2 === 'reached').length, logged: l.length, kinds }
+    return { name, day, reviews: d.length, goal: d.some((x) => x.kind === 'commercial' || x.kind === 'reinstatement') ? d.length : 20, worked: w.length, reached: w.filter((r) => r.spoke || r.call1 === 'reached' || r.call2 === 'reached').length, logged: l.length, kinds }
   }))
   const lists = groupLists(await getCallItems().catch(() => []))
   // each person's newest list
@@ -52,13 +52,13 @@ export default function ReportsMemo() {
       </div>
       <div className="rm-cards">
         {data.ret.map((r) => {
-          const pct = Math.min(100, Math.round((r.worked / 20) * 100))
+          const pct = Math.min(100, Math.round((r.worked / Math.max(1, r.goal)) * 100))
           return (
             <Link key={'r' + r.name} to={`/retention?day=${r.day}`} className="rm-card" style={{ animationDelay: (k++) * 0.12 + 's' }}>
               <span className="rm-tag">🛡️ Retention</span>
               <b className="rm-name">{r.name}</b>
               <span className="rm-when">{r.day === data.today ? 'Today' : mdy(r.day)}</span>
-              <span className="rm-big"><b>{r.worked}</b> of 20 renewals worked</span>
+              <span className="rm-big"><b>{r.worked}</b> of {r.goal} {r.goal === 20 ? 'renewals' : 'items'} worked</span>
               <span className="rm-bar"><i style={{ width: pct + '%' }} /></span>
               <span className="rm-line">{plural(r.reached, 'client')} reached · {r.logged ? Object.entries(r.kinds).map(([kk, n]) => plural(n, KIND[kk] || kk)).join(', ') : 'nothing logged'}</span>
               <span className="rm-go">Open {first(r.name)}’s report →</span>

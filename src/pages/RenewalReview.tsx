@@ -12,18 +12,19 @@ import { loadScript } from '../lib/perf/commissionFiles'
 import { supabase } from '../lib/supabase'
 import { useAsync } from '../lib/useAsync'
 
-type Kind = 'negative' | 'positive' | 'commercial'
+type Kind = 'negative' | 'positive' | 'commercial' | 'reinstatement'
 type Call = 'no_answer' | 'voicemail' | 'reached'
 export interface Review { id: number; name: string; day: string; kind: Kind; account_id: string | null; policy_id: string | null; client: string; policy: string | null; renewal_date: string | null; current_premium: number | null; renewal_premium: number | null; call1: Call | null; call2: Call | null; emailed: boolean; cross_sell: string | null; notes: string | null; findings: string | null; task: string | null
   phone: string | null; dnc: boolean; spoke: boolean; options_path: string | null; options_file: string | null; carried_from: string | null }
 interface Listed { id: number; kind: Kind; rank: number; client: string; policy_number: string | null; lob: string | null; renewal_date: string | null; current_premium: number | null; renewal_premium: number | null; phone: string | null; phone_type: string | null; dnc: boolean; notes: string | null }
-// commercial renewals are assigned by name (no daily number); a day with commercial renewals assigned is measured
-// against everything on that day's list
-export const GOAL: Record<Kind, number> = { negative: 10, positive: 10, commercial: 0 }
+// commercial renewals and reinstatements (cancelled policies to win back) are assigned by name (no daily number); a
+// day with either assigned is measured against everything on that day's list
+export const GOAL: Record<Kind, number> = { negative: 10, positive: 10, commercial: 0, reinstatement: 0 }
 export const DAY_GOAL = GOAL.negative + GOAL.positive
-export const dayGoal = (list: Pick<Review, 'kind'>[]) => (list.some((r) => r.kind === 'commercial') ? list.length : DAY_GOAL)
-export const KIND_LABEL: Record<Kind, string> = { negative: 'Negative', positive: 'Positive', commercial: 'Commercial' }
-const GROUP_LABEL: Record<Kind, string> = { commercial: 'Commercial renewals — assigned', negative: 'Negative renewals — premium going up', positive: 'Positive renewals — with a cross-sell' }
+export const isAssigned = (k: string) => k === 'commercial' || k === 'reinstatement'
+export const dayGoal = (list: Pick<Review, 'kind'>[]) => (list.some((r) => isAssigned(r.kind)) ? list.length : DAY_GOAL)
+export const KIND_LABEL: Record<Kind, string> = { negative: 'Negative', positive: 'Positive', commercial: 'Commercial', reinstatement: 'Reinstatement' }
+const GROUP_LABEL: Record<Kind, string> = { reinstatement: 'Reinstatements — cancelled policies to win back', commercial: 'Commercial renewals — assigned', negative: 'Negative renewals — premium going up', positive: 'Positive renewals — with a cross-sell' }
 const CALL: Record<Call, string> = { no_answer: 'No answer', voicemail: 'Left voicemail', reached: 'Reached' }
 // the call attempts that didn't reach the client (reaching them is the Reached client button)
 const TRIES: Call[] = ['no_answer', 'voicemail']
@@ -80,19 +81,20 @@ export default function RenewalReview({ name, day: start, agency }: { name: stri
             <input type="date" className="fld rr-date" value={day} max={today} onChange={(e) => e.target.value && setDay(e.target.value > today ? today : e.target.value)} aria-label="Review day" />
             <button className="rr-step" disabled={day >= today} onClick={() => setDay(workday(day, 1) > today ? today : workday(day, 1))} aria-label="Next workday">›</button>
             {day !== today && <button className="linkbtn" onClick={() => setDay(today)}>Back to today</button>}</div>
-          <div className="rr-t">{done_.length} of {dayGoal(list)} renewals worked</div>
+          <div className="rr-t">{done_.length} of {dayGoal(list)} {list.some((r) => r.kind === 'reinstatement') ? 'worked' : 'renewals worked'}</div>
           <div className="rr-s">{GOAL.negative} negative (premium going up) · {GOAL.positive} positive with a cross-sell · call twice, then email the renewal snapshot · attach the renewal options PDF · a renewal counts as worked once it has notes · anything without notes at 5 PM carries over to the next workday</div></div>
         <div className="rr-score">
           <span className={wk('negative') >= GOAL.negative ? 'ok' : ''}>Negative {wk('negative')}/{GOAL.negative}</span>
           <span className={wk('positive') >= GOAL.positive ? 'ok' : ''}>Positive {wk('positive')}/{GOAL.positive}</span>
           {n('commercial') > 0 && <span className={wk('commercial') >= n('commercial') ? 'ok' : ''}>Commercial {wk('commercial')}/{n('commercial')}</span>}
+          {n('reinstatement') > 0 && <span className={wk('reinstatement') >= n('reinstatement') ? 'ok' : ''}>Reinstatements {wk('reinstatement')}/{n('reinstatement')}</span>}
           <span>Reached {done_.filter(reached).length}</span><span>No contact, emailed {done_.filter((r) => !reached(r) && r.emailed).length}</span>
           <span>Options PDFs {list.filter((r) => r.options_path).length}</span>
           <button className="rp-btn" disabled={!list.length} onClick={() => reportPdf(list, name, day, agency)}>Day’s report (PDF)</button>
         </div>
       </div>
       {rows.error ? <div className="rr-err">{String((rows.error as Error).message || rows.error)}</div> : !rows.data ? <div className="rr-s">Loading…</div> : <>
-        {(['commercial', 'negative', 'positive'] as Kind[]).filter((k) => k !== 'commercial' || n(k)).map((k) => (
+        {(['reinstatement', 'commercial', 'negative', 'positive'] as Kind[]).filter((k) => !isAssigned(k) || n(k)).map((k) => (
           <div key={k} className="rr-group">
             <div className="rr-gh"><b>{GROUP_LABEL[k]}</b><span>{wk(k)} / {GOAL[k] || n(k)} worked{n(k) > wk(k) ? ` · ${n(k) - wk(k)} on the list without notes` : ''}</span>
               {(n(k) < GOAL[k] || k === 'commercial') && <button className="linkbtn" onClick={() => setAdding(adding === k ? null : k)}>{adding === k ? 'Close' : '+ Add a renewal'}</button>}</div>
@@ -253,7 +255,8 @@ function copySnapshot(r: Review) {
     r.renewal_date ? `• Renews: ${mdy(r.renewal_date)}` : '',
     r.current_premium != null ? `• Current premium: ${money2(Number(r.current_premium))}` : '',
     r.renewal_premium != null ? `• Renewal premium: ${money2(Number(r.renewal_premium))}${ch != null ? ` (${ch > 0 ? 'up' : 'down'} ${money2(Math.abs(ch))})` : ''}` : '',
-    '', r.kind === 'commercial' ? 'I’d like to go over your business renewal with you — coverage, any changes, and your options — so there are no surprises. It only takes a few minutes.'
+    '', r.kind === 'reinstatement' ? 'Your policy was cancelled, and I’d like to help you get it reinstated, or find you the right coverage, so you aren’t left without protection. It only takes a few minutes.'
+      : r.kind === 'commercial' ? 'I’d like to go over your business renewal with you — coverage, any changes, and your options — so there are no surprises. It only takes a few minutes.'
       : r.kind === 'negative' ? 'Your premium is going up at renewal. I’d like to review your coverage and options with you to make sure you’re getting the best value — it only takes a few minutes.'
       : `Good news on your renewal.${r.cross_sell ? ` I’d also love to show you how adding ${r.cross_sell} could protect you further, often with a multi-policy discount.` : ''}`,
     '', 'Give me a call back at your convenience, or reply with a good time to talk.', '', 'Thank you,',
@@ -275,8 +278,8 @@ export async function reportPdf(list: Review[], name: string, day: string, agenc
   const done = list.filter(worked)
   pdf.setFillColor(...NAVY); pdf.rect(0, 0, W, 70, 'F')
   txt('Daily renewal review', L, 32, 18, true, [255, 255, 255]); txt(`${name} · ${mdy(day)}`, L, 52, 11, false, [220, 228, 255]); txt(agency, R, 32, 11, true, [220, 228, 255], 'right')
-  const com = list.filter((r) => r.kind === 'commercial').length
-  const kpi = [['Worked (with notes)', `${done.length} / ${dayGoal(list)}`], com ? ['Commercial', `${done.filter((r) => r.kind === 'commercial').length} / ${com}`] : ['Negative', `${done.filter((r) => r.kind === 'negative').length} / ${GOAL.negative}`], com ? ['Personal (neg · pos)', `${done.filter((r) => r.kind === 'negative').length} · ${done.filter((r) => r.kind === 'positive').length}`] : ['Positive', `${done.filter((r) => r.kind === 'positive').length} / ${GOAL.positive}`],
+  const com = list.filter((r) => isAssigned(r.kind)).length
+  const kpi = [['Worked (with notes)', `${done.length} / ${dayGoal(list)}`], com ? ['Assigned', `${done.filter((r) => isAssigned(r.kind)).length} / ${com}`] : ['Negative', `${done.filter((r) => r.kind === 'negative').length} / ${GOAL.negative}`], com ? ['Personal (neg · pos)', `${done.filter((r) => r.kind === 'negative').length} · ${done.filter((r) => r.kind === 'positive').length}`] : ['Positive', `${done.filter((r) => r.kind === 'positive').length} / ${GOAL.positive}`],
     ['Reached client', String(done.filter(reached).length)], ['No contact, emailed', String(done.filter((r) => !reached(r) && r.emailed).length)], ['Options PDFs', String(list.filter((r) => r.options_path).length)], ['On the list, no notes', String(list.length - done.length)]]
   const bw = (R - L - 60) / 7
   kpi.forEach(([l, v], i) => { const x = L + i * (bw + 10); pdf.setFillColor(245, 247, 252); pdf.roundedRect(x, 84, bw, 44, 5, 5, 'F'); txt(l.toUpperCase(), x + 8, 99, 6.5, true, MUTED); txt(v, x + 8, 120, 15, true) })
