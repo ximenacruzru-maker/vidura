@@ -14,7 +14,7 @@ const KIND: Record<RetentionEntry['kind'], string> = { save: 'Save', loss: 'Loss
 const m0 = (n: number) => (n < 0 ? '-$' : '$') + Math.round(Math.abs(n)).toLocaleString('en-US')
 const us = (iso: string) => iso.slice(5, 7) + '/' + iso.slice(8, 10) + '/' + iso.slice(0, 4)
 /** a renewal review row (the daily renewal review), as much as the report needs */
-interface Reviewed { kind: 'negative' | 'positive' | 'commercial'; task?: string | null; client: string; policy: string | null; current_premium: number | null; renewal_premium: number | null; call1: string | null; call2: string | null; emailed: boolean; spoke: boolean; findings: string | null; cross_sell: string | null; notes: string | null; options_path: string | null }
+interface Reviewed { kind: 'negative' | 'positive' | 'commercial' | 'reinstatement'; task?: string | null; client: string; policy: string | null; current_premium: number | null; renewal_premium: number | null; call1: string | null; call2: string | null; emailed: boolean; spoke: boolean; findings: string | null; cross_sell: string | null; notes: string | null; options_path: string | null }
 const REVIEW_GOAL = 20
 /** a renewal counts as worked only once it has notes (findings before the call or the result) */
 const hasNotes = (r: Reviewed) => !!(r.findings?.trim() || r.notes?.trim())
@@ -37,7 +37,9 @@ export async function downloadRetentionPdf(name: string, folio: Period | null, t
   const rvWorked = reviews.filter(hasNotes)
   const rvReached = rvWorked.filter(wasReached).length, rvEmailed = rvWorked.filter((x) => !wasReached(x) && x.emailed).length
   const rvNeg = rvWorked.filter((x) => x.kind === 'negative').length, rvPos = rvWorked.filter((x) => x.kind === 'positive').length
-  const rvCom = rvWorked.filter((x) => x.kind === 'commercial').length, comListed = reviews.filter((x) => x.kind === 'commercial').length
+  const rvCom = rvWorked.filter((x) => x.kind === 'commercial').length, rvRe = rvWorked.filter((x) => x.kind === 'reinstatement').length
+  // commercial renewals and reinstatements are assigned by name: a day with either is measured against its whole list
+  const comListed = reviews.filter((x) => x.kind === 'commercial' || x.kind === 'reinstatement').length
   // a day with commercial renewals assigned is measured against everything on that day's list
   const dayGoal = comListed ? reviews.length : REVIEW_GOAL
   const bonus = folio ? await folioBonus(name, staff?.bonus_tiers, folio, today) : null
@@ -207,7 +209,8 @@ export async function downloadRetentionPdf(name: string, folio: Period | null, t
 
   // ---- huddle: the talk track, filled in from the day's renewal reviews ----
   if (huddle) {
-    const mix = [rvCom || comListed ? `${rvCom} commercial` : '', `${rvNeg} negative`, `${rvPos} positive`].filter(Boolean)
+    const reListed = reviews.filter((x) => x.kind === 'reinstatement').length, coListed = comListed - reListed
+    const mix = [reListed ? `${rvRe} reinstatement${rvRe === 1 ? '' : 's'}` : '', coListed ? `${rvCom} commercial` : '', `${rvNeg} negative`, `${rvPos} positive`].filter(Boolean)
     const say = `On ${dayName} I worked ${rvWorked.length} of ${dayGoal} renewal reviews: ${mix.slice(0, -1).join(', ')} and ${mix[mix.length - 1]}. ` +
       `I reached ${rvReached} client${rvReached === 1 ? '' : 's'} and emailed the renewal snapshot to ${rvEmailed} I couldn’t reach.` +
       (rvWorked.length < dayGoal ? ` ${dayGoal - rvWorked.length} still to go.` : '')
@@ -220,10 +223,11 @@ export async function downloadRetentionPdf(name: string, folio: Period | null, t
 
   // ---- the day's renewal reviews ----
   if (reviews.length || huddle) {
-    section('Renewal reviews', `${huddle ? dayName : 'Today'} · ${comListed ? `${comListed} commercial assigned` : `${REVIEW_GOAL} a day: 10 negative, 10 positive`}`, 120)
+    const reN = reviews.filter((x) => x.kind === 'reinstatement').length, coN = comListed - reN
+    section('Renewal reviews', `${huddle ? dayName : 'Today'} · ${comListed ? [coN ? `${coN} commercial` : '', reN ? `${reN} reinstatement${reN === 1 ? '' : 's'}` : ''].filter(Boolean).join(' and ') + ' assigned' : `${REVIEW_GOAL} a day: 10 negative, 10 positive`}`, 120)
     const cards: [string, string, boolean][] = [
       ['Worked (with notes)', `${rvWorked.length} / ${dayGoal}`, rvWorked.length >= dayGoal],
-      comListed ? ['Commercial · personal', `${rvCom} / ${comListed}  ·  ${rvNeg + rvPos}`, rvCom >= comListed] : ['Negative · positive', `${rvNeg} / 10  ·  ${rvPos} / 10`, rvNeg >= 10 && rvPos >= 10],
+      comListed ? ['Assigned · personal', `${rvCom + rvRe} / ${comListed}  ·  ${rvNeg + rvPos}`, rvCom + rvRe >= comListed] : ['Negative · positive', `${rvNeg} / 10  ·  ${rvPos} / 10`, rvNeg >= 10 && rvPos >= 10],
       ['Reached client', String(rvReached), false], ['No contact, emailed', String(rvEmailed), false],
     ]
     const cw4 = (CW - 30) / 4, ch = 44
@@ -245,7 +249,7 @@ export async function downloadRetentionPdf(name: string, folio: Period | null, t
         if (y + h > BOTTOM) { newPage(); head() }
         if (i % 2) { fill(C.soft); pdf.rect(L, y, CW, h, 'F') }
         const base = y + 15
-        pill(rv.kind === 'commercial' ? 'Commercial' : rv.kind === 'negative' ? 'Negative' : 'Positive', xs[0] + 8, base, rv.kind === 'commercial' ? { fg: C.navy2, bg: C.blueSoft } : rv.kind === 'negative' ? { fg: C.red, bg: C.redSoft } : { fg: C.green, bg: C.greenSoft })
+        pill(rv.kind === 'reinstatement' ? 'Reinstate' : rv.kind === 'commercial' ? 'Commercial' : rv.kind === 'negative' ? 'Negative' : 'Positive', xs[0] + 8, base, rv.kind === 'reinstatement' ? { fg: C.amber, bg: C.amberSoft } : rv.kind === 'commercial' ? { fg: C.navy2, bg: C.blueSoft } : rv.kind === 'negative' ? { fg: C.red, bg: C.redSoft } : { fg: C.green, bg: C.greenSoft })
         client.forEach((ln, k) => txt(ln, xs[1] + 8, base + k * 11, 8.5, true, C.ink))
         if (rv.policy) txt(fit(rv.policy, 7.5, cols[1].w - 14), xs[1] + 8, base + client.length * 11, 7.5, false, C.muted)
         const ch2 = rv.current_premium != null && rv.renewal_premium != null ? Number(rv.renewal_premium) - Number(rv.current_premium) : null
