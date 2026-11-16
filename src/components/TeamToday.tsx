@@ -25,7 +25,7 @@ const COLORS = ['#4d60ff', '#01BCAF', '#F79009', '#12B76A', '#8b5cf6', '#FE454E'
 
 async function load(day: string) {
   const [d, f, s] = await Promise.all([
-    supabase.rpc('team_day', { p_day: day }).then((r) => { if (r.error) throw r.error; return r.data as Day }),
+    supabase.rpc('team_day', { p_day: day }).then((r) => { if (r.error) throw r.error; return r.data as Day | null }),
     supabase.from('team_focus').select('name, focus').then((r) => (r.error ? [] : (r.data as { name: string; focus: string }[]))),
     supabase.from('team_day_status').select('name, out, note').eq('day', day).then((r) => (r.error ? [] : (r.data as { name: string; out: boolean; note: string | null }[]))),
   ])
@@ -36,7 +36,8 @@ export default function TeamToday() {
   const today = todayPacific()
   const [tick, setTick] = useState(0)
   const { data, error } = useAsync(() => load(today), [today, tick])
-  if (error || !data) return null
+  // nothing to show if the day couldn't be read (not the owner, or offline)
+  if (error || !data || !data.d || !Array.isArray(data.d.staff)) return null
   const { d, f, s } = data
   const people = d.staff.filter((x) => x.role !== 'owner').map((x, i) => {
     const name = (x.display || x.producer || '').trim()
