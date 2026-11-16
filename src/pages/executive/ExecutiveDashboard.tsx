@@ -79,7 +79,7 @@ export function Dashboard({ D }: { D: PerfData }) {
 
   return (
     <div ref={root} className={'xd' + (components ? ' dr-open' : '')} style={look.style} data-mode={look.dark ? 'dark' : 'light'}>
-      <LifePromoBanner />
+      {me?.role !== 'owner' && <LifePromoBanner />}
       <div className="pagehead">
         {brand && <div className="xd-brand"><img src={brand} alt={me?.agency?.name || 'Agency logo'} /></div>}
         <div className="hd-titles">

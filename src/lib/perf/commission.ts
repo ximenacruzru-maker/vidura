@@ -139,14 +139,62 @@ export function commFolioRows(D: PerfData, k: string): FolioRow[] {
   const ex = reconExcluded(k)
   return commFolioRowsRaw(D, k).map((r) => (ex.has(reconRowId(r)) ? { ...r, confirmed: false, excludedReason: 'Not paid on carrier statement' } : r))
 }
-export function commRecalc(D: PerfData) {
-  D.COMM_RESULTS = {}
-  D.WB_DATA.commissionsByFolio = D.WB_DATA.commissionsByFolio || {}
-  // the life promo numbers every life policy written during it, across all producers and folios, in date order
+/** the life promo's rate for a row: it numbers every life policy written during it, across all producers and folios,
+ *  in date order */
+function promoFor(D: PerfData): PromoRate | undefined {
   const P = D.LIFE_PROMO
   const cases = P ? promoRates(P, wbFolioKeys(D).flatMap((k) => commFolioRows(D, k)).filter((r) => r.confirmed !== false && isLife(r))
     .map((r) => ({ date: mdyIso(r.when), client: r.client, premium: Number(r.premium) || 0 }))) : null
-  const promo: PromoRate | undefined = cases ? (r) => (r.confirmed !== false && isLife(r) ? cases.get({ date: mdyIso(r.when), client: r.client, premium: Number(r.premium) || 0 }) : null) : undefined
+  return cases ? (r) => (r.confirmed !== false && isLife(r) ? cases.get({ date: mdyIso(r.when), client: r.client, premium: Number(r.premium) || 0 }) : null) : undefined
+}
+
+/** The folio in progress, projected to its last day for each producer — for a one-on-one: what they've written, their
+ *  average day (the days so far without the largest and smallest; the plain average with only one or two days), the
+ *  working days left, the projected premium, and the commission the plan would pay on it. The projected premium is
+ *  added in the same mix of business they've written so far; life promo pay counts only on life policies already
+ *  written, and projected business doesn't add life policies toward qualification. */
+export function commProjection(D: PerfData, k: string, today: string) {
+  const f = D.WB_DATA.folio[k]
+  if (!f || !(f.start <= today && today <= f.end)) return null
+  const plan = commPlanFor(D, f.start), promo = promoFor(D)
+  const rows = commFolioRows(D, k).filter((r) => r.confirmed !== false)
+  const sold = new Set(rows.map((r) => mdyIso(r.when)))
+  const day = (iso: string) => Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)) / 864e5
+  const iso = (n: number) => new Date(n * 864e5).toISOString().slice(0, 10)
+  const days: string[] = []
+  for (let n = day(f.start); n <= day(f.end); n++) { const d = iso(n), wd = new Date(n * 864e5).getUTCDay(); if ((wd !== 0 && wd !== 6) || sold.has(d)) days.push(d) }
+  const endMdy = `${f.end.slice(5, 7)}/${f.end.slice(8, 10)}/${f.end.slice(0, 4)}`
+  const tiers = [...(plan.tiers || [])].sort((a: Json, b: Json) => a.min - b.min)
+  const people = [...new Set(rows.map((r) => r.producer || 'Unassigned'))]
+  const out = people.map((p) => {
+    const mine = rows.filter((r) => (r.producer || 'Unassigned') === p)
+    const sums = new Map<string, number>(); mine.forEach((r) => { const d = mdyIso(r.when); sums.set(d, (sums.get(d) || 0) + (Number(r.premium) || 0)) })
+    const happened = (d: string) => d < today || (d === today && sums.has(d))
+    const vals = days.filter(happened).map((d) => sums.get(d) || 0), left = days.filter((d) => !happened(d)).length
+    const mx = Math.max(...vals), mn = Math.min(...vals), mid = vals.filter((v) => v < mx && v > mn)
+    const avg = mid.length ? mid.reduce((a, v) => a + v, 0) / mid.length : vals.length ? vals.reduce((a, v) => a + v, 0) / vals.length : 0
+    const written = mine.reduce((a, r) => a + (Number(r.premium) || 0), 0), projPrem = written + avg * left
+    const grow = written > 0 ? (projPrem - written) / written : 0
+    // the rest of the folio in the same mix: a copy of each sale scaled to the extra premium, dated the folio's last day
+    // (not a promo case), and a life copy doesn't count as another life policy
+    const extra = grow > 0 ? mine.map((r) => ({ ...r, client: 'Projected', when: endMdy, premium: (Number(r.premium) || 0) * grow, line: isLife(r) ? 'Projected (L)' : r.line })) : []
+    const now = commCompute(plan, mine, promo)[p], proj = commCompute(plan, [...mine, ...extra], promo)[p]
+    const next = tiers.find((t: Json) => Number(t.min) > proj.totalPremium)
+    // the next bonus the projected premium doesn't reach yet (an accelerator over a threshold, say)
+    const bonus = (plan.bonuses || []).filter((b: Json) => (b.basis || 'totalPremium') === 'totalPremium' && Number(b.threshold) > proj.totalPremium)
+      .sort((a: Json, b: Json) => Number(a.threshold) - Number(b.threshold))[0]
+    return { producer: p, written, avg, trimmed: mid.length > 0, left, projPrem, now: now.total as number, qualifiesNow: !!now.qualifies, projected: proj.total as number,
+      qualifies: !!proj.qualifies, tierRate: Number(proj.tierRate) || 0, nextTier: next ? { rate: Number(next.rate), need: Number(next.min) - proj.totalPremium, min: Number(next.min) } : null,
+      nextBonus: bonus ? { label: String(bonus.label || bonus.key), rate: Number(bonus.rate) || 0, need: Number(bonus.threshold) - proj.totalPremium, min: Number(bonus.threshold) } : null }
+  }).sort((a, b) => b.projected - a.projected || b.projPrem - a.projPrem)
+  return { start: f.start, end: f.end, days: days.length, left: days.filter((d) => !(d < today || (d === today && sold.has(d)))).length, plan, rows: out }
+}
+
+export function commRecalc(D: PerfData) {
+  D.COMM_RESULTS = {}
+  D.WB_DATA.commissionsByFolio = D.WB_DATA.commissionsByFolio || {}
+  const P = D.LIFE_PROMO
+  const promo = promoFor(D)
   wbFolioKeys(D).forEach((k) => {
     const f = D.WB_DATA.folio[k]; const base = commPlanFor(D, f.start); const res = commCompute(base, commFolioRows(D, k), promo)
     // the promo shows as its own column on folios that have any promo pay
