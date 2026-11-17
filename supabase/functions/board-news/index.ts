@@ -13,14 +13,23 @@ const cache = new Map<string, { at: number; body: unknown }>();
 const decode = (s: string) => s.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/<[^>]+>/g, "").trim();
 const tag = (x: string, t: string) => { const m = new RegExp(`<${t}[^>]*>([\\s\\S]*?)</${t}>`).exec(x); return m ? decode(m[1]) : ""; };
 
-async function feed(q: string | null, n: number): Promise<Item[]> {
+const problems: string[] = [];
+const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
+async function rss(url: string) {
+  try {
+    const r = await fetch(url, { headers: { "User-Agent": UA, Accept: "application/rss+xml, application/xml, text/xml, */*" } });
+    if (!r.ok) { problems.push(`${new URL(url).host} ${r.status}`); return ""; }
+    return await r.text();
+  } catch (e) { problems.push(`${new URL(url).host} ${(e as Error).message}`); return ""; }
+}
+/** a Google News search (or the top stories); Bing News when Google returns nothing (today's searches only) */
+async function feed(q: string | null, n: number, bing?: string): Promise<Item[]> {
   const url = q ? `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=en-US&gl=US&ceid=US:en` : "https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en";
-  const r = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (compatible; board-news/1.0)" } });
-  if (!r.ok) return [];
-  const xml = await r.text();
+  let xml = await rss(url);
+  if (!/<item>/.test(xml) && bing) xml = await rss(`https://www.bing.com/news/search?q=${encodeURIComponent(bing)}&format=rss`);
   const seen = new Set<string>();
   return [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)].map((m) => {
-    const x = m[1], source = tag(x, "source");
+    const x = m[1], source = tag(x, "source") || tag(x, "News:Source");
     let title = tag(x, "title");
     if (source && title.endsWith(" - " + source)) title = title.slice(0, -(source.length + 3));
     const d = tag(x, "pubDate");
@@ -39,16 +48,18 @@ Deno.serve(async (req) => {
   const span = day === today ? " when:1d" : ` after:${day} before:${next}`;
   try {
     const [local, outages, top, fresh] = await Promise.all([
-      feed(`"San Jose"${span}`, 5),
-      feed(`(outage OR outages OR "power outage" OR "internet outage" OR "service outage" OR "is down" OR "went down" OR "banks down" OR "bank outage" OR "banking outage")${span}`, 5),
-      day === today ? feed(null, 5) : feed(`(breaking OR major) news United States${span}`, 5),
+      feed(`"San Jose"${span}`, 5, day === today ? "San Jose" : undefined),
+      feed(`(outage OR outages OR "power outage" OR "internet outage" OR "service outage" OR "is down" OR "went down" OR "banks down" OR "bank outage" OR "banking outage")${span}`, 5, day === today ? "outage" : undefined),
+      day === today ? feed(null, 5, "top stories United States") : feed(`(breaking OR major) news United States${span}`, 5),
       // breaking: an outage or breaking story in the last three hours (today only)
       day === today ? feed(`("is down" OR "are down" OR "went down" OR outage OR outages OR "breaking news") when:3h`, 4) : Promise.resolve([] as Item[]),
     ]);
     const recent = (i: Item) => !!i.at && Date.now() - new Date(i.at).getTime() < 3 * 3600_000
     const breaking = [...fresh, ...outages.filter(recent)].filter((i, k, all) => recent(i) && all.findIndex((x) => x.title === i.title) === k).slice(0, 3);
-    const out = { day, local, outages, top, breaking };
-    cache.set(day, { at: Date.now(), body: out });
+    const out = { day, local, outages, top, breaking, ...(problems.length ? { problems: [...new Set(problems)] } : {}) };
+    // an empty answer (a feed refusing for a moment) isn't kept, so the next read tries again
+    if (local.length || outages.length || top.length) cache.set(day, { at: Date.now(), body: out });
+    problems.length = 0;
     return json(out);
   } catch (e) {
     return json({ day, local: [], outages: [], top: [], breaking: [], error: (e as Error).message }, 200);

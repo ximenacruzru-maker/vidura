@@ -1,4 +1,4 @@
-// Supabase Edge Function: agencyzoom-sync (v18)
+// Supabase Edge Function: agencyzoom-sync (v19)
 //
 // Keeps the Ironwood dashboard current from AgencyZoom:
 //   sold   - every policy written (from customer policies) -> daily_sales
@@ -597,7 +597,9 @@ Deno.serve(async (req) => {
         if (existing && existing.quote_count > 0 && leadQuoted && Number(existing.quoted_premium) === leadQuoted) { stats.quoteUnchanged++; continue; }
         let quotes: any[] = [];
         try { quotes = await leadQuotes(token, leadId); } catch (e) { if (String(e).includes("__TIME__")) break; err(`quotes ${leadId}: ${e}`); continue; }
-        const firstQuote = pacificDay(lead.quoteDate) || isoDate(lead.quoteDate) || pacificDay(lead.enterStageDate) || isoDate(lead.enterStageDate) || pacificDay(lead.lastActivityDate) || isoDate(lead.lastActivityDate) || end;
+        // AgencyZoom's quoteDate is a calendar day ("2026-11-17 00:00:00", midnight with no zone), not a UTC moment:
+        // read as a date — converting it to Pacific time filed every quote a day early
+        const firstQuote = isoDate(lead.quoteDate) || pacificDay(lead.enterStageDate) || isoDate(lead.enterStageDate) || pacificDay(lead.lastActivityDate) || isoDate(lead.lastActivityDate) || end;
         const shaped = quotes.map((q) => quoteShape(q, firstQuote));
         const total = shaped.reduce((s, q) => s + q.premium, 0) || leadQuoted;
         if (!total) continue; // definition: only leads with an actual quoted premium
