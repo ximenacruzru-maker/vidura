@@ -1993,3 +1993,55 @@ body.tv .ts-title { display: block; }
 .ts-cbar { display: block; height: 10px; border-radius: 999px; background: rgba(255, 255, 255, .14); overflow: hidden; align-self: center; }
 .ts-cbar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #8fb4ff, #7dffb5); transition: width .6s ease; }
 @media (prefers-reduced-motion: reduce) { .ts-phone i, .ts-dot { animation: none; } }
+
+/* ---------- Daily Huddle Report, laid out like Team Space ---------- */
+.hd-kick { margin: 0; font-size: clamp(11px, .78vw, 15px); font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #9fd8e6; }
+.hd-title { margin: 2px 0 0; font-size: clamp(24px, 2vw, 40px); font-weight: 900; letter-spacing: -.01em; line-height: 1.1; }
+.hd-left { display: grid; gap: clamp(12px, 1.2vw, 22px); align-content: start; min-width: 0; }
+.hd-left > .ts-h { margin-bottom: -2px; }
+.hd-total { margin: 0; font-size: clamp(12.5px, .9vw, 18px); color: rgba(255, 255, 255, .85); }
+.hd-total b { color: #7dffb5; }
+.hd-sum { margin: -4px 0 10px; font-size: clamp(12px, .85vw, 17px); color: rgba(255, 255, 255, .8); }
+.hd-foot { margin: 0; font-size: 12.5px; color: rgba(255, 255, 255, .7); }
+.hd-foot a, .ts-h a { color: #9fd8e6; }
+.hd-tbl { width: 100%; border-collapse: collapse; font-size: clamp(12.5px, .85vw, 17px); }
+.hd-tbl th { padding: 6px 8px; text-align: left; font-size: .78em; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: rgba(255, 255, 255, .65); border-bottom: 1px solid rgba(255, 255, 255, .22); }
+.hd-tbl td { padding: 7px 8px; border-bottom: 1px solid rgba(255, 255, 255, .1); color: rgba(255, 255, 255, .9); vertical-align: top; }
+.hd-tbl tr:last-child td { border-bottom: 0; }
+.hd-tbl .r { text-align: right; }
+.hd-tbl .strong { font-weight: 800; color: #fff; }
+.hd-tbl .muted { color: rgba(255, 255, 255, .6); }
+.hd-tbl .up { color: #7dffb5; }
+.hd-tbl .down { color: #ff9aa0; }
+.hd-notes { max-width: 340px; color: rgba(255, 255, 255, .8); }
+.hd-pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: .85em; font-weight: 800; background: rgba(255, 255, 255, .16); }
+.hd-pill.k-save, .hd-pill.k-cross_sell, .hd-pill.k-new_business { background: #7dffb5; color: #06302b; }
+.hd-pill.k-loss { background: #ff9aa0; color: #3a0d10; }
+.hd-chart { display: flex; align-items: flex-end; gap: 4px; height: 170px; overflow-x: auto; }
+.hd-col { flex: 1 0 22px; display: grid; grid-template-rows: auto 1fr auto; gap: 3px; height: 100%; min-width: 22px; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+.hd-col-v { font-size: 10px; font-weight: 800; color: rgba(255, 255, 255, .75); text-align: center; white-space: nowrap; }
+.hd-col-track { display: flex; align-items: flex-end; border-radius: 6px; background: rgba(255, 255, 255, .08); overflow: hidden; }
+.hd-col-track i { display: block; width: 100%; border-radius: 6px 6px 0 0; background: linear-gradient(180deg, #7dffb5, #3fd6c6); }
+.hd-col-m { font-size: 10.5px; font-weight: 700; text-align: center; color: rgba(255, 255, 255, .7); }
+.hd-col.on .hd-col-track { box-shadow: 0 0 0 2px #ffd76a inset; }
+.hd-col.on .hd-col-m { color: #ffd76a; }
+.hd-mini { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin-bottom: 10px; }
+.hd-mini > div { display: grid; gap: 2px; padding: 9px 11px; border-radius: 12px; background: rgba(255, 255, 255, .08); }
+.hd-mini span { font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: rgba(255, 255, 255, .7); }
+.hd-mini b { font-size: clamp(18px, 1.3vw, 26px); font-weight: 900; }
+.hd-mini .good b { color: #7dffb5; }
+.hd-mini .warn b { color: #ffd76a; }
+.hd-mini em { font-style: normal; font-size: 11.5px; color: rgba(255, 255, 255, .75); }
+.hd .ts-feed ul { max-height: none; }
+/* the columns hold their width; wide content (the month chart, tables) scrolls inside its panel */
+.ts-side, .hd-left { grid-template-columns: minmax(0, 1fr); }
+.ts-feed { min-width: 0; }
+/* a board (Team Space, the Daily Huddle) uses the whole width, and its tile numbers always fit their tile */
+.page:has(> .ts) { max-width: none; }
+.ts-kpis { grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); }
+.ts-k b { font-size: clamp(26px, 2.2vw, 48px); overflow-wrap: anywhere; }
+/* Farmers vs brokered: Farmers is the green part of the bar, brokered the blue */
+.hd-split { display: block; height: 8px; margin-top: 6px; border-radius: 999px; background: #8fb4ff; overflow: hidden; }
+.hd-split i { display: block; height: 100%; background: #7dffb5; }
+.hd-pill.k-farmers { background: #7dffb5; color: #06302b; font-size: .75em; }
+.hd-pill.k-brokered { background: #8fb4ff; color: #0b2160; font-size: .75em; }
