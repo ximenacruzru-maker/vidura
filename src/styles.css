@@ -2187,3 +2187,80 @@ body.tv .ts-title { display: block; }
 @keyframes ic-pulse { 50% { box-shadow: 0 18px 48px rgba(0, 0, 0, .45), 0 0 0 12px rgba(255, 215, 106, .25); } }
 @keyframes ic-ring { from { transform: rotate(-14deg); } to { transform: rotate(14deg); } }
 @media (prefers-reduced-motion: reduce) { .ic, .ic-icon { animation: none; } }
+
+/* ---------- Team Space on one screen: charts and news on top, then the numbers, then the people ---------- */
+.ts-fit { gap: clamp(8px, .8vw, 14px); padding: clamp(12px, 1.2vw, 22px); }
+.ts-fit .ts-cal-d { padding: 4px 3px; gap: 0; flex-basis: 64px; }
+.ts-fit .ts-cal-d b { font-size: clamp(14px, .95vw, 20px); }
+.ts-fit .ts-cal-d small { min-height: 0; }
+.ts-fit .ts-alert { padding: 7px 14px; font-size: clamp(12px, .8vw, 16px); }
+.ts-top4 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.05fr) minmax(0, 1.1fr); gap: clamp(8px, .8vw, 14px); align-items: stretch; }
+.ts-top4 > * { min-width: 0; margin: 0; }
+.ts-top4 .ts-feed { padding: clamp(10px, .8vw, 16px); }
+.ts-top4 .ts-h { margin-bottom: 6px; font-size: clamp(14px, 1vw, 20px); }
+.ts-top4 .bc-hbars { gap: 4px; }
+.ts-top4 .bc-track { height: clamp(11px, .8vw, 16px); }
+.ts-top4 .bc-hours-plot { height: clamp(110px, 15vh, 190px); }
+.ts-top4 .ts-run .panel { height: 100%; padding: 10px 12px; }
+.ts-top4 .ts-run .panel-h { margin-bottom: 2px; }
+.ts-top4 .ts-run .panel-t { font-size: clamp(14px, .95vw, 19px); }
+.ts-top4 .ts-run .rc-open { display: none; }
+.ts-top4 .ts-run .rchart { max-height: clamp(130px, 17vh, 210px); }
+.ts-top4 .ts-run .rc-key { margin-top: 2px; }
+.ts-top4 .ts-run .rc-note { display: none; }
+.bt-parts { display: grid; gap: 6px; }
+.bt-part-h { display: block; margin-bottom: 2px; font-size: clamp(11px, .72vw, 14px); font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: rgba(255, 255, 255, .7); }
+.bt-news .bt-part ul { display: grid; gap: 3px; max-height: none; }
+.bt-news .bt-part li { padding: 4px 8px; }
+.bt-news .bt-part a { -webkit-line-clamp: 1; font-size: clamp(12px, .8vw, 16px); }
+.bt-news .bt-part small { font-size: clamp(10.5px, .68vw, 13px); }
+.ts-fit .ts-kpis { grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); gap: 8px; }
+.ts-fit .ts-k { padding: 8px 12px; gap: 2px; }
+.ts-fit .ts-k b { font-size: clamp(20px, 1.6vw, 34px); }
+.ts-fit .ts-k em { font-size: clamp(11px, .72vw, 14px); }
+.ts-fit .ts-k span { font-size: clamp(10.5px, .68vw, 13px); }
+.ts-low { display: grid; grid-template-columns: minmax(0, 2.4fr) minmax(0, 1fr); gap: clamp(8px, .8vw, 14px); align-items: start; }
+.ts-low .ts-people, .ts-low .ts-side { min-width: 0; }
+.ts-fit .ts-grid { grid-template-columns: repeat(auto-fill, minmax(clamp(200px, 13vw, 300px), 1fr)); gap: 8px; }
+.ts-fit .ts-p { padding: 8px 10px; gap: 5px; }
+.ts-fit .ts-av { width: clamp(28px, 1.9vw, 42px); height: clamp(28px, 1.9vw, 42px); font-size: clamp(11px, .7vw, 15px); }
+.ts-fit .ts-who b { font-size: clamp(13px, .9vw, 19px); }
+.ts-fit .ts-focus, .ts-fit .ts-out { font-size: clamp(10.5px, .68vw, 14px); padding: 1px 8px; }
+.ts-fit .ts-big { font-size: clamp(18px, 1.3vw, 30px); }
+.ts-fit .ts-chips span { font-size: clamp(10.5px, .7vw, 14px); padding: 1px 7px; }
+.ts-fit .ts-phone { font-size: clamp(11px, .72vw, 15px); padding: 2px 8px; }
+.ts-fit .ts-ftd { font-size: clamp(10.5px, .68vw, 14px); }
+.ts-fit .ts-side { gap: clamp(8px, .8vw, 14px); }
+.ts-fit .ts-wins li { padding: 4px 8px; font-size: clamp(11.5px, .76vw, 15px); }
+.bt-fun-b { display: flex; align-items: center; gap: 12px; text-align: left; }
+.ts-fit .bt-fun { justify-items: stretch; text-align: left; }
+.ts-fit .bt-mark { font-size: clamp(36px, 3vw, 64px); }
+.ts-fit .bt-gif { max-height: clamp(90px, 10vh, 160px); }
+.ts-fit .bt-quote { font-size: clamp(12px, .82vw, 17px); }
+@media (min-width: 1200px) {
+  .ts-top4 { height: clamp(250px, 30vh, 340px); }
+  .ts-top4 > * { overflow: hidden; }
+  .ts-top4 .ts-calls .bc-hbars { max-height: calc(clamp(250px, 30vh, 340px) - 80px); overflow: auto; }
+  .ts-low .ts-grid, .ts-low .ts-side { max-height: calc(100vh - 520px); min-height: 220px; overflow: auto; }
+  body.tv .ts-low .ts-grid, body.tv .ts-low .ts-side { max-height: calc(100vh - 470px); }
+}
+@media (max-width: 1199px) { .ts-top4 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .ts-low { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 640px) { .ts-top4 { grid-template-columns: minmax(0, 1fr); } }
+/* breaking news: a red banner at the top of the board */
+.bt-breaking { display: flex; align-items: center; gap: 12px; padding: 8px 14px; border-radius: 14px; color: #fff; background: linear-gradient(90deg, #b3121f, #d63c48); box-shadow: 0 6px 18px rgba(0, 0, 0, .25); }
+.bt-breaking-tag { flex: none; padding: 3px 10px; border-radius: 999px; font-size: clamp(12px, .85vw, 17px); font-weight: 900; letter-spacing: .06em; text-transform: uppercase; color: #b3121f; background: #fff; animation: ts-glow 2.4s ease-in-out infinite; }
+.bt-breaking-list { display: grid; gap: 2px; min-width: 0; flex: 1; }
+.bt-breaking-list a { display: flex; align-items: baseline; gap: 10px; min-width: 0; color: #fff; text-decoration: none; }
+.bt-breaking-list a span { font-size: clamp(13px, .95vw, 20px); font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bt-breaking-list a small { flex: none; font-size: clamp(11px, .72vw, 14px); color: rgba(255, 255, 255, .8); }
+.bt-breaking-list a:hover span { text-decoration: underline; }
+@media (prefers-reduced-motion: reduce) { .bt-breaking-tag { animation: none; } }
+/* Team Space fits one 1080p screen in TV mode: a slightly shorter top row, and the people / wins scroll inside */
+@media (min-width: 1200px) {
+  .ts-top4 { height: clamp(220px, 26vh, 300px); }
+  .ts-top4 .ts-calls .bc-hbars { max-height: calc(clamp(220px, 26vh, 300px) - 80px); }
+  .ts-top4 .bc-hours-plot { height: calc(clamp(220px, 26vh, 300px) - 110px); }
+  .ts-top4 .ts-run .rchart { max-height: calc(clamp(220px, 26vh, 300px) - 120px); }
+  .ts-low .ts-grid, .ts-low .ts-side { max-height: calc(100vh - 640px); }
+  body.tv .ts-low .ts-grid, body.tv .ts-low .ts-side { max-height: calc(100vh - 735px); min-height: 200px; }
+}

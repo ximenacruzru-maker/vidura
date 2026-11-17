@@ -18,7 +18,7 @@ import { supabase } from '../lib/supabase'
 import { loadTeamToday, teamPeople, tidyName, type TeamPerson } from '../lib/teamToday'
 import { bestCalls, callAgent, UNANSWERED } from '../lib/ricochet'
 import { HBars, HourChart, SERIES } from '../components/BoardCharts'
-import BoardToday from '../components/BoardToday'
+import { BoardBoost, BoardNews, BreakingNews, useBoardNews } from '../components/BoardToday'
 import IncomingCalls from '../components/IncomingCalls'
 import { useTvMode } from '../lib/tvMode'
 import { useAsync } from '../lib/useAsync'
@@ -105,6 +105,7 @@ export function TeamBoard() {
   const [now, setNow] = useState(clock())
   const [tv, setTv] = useTvMode()
   const { data, error } = useAsync(() => loadBoard(day), [day, tick])
+  const news = useBoardNews(day, tick)
   const [at, setAt] = useState('')
   useEffect(() => { if (data) setAt(clock()) }, [data])
   // a fresh read every minute, and the clock
@@ -195,11 +196,26 @@ export function TeamBoard() {
   ) : null
 
   return (
-    <div className="ts">
+    <div className="ts ts-fit">
       {head}
       <IncomingCalls on={isToday} />
       <DayStrip day={day} today={today} onPick={setDay} tick={tick} />
+      <BreakingNews news={news} />
       {closing}
+      {/* the top: the charts and the day's news */}
+      <div className="ts-top4">
+          <div className="ts-feed ts-calls">
+            <p className="ts-h">📞 Calls {when} <span>{data.calls.length ? `${data.calls.length} · Ricochet` : 'Ricochet'}{isToday && synced ? ` · synced ${new Date(synced).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles' })}` : ''}</span></p>
+            {board.length ? <HBars keys={[{ k: 'o', label: 'Outbound', color: SERIES.a }, { k: 'i', label: 'Inbound', color: SERIES.b }]} fmt={(n) => String(n)} max={top}
+              rows={board.map((t) => { const ph = phone(t.agent); return { label: t.name === UNANSWERED ? t.name : t.name.split(' ')[0], parts: { o: t.out, i: t.inb },
+                badge: ph?.k === 'call' ? <span className="ts-dot" title={`On a call · ${mins(t.agent!.status_since)}`} /> : null,
+                note: ph ? <span className={'ts-st k-' + ph.k}>{ICON[ph.k]} {ph.label} · {mins(t.agent!.status_since)}</span> : undefined } })} />
+              : <p className="ts-none">{data.agents.length ? `No calls in Ricochet ${isToday ? 'yet today' : 'that day'}.` : 'Calls show up here once the Ricochet sync is running.'}</p>}
+          </div>
+          <div className="ts-feed ts-hours"><p className="ts-h">Calls by hour <span>{when}</span></p>{data.calls.some((c) => c.started_at) ? <HourChart calls={data.calls} /> : <p className="ts-none">No calls yet.</p>}</div>
+          {F && <div className="xd ts-run"><RunningChart title="Running total vs goal" today={day} start={F.start_date} end={F.end_date} goal={goal || null} points={points} clean /></div>}
+          <BoardNews news={news} isToday={isToday} />
+      </div>
       <div className="ts-kpis">
         <div className="ts-k hero">
           <span>Written {when}</span><b>{money0(prem)}</b>
@@ -222,7 +238,7 @@ export function TeamBoard() {
         </> : <div className="ts-k"><span>Folio</span><b>—</b><em>no folio on this day</em></div>}
       </div>
 
-      <div className="ts-main">
+      <div className="ts-low">
         <section className="ts-people" aria-label="What everyone is up to">
           <p className="ts-h">What everyone {isToday ? 'is up to' : 'did'} <span>{inToday.length} in{out.length ? ` · ${out.map((p) => p.name.split(' ')[0]).join(' & ')} out` : ''}</span></p>
           <div className="ts-grid">
@@ -258,33 +274,15 @@ export function TeamBoard() {
               )
             })}
           </div>
+        </section>
+        <aside className="ts-side">
           {wins.length > 0 && <div className="ts-feed ts-wins">
             <p className="ts-h">🏆 Wins {when}</p>
             <ul>{wins.map((w, i) => <li key={i}><span className="ts-win-i" aria-hidden="true">{w.i}</span><span>{w.t}</span></li>)}</ul>
           </div>}
-        </section>
-        <aside className="ts-side">
-          <div className="ts-feed ts-calls">
-            <p className="ts-h">📞 Calls {when} <span>{data.calls.length ? `${data.calls.length} · Ricochet` : 'Ricochet'}{isToday && synced ? ` · synced ${new Date(synced).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles' })}` : ''}</span></p>
-            {board.length ? <HBars keys={[{ k: 'o', label: 'Outbound', color: SERIES.a }, { k: 'i', label: 'Inbound', color: SERIES.b }]} fmt={(n) => String(n)} max={top}
-              rows={board.map((t) => { const ph = phone(t.agent); return { label: t.name === UNANSWERED ? t.name : t.name.split(' ')[0], parts: { o: t.out, i: t.inb },
-                badge: ph?.k === 'call' ? <span className="ts-dot" title={`On a call · ${mins(t.agent!.status_since)}`} /> : null,
-                note: ph ? <span className={'ts-st k-' + ph.k}>{ICON[ph.k]} {ph.label} · {mins(t.agent!.status_since)}</span> : undefined } })} />
-              : <p className="ts-none">{data.agents.length ? `No calls in Ricochet ${isToday ? 'yet today' : 'that day'}.` : 'Calls show up here once the Ricochet sync is running.'}</p>}
-          </div>
-          {data.calls.some((c) => c.started_at) && <div className="ts-feed"><p className="ts-h">Calls by hour <span>{when}</span></p><HourChart calls={data.calls} /></div>}
-          {F && <div className="xd ts-run"><RunningChart title="Running total vs goal" today={day} start={F.start_date} end={F.end_date} goal={goal || null} points={points} clean /></div>}
-          <div className="ts-feed">
-            <p className="ts-h">Sales {when} <span>{sales.length ? money0(prem) : ''}</span></p>
-            {sales.length ? <ul>{[...sales].reverse().map((r, i) => (
-              <li key={i} className={isLife({ line: r.line, carrier: r.carrier }) ? 'life' : ''}>
-                <b>{(r.producer || 'Unassigned').trim().replace(/\s+/g, ' ').split(' ')[0]}</b>
-                <span>{[r.line, r.carrier].filter(Boolean).join(' · ') || 'Policy'}</span><em>{money0(Number(r.premium) || 0)}</em>
-              </li>))}</ul> : <p className="ts-none">{isToday ? 'No sales yet today. First one gets the balloons 🎈' : 'No sales that day.'}</p>}
-          </div>
+          <BoardBoost day={day} isToday={isToday} edit={edit} />
         </aside>
       </div>
-      <BoardToday day={day} isToday={isToday} edit={edit} tick={tick} />
     </div>
   )
 }
