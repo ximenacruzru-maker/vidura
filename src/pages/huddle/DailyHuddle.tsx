@@ -13,6 +13,7 @@ import { useAsync } from '../../lib/useAsync'
 import { bestCalls, callAgent, UNANSWERED } from '../../lib/ricochet'
 import { useTvMode } from '../../lib/tvMode'
 import { ClientSuccessView, loadClientSuccess } from '../../components/ClientSuccess'
+import { Donut, HBars, HourChart, SERIES } from '../../components/BoardCharts'
 
 /** Daily Huddle Report: one page with the previous workday's performance for the 10:00 huddle — what was written and
  *  quoted, phone activity from Ricochet, by producer, the policies and quotes themselves, SDR transfers and client
@@ -90,13 +91,13 @@ function Huddle({ D }: { D: PerfData }) {
   // phone activity: the day's calls (the call webhook's when it sent any, else the API sync's), texts and voicemails
   const phone = useAsync(async () => {
     const [c, t, v] = await Promise.all([
-      supabase.from('ricochet_calls').select('agent, direction, duration_sec, talk_sec, disposition, source').eq('day', day).limit(5000).then((r) => (r.error ? [] : bestCalls(r.data as Call[]))),
+      supabase.from('ricochet_calls').select('agent, direction, duration_sec, talk_sec, disposition, source, started_at').eq('day', day).limit(5000).then((r) => (r.error ? [] : bestCalls(r.data as Call[]))),
       supabase.from('ricochet_texts').select('agent, direction').eq('day', day).then((r) => (r.error ? [] : (r.data as { agent: string | null; direction: string | null }[]))),
       supabase.from('ricochet_voicemails').select('for_user, heard').eq('day', day).then((r) => (r.error ? [] : (r.data as { for_user: string | null; heard: boolean | null }[]))),
     ])
     return { c, t, v }
   }, [day])
-  const [tab, setTab] = useState<'policies' | 'quotes' | 'sdr' | 'client'>('policies')
+  const [tab, setTab] = useState<'policies' | 'quotes' | 'sdr' | 'client' | 'month'>('policies')
   const [tv, setTv] = useTvMode()
 
   const agency = agencyName(me)
@@ -108,7 +109,6 @@ function Huddle({ D }: { D: PerfData }) {
     return callRows.filter((c) => { const a = tidyName(c.agent); return a === k || (!!f && a.split(' ')[0] === f) }).length
   }
   const dials = callRows.filter((c) => c.direction !== 'inbound').length
-  const colors = ['#4d60ff', '#01BCAF', '#F79009', '#12B76A', '#8b5cf6', '#FE454E', '#0ea5e9', '#d946ef']
   const short = (iso: string) => mdy(iso).slice(0, 5)
   /** a two-part bar: Farmers, then brokered */
   const split = (f: number, all: number) => all ? <span className="hd-split" title={`${Math.round((f / all) * 100)}% Farmers`}><i style={{ width: (f / all) * 100 + '%' }} /></span> : null
@@ -127,6 +127,7 @@ function Huddle({ D }: { D: PerfData }) {
     { k: 'quotes' as const, l: `Quotes · ${quotes.length}` },
     { k: 'sdr' as const, l: `SDR transfers · ${transfers.length}` },
     { k: 'client' as const, l: 'Client success' },
+    { k: 'month' as const, l: 'The month' },
   ]
 
   return (
@@ -159,34 +160,27 @@ function Huddle({ D }: { D: PerfData }) {
         <div className="ts-k hero"><span>Premium written · {weekday(day)}</span><b>{money0(written)}</b>
           <em>{dayGoal ? <><b className="hd-pct">{pctGoal(written)}%</b> of the {money0(dayGoal)} daily goal · </> : null}{sales.length} polic{sales.length === 1 ? 'y' : 'ies'} · {customers} customer{customers === 1 ? '' : 's'}</em>
           {dayGoal ? <span className="ts-bar"><i style={{ width: Math.min(100, pctGoal(written)) + '%' }} /></span> : null}</div>
-        <div className="ts-k"><span>Farmers vs brokered</span><b>{money0(farmersDay)}</b><em>Farmers · {money0(written - farmersDay)} brokered{written ? ` · ${Math.round((farmersDay / written) * 100)}%` : ''}</em>{split(farmersDay, written)}</div>
-        <div className="ts-k"><span>Quotes</span><b>{quotes.length}</b><em>{money0(quoted)} quoted · {quotes.length ? Math.round((customers / quotes.length) * 100) + '% to sale' : 'none'}</em></div>
-        <div className="ts-k"><span>Calls · Ricochet</span><b>{callRows.length}</b><em>{dials} out · {callRows.length - dials} in · 💬 {texts.length} texts · 📮 {vms.length} voicemail{vms.length === 1 ? '' : 's'}</em></div>
+        <div className="ts-k hd-donut-k"><span>Farmers vs brokered</span>
+          {written ? <Donut parts={[{ label: `Farmers ${money0(farmersDay)}`, v: farmersDay, color: SERIES.a }, { label: `Brokered ${money0(written - farmersDay)}`, v: written - farmersDay, color: SERIES.b }]} center={Math.round((farmersDay / written) * 100) + '%'} sub="Farmers" /> : <em>nothing written</em>}</div>
+        <div className="ts-k"><span>Quotes</span><b>{quotes.length}</b><em>{money0(quoted)} · {quotes.length ? Math.round((customers / quotes.length) * 100) + '% to sale' : '—'}</em></div>
+        <div className="ts-k"><span>Calls</span><b>{callRows.length}</b><em>{dials} out · {callRows.length - dials} in</em><div className="ts-chips"><span>💬 {texts.length}</span><span>📮 {vms.length}</span></div></div>
         <div className="ts-k"><span>SDR transfers</span><b>{transfers.length}</b><em>{transfers.filter((t) => t.azQualifies).length} qualified · {transfers.filter((t) => t.bound).length} bound</em></div>
-        <div className="ts-k"><span>Month to date</span><b>{money0(mtd.p)}</b><em>{mtd.n} policies · {left} day{left === 1 ? '' : 's'} left · {mtd.p ? Math.round((mtd.f / mtd.p) * 100) : 0}% Farmers</em>{split(mtd.f, mtd.p)}</div>
-        <div className="ts-k"><span>Folio to date</span><b>{ftd ? money0(ftd.p) : '—'}</b><em>{ftd ? <>{ftd.n} policies{goalPrem ? ` · ${Math.round((ftd.p / goalPrem) * 100)}% of goal` : ''} · {ftd.p ? Math.round((ftd.f / ftd.p) * 100) : 0}% Farmers</> : 'no folio on file'}</em>{ftd ? split(ftd.f, ftd.p) : null}</div>
+        <div className="ts-k"><span>Month to date</span><b>{money0(mtd.p)}</b><em>{mtd.n} policies · {left} day{left === 1 ? '' : 's'} left</em>{split(mtd.f, mtd.p)}</div>
+        <div className="ts-k"><span>Folio to date</span><b>{ftd ? money0(ftd.p) : '—'}</b><em>{ftd ? <>{ftd.n} policies{goalPrem ? ` · ${Math.round((ftd.p / goalPrem) * 100)}% of goal` : ''}</> : 'no folio on file'}</em>{ftd ? split(ftd.f, ftd.p) : null}</div>
       </div>
 
       <div className="hd-grid">
         <section className="hd-col1">
-          <p className="ts-h">By producer <span>{folio ? `and folio to date (${short(folio.start)} – ${short(day)})` : 'and month to date'}</span></p>
-          <div className="hd-scroll">
-            {producers.length ? <div className="hd-cards">
-              {producers.map(([n, r], i) => {
-                const c = callsOf(n)
-                return (
-                  <div key={n} className="ts-p">
-                    <div className="ts-top">
-                      <span className="ts-av" style={{ background: colors[i % colors.length] }}>{n.split(' ').map((w) => w[0]).slice(0, 2).join('')}</span>
-                      <div className="ts-who"><b>{n}</b></div>
-                      <div className="ts-big">{money0(r.prem)}</div>
-                    </div>
-                    <div className="ts-line">{[`${r.n} polic${r.n === 1 ? 'y' : 'ies'}`, r.prem ? `${money0(r.farm)} Farmers · ${money0(r.prem - r.farm)} brokered` : '', r.q ? `${r.q} quote${r.q === 1 ? '' : 's'} · ${money0(r.qp)}` : '', c ? `📞 ${c}` : ''].filter(Boolean).join(' · ')}</div>
-                    <div className="ts-ftd">{money0(r.ftd)} {folio ? 'folio to date' : 'month to date'}</div>
-                  </div>
-                )
-              })}
-            </div> : <p className="ts-none">No quotes or sales on {mdy(day)}.</p>}
+          <div className="ts-feed">
+            <p className="ts-h">Premium by producer <span>{weekday(day)}</span></p>
+            {producers.some(([, r]) => r.prem) ? <HBars keys={[{ k: 'f', label: 'Farmers', color: SERIES.a }, { k: 'b', label: 'Brokered', color: SERIES.b }]} fmt={money0}
+              rows={producers.filter(([, r]) => r.prem || r.q).map(([n, r]) => { const c = callsOf(n); return { label: n, parts: { f: r.farm, b: r.prem - r.farm }, note: [`${r.n} pol`, r.q ? `${r.q} quote${r.q === 1 ? '' : 's'}` : '', c ? `📞 ${c}` : ''].filter(Boolean).join(' · ') } })} />
+              : <p className="ts-none">Nothing written on {mdy(day)}.</p>}
+          </div>
+          <div className="ts-feed">
+            <p className="ts-h">{folio ? 'Folio to date' : 'Month to date'} by producer <span>{folio ? `${short(folio.start)} – ${short(day)}` : ''}</span></p>
+            <HBars legend={false} keys={[{ k: 't', label: folio ? 'Folio to date' : 'Month to date', color: SERIES.a }]} fmt={money0}
+              rows={producers.filter(([, r]) => r.ftd).sort((x, y) => y[1].ftd - x[1].ftd).map(([n, r]) => ({ label: n, parts: { t: r.ftd } }))} />
           </div>
         </section>
 
@@ -195,17 +189,7 @@ function Huddle({ D }: { D: PerfData }) {
             <p className="ts-h">📞 Phone activity <span>Ricochet{callRows.length && !callRows.some((c) => c.source === 'webhook') ? ' · from lead activity' : ''}</span></p>
             {!phone.data ? <p className="ts-none">Loading calls…</p> : <PhoneActivity calls={callRows} texts={texts} vms={vms} day={day} />}
           </div>
-          <div className="ts-feed">
-            <p className="ts-h">The month by day <span>premium written · % of the daily goal{dayGoal ? ` (${money0(dayGoal)})` : ''}</span></p>
-            <div className="hd-chart">{byDay.map((x) => (
-              <button key={x.d} type="button" className={'hd-col' + (x.d === day ? ' on' : '') + (dayGoal && x.p >= dayGoal ? ' hit' : '')} onClick={() => go(x.d)} title={`${mdy(x.d)} · ${money0(x.p)}${dayGoal ? ` · ${pctGoal(x.p)}% of goal` : ''}`}>
-                <span className="hd-col-v">{x.p ? '$' + Math.round(x.p / 1000) + 'k' : ''}</span>
-                <span className="hd-col-track">{dayGoal ? <u style={{ bottom: Math.min(100, (dayGoal / Math.max(maxDay, dayGoal)) * 100) + '%' }} /> : null}<i style={{ height: Math.max(x.p ? 3 : 0, (x.p / Math.max(maxDay, dayGoal || 0)) * 100) + '%' }} /></span>
-                <span className="hd-col-m">{x.d.slice(8)}</span>
-                {dayGoal ? <span className="hd-col-p">{pctGoal(x.p)}%</span> : null}
-              </button>
-            ))}</div>
-          </div>
+          {callRows.some((c) => c.started_at) && <div className="ts-feed"><p className="ts-h">Calls by hour</p><HourChart calls={callRows} /></div>}
         </section>
 
         <section className="hd-col3 ts-feed">
@@ -219,6 +203,8 @@ function Huddle({ D }: { D: PerfData }) {
                   <td className="r mono strong">{money0(Number(s.premium) || 0)}</td></tr>
               ))}</tbody>
             </table></div> : <p className="ts-none">Nothing written on {mdy(day)}.</p>)}
+            {tab === 'quotes' && quotes.length > 0 && <div className="hd-tabchart"><HBars legend={false} keys={[{ k: 'q', label: 'Quoted', color: SERIES.c }]} fmt={money0}
+              rows={producers.filter(([, r]) => r.q).sort((x, y) => y[1].qp - x[1].qp).map(([n, r]) => ({ label: n, parts: { q: r.qp }, note: `${r.q} quote${r.q === 1 ? '' : 's'}` }))} /></div>}
             {tab === 'quotes' && (quotes.length ? <div className="tbl-wrap"><table className="hd-tbl">
               <thead><tr><th>Lead</th><th>Producer</th><th>Lines</th><th className="r">Quoted</th></tr></thead>
               <tbody>{quotes.map((q, i) => (
@@ -234,6 +220,17 @@ function Huddle({ D }: { D: PerfData }) {
                   <td>{t.status} {t.bound ? <span className="hd-pill k-save">Bound</span> : t.azQualifies ? <span className="hd-pill k-save">Qualified</span> : null}</td></tr>
               ))}</tbody>
             </table></div> : <p className="ts-none">No SDR transfers on {mdy(day)}.</p>)}
+            {tab === 'month' && <div className="hd-month">
+            <p className="ts-h">The month by day <span>premium written · % of the daily goal{dayGoal ? ` (${money0(dayGoal)})` : ''}</span></p>
+            <div className="hd-chart">{byDay.map((x) => (
+              <button key={x.d} type="button" className={'hd-col' + (x.d === day ? ' on' : '') + (dayGoal && x.p >= dayGoal ? ' hit' : '')} onClick={() => go(x.d)} title={`${mdy(x.d)} · ${money0(x.p)}${dayGoal ? ` · ${pctGoal(x.p)}% of goal` : ''}`}>
+                <span className="hd-col-v">{x.p ? '$' + Math.round(x.p / 1000) + 'k' : ''}</span>
+                <span className="hd-col-track">{dayGoal ? <u style={{ bottom: Math.min(100, (dayGoal / Math.max(maxDay, dayGoal)) * 100) + '%' }} /> : null}<i style={{ height: Math.max(x.p ? 3 : 0, (x.p / Math.max(maxDay, dayGoal || 0)) * 100) + '%' }} /></span>
+                <span className="hd-col-m">{x.d.slice(8)}</span>
+                {dayGoal ? <span className="hd-col-p">{pctGoal(x.p)}%</span> : null}
+              </button>
+            ))}</div>
+            </div>}
             {tab === 'client' && (!ret.data ? <p className="ts-none">Loading…</p> : <><ClientSuccessView c={ret.data} day={day} look="board" /><p className="hd-foot"><Link to="/retention">Open Retention ›</Link></p></>)}
           </div>
         </section>
@@ -243,36 +240,27 @@ function Huddle({ D }: { D: PerfData }) {
   )
 }
 
-interface Call { agent: string | null; direction: string | null; duration_sec: number | null; talk_sec: number | null; disposition: string | null; source?: string | null }
+interface Call { agent: string | null; direction: string | null; duration_sec: number | null; talk_sec: number | null; disposition: string | null; source?: string | null; started_at?: string | null }
 const hm = (s: number) => { const h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60); return h ? `${h}h ${String(m).padStart(2, '0')}m` : `${m}m` }
 
 function PhoneActivity({ calls, texts, vms, day }: { calls: Call[]; texts: { agent: string | null; direction: string | null }[]; vms: { for_user: string | null; heard: boolean | null }[]; day: string }) {
   const sent = texts.filter((t) => t.direction !== 'inbound').length, unheard = vms.filter((v) => v.heard === false).length
-  const extras = <p className="hd-sum">💬 {texts.length} text{texts.length === 1 ? '' : 's'}{texts.length ? ` (${sent} sent · ${texts.length - sent} received)` : ''} · 📮 {vms.length} voicemail{vms.length === 1 ? '' : 's'}{unheard ? ` (${unheard} not heard yet)` : ''}</p>
-  if (!calls.length) return <><p className="ts-none">No calls from Ricochet on {mdy(day)}.</p>{extras}</>
+  const chips = <div className="ts-chips hd-phone-chips"><span title={`${sent} sent · ${texts.length - sent} received`}>💬 {texts.length} text{texts.length === 1 ? '' : 's'}</span><span title={unheard ? `${unheard} not heard yet` : ''}>📮 {vms.length} voicemail{vms.length === 1 ? '' : 's'}{unheard ? ` · ${unheard} new` : ''}</span></div>
+  if (!calls.length) return <><p className="ts-none">No calls from Ricochet on {mdy(day)}.</p>{chips}</>
   // calls read over Ricochet's API carry no talk time; the call webhook's do
   const timed = calls.some((c) => c.talk_sec != null || c.duration_sec != null)
-  const by: Record<string, { dials: number; inbound: number; contacts: number; talk: number }> = {}
-  const tot = { dials: 0, inbound: 0, contacts: 0, talk: 0 }
+  const by: Record<string, { out: number; inb: number; talk: number }> = {}
+  let talk = 0
   calls.forEach((c) => {
-    const k = callAgent(c.agent)
-    const r = (by[k] = by[k] || { dials: 0, inbound: 0, contacts: 0, talk: 0 })
-    const talk = Number(c.talk_sec ?? c.duration_sec ?? 0)
-    for (const x of [r, tot]) { if (c.direction === 'inbound') x.inbound++; else x.dials++; if (talk >= 30) x.contacts++; x.talk += talk }
+    const k = callAgent(c.agent), r = (by[k] = by[k] || { out: 0, inb: 0, talk: 0 }), t = Number(c.talk_sec ?? c.duration_sec ?? 0)
+    if (c.direction === 'inbound') r.inb++; else r.out++
+    r.talk += t; talk += t
   })
-  const textsBy = (n: string) => texts.filter((t) => callAgent(t.agent) === n).length
-  const rows = Object.entries(by).sort((a, b) => (a[0] === UNANSWERED ? 1 : 0) - (b[0] === UNANSWERED ? 1 : 0) || b[1].dials + b[1].inbound - (a[1].dials + a[1].inbound))
-  const people = rows.filter(([n]) => n !== UNANSWERED).length
-  const top = Math.max(1, ...rows.map(([, r]) => r.dials + r.inbound))
+  const rows = Object.entries(by).sort((a, b) => (a[0] === UNANSWERED ? 1 : 0) - (b[0] === UNANSWERED ? 1 : 0) || b[1].out + b[1].inb - (a[1].out + a[1].inb))
   return (<>
-    <p className="hd-sum">{calls.length} calls · {tot.dials} out · {tot.inbound} in{timed ? ` · ${tot.contacts} contacts (30s+) · ${hm(tot.talk)} talk time` : ''} · {people} on the phones</p>
-    {extras}
-    <ul>{rows.map(([n, r]) => { const t = textsBy(n); return (
-      <li key={n} className={n === UNANSWERED ? 'k-busy' : ''}>
-        <b>{n === UNANSWERED ? n : n.split(' ')[0]}</b>
-        <span className="ts-cbar"><i style={{ width: ((r.dials + r.inbound) / top) * 100 + '%' }} /></span>
-        <em>{r.dials + r.inbound}</em>
-        <small>{r.dials} out · {r.inbound} in{timed ? ` · ${hm(r.talk)} talk` : ''}{t ? ` · 💬 ${t}` : ''}</small>
-      </li>) })}</ul>
+    {chips}
+    {timed && <p className="hd-sum">{hm(talk)} talk time</p>}
+    <HBars keys={[{ k: 'o', label: 'Outbound', color: SERIES.a }, { k: 'i', label: 'Inbound', color: SERIES.b }]} fmt={(n) => String(n)}
+      rows={rows.map(([n, r]) => ({ label: n === UNANSWERED ? n : n.split(' ')[0], parts: { o: r.out, i: r.inb }, note: timed ? `${hm(r.talk)} talk` : undefined }))} />
   </>)
 }

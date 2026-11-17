@@ -4,6 +4,7 @@
 // so a day of working the reinstatement list counts even before the scorecard is filled in (the scorecard wins when
 // it's higher). Shown on the Daily Huddle Report (board look) and at the bottom of Retention (page look).
 import { GoalCard } from './Report'
+import { Ring } from './BoardCharts'
 import { mdy, money0 } from '../lib/format'
 import { movement, TARGETS, type RetentionDay, type RetentionEntry } from '../lib/retention'
 import { supabase } from '../lib/supabase'
@@ -56,8 +57,15 @@ export function ClientSuccessView({ c, day, look }: { c: ClientDay; day: string;
       ))}</tbody>
     </table></div>
   )
+  // the board: rings toward each goal, then the movement and service as two small tiles
   if (look === 'board') return (<>
-    <div className="hd-mini">{tiles.map((t) => <div key={t.k} className={t.good ? 'good' : 'warn'}><span>{t.k}</span><b>{t.v}</b>{t.note ? <em>{t.note}</em> : null}</div>)}</div>
+    <div className="bc-rings">
+      <Ring label="At-risk touches" value={c.touches} max={TARGETS.touches} />
+      <Ring label="Conversations" value={c.convos} max={TARGETS.conversations} />
+      {c.rein > 0 && <Ring label="Reinstatements" value={c.reinWorked} max={c.rein} show={`${c.reinWorked}/${c.rein}`} />}
+      <Ring label="Reviews worked" value={c.worked} max={c.reviews} show={`${c.worked}/${c.reviews}`} />
+    </div>
+    <div className="hd-mini">{tiles.slice(-2).map((t) => <div key={t.k} className={t.good ? 'good' : 'warn'}><span>{t.k}</span><b>{t.v}</b>{t.note ? <em>{t.note}</em> : null}</div>)}</div>
     {log}
   </>)
   return (<>
