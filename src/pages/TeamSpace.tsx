@@ -15,13 +15,18 @@ import { addDays, money0, todayPacific } from '../lib/format'
 import { isLife } from '../lib/lifePromo'
 import { pace } from '../lib/pace'
 import { supabase } from '../lib/supabase'
-import { loadTeamToday, personBits, teamPeople, tidyName, type TeamPerson } from '../lib/teamToday'
+import { loadTeamToday, teamPeople, tidyName, type TeamPerson } from '../lib/teamToday'
+import { bestCalls, callAgent, UNANSWERED } from '../lib/ricochet'
+import { HBars, HourChart, SERIES } from '../components/BoardCharts'
+import BoardToday from '../components/BoardToday'
+import IncomingCalls from '../components/IncomingCalls'
+import { useTvMode } from '../lib/tvMode'
 import { useAsync } from '../lib/useAsync'
 import { RunningChart } from './executive/parts'
 import Chat from './Chat'
 import './executive/executive.css'
 
-type Call = { agent: string | null; direction: string | null }
+type Call = { agent: string | null; direction: string | null; started_at?: string | null }
 type Agent = { user_id: number; name: string; status: string | null; status_since: string | null; active: boolean; updated_at: string }
 
 async function loadBoard(day: string) {
@@ -30,7 +35,7 @@ async function loadBoard(day: string) {
     getFolios().catch(() => []),
     supabase.from('reference_data').select('data').eq('key', 'lg:GOALS').maybeSingle().then((r) => (r.data?.data || {}) as { premium?: number | null; policies?: number | null }),
     // Ricochet (ricochet-sync, every minute): the day's calls, and each user's live status
-    supabase.from('ricochet_calls').select('agent, direction').eq('day', day).limit(5000).then((r) => (r.error ? [] : (r.data as Call[]))),
+    supabase.from('ricochet_calls').select('agent, direction, source, started_at').eq('day', day).limit(5000).then((r) => (r.error ? [] : bestCalls(r.data as (Call & { source: string | null })[]))),
     supabase.from('ricochet_agents').select('user_id, name, status, status_since, active, updated_at').then((r) => (r.error ? [] : (r.data as Agent[]))),
   ])
   const folio = folios.find((f) => f.start_date <= day && day <= f.end_date) || null
@@ -55,13 +60,50 @@ function phone(a: Agent | undefined): Phone | null {
 }
 const ICON: Record<Phone['k'], string> = { call: '📞', preview: '👀', busy: '⛔', avail: '✅', other: '•' }
 
-function Board() {
+/** the calendar at the top: two weeks of days with what was written and the calls, any day a click away */
+function DayStrip({ day, today, onPick, tick }: { day: string; today: string; onPick: (d: string) => void; tick: number }) {
+  const dow = new Date(day + 'T12:00:00Z').getUTCDay()
+  const start = addDays(day, -((dow + 6) % 7) - 7), end = addDays(start, 13)
+  const { data } = useAsync(async () => {
+    const [sold, calls] = await Promise.all([
+      getPolicies(start, end).catch(() => []),
+      supabase.from('ricochet_calls').select('day, source').gte('day', start).lte('day', end).limit(20000).then((r) => (r.error ? [] : (r.data as { day: string; source: string | null }[]))),
+    ])
+    return { sold, calls }
+  }, [start, end, tick])
+  const cells = Array.from({ length: 14 }, (_, i) => addDays(start, i)).filter((d) => {
+    const wd = new Date(d + 'T12:00:00Z').getUTCDay()
+    return (wd !== 0 && wd !== 6) || d === day || !!data?.sold.some((r) => r.sale_date === d)
+  })
+  const k = (v: number) => (v >= 1000 ? '$' + (Math.round(v / 100) / 10).toString().replace(/\.0$/, '') + 'k' : v ? '$' + Math.round(v) : '—')
+  return (
+    <div className="ts-cal" role="group" aria-label="Calendar">
+      <button type="button" className="ts-cal-nav" onClick={() => onPick(addDays(day, -7))} aria-label="Week before">‹</button>
+      {cells.map((d) => {
+        const dt = new Date(d + 'T12:00:00Z'), prem = (data?.sold || []).filter((r) => r.sale_date === d).reduce((a, r) => a + (Number(r.premium) || 0), 0)
+        const n = data ? bestCalls(data.calls.filter((c) => c.day === d)).length : 0
+        return (
+          <button key={d} type="button" disabled={d > today} onClick={() => onPick(d)} className={'ts-cal-d' + (d === day ? ' on' : '') + (d === today ? ' today' : '')} aria-pressed={d === day}>
+            <span>{dt.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' })}</span>
+            <b>{dt.getUTCDate()}</b>
+            <em>{d > today ? '' : k(prem)}</em>
+            <small>{d > today || !n ? '' : `📞 ${n}`}</small>
+          </button>
+        )
+      })}
+      <button type="button" className="ts-cal-nav" disabled={addDays(day, 7) > today && day === today} onClick={() => { const d = addDays(day, 7); onPick(d > today ? today : d) }} aria-label="Week after">›</button>
+    </div>
+  )
+}
+
+/** the board itself: Team Space's, and the top of the owner's Space */
+export function TeamBoard() {
   const { me } = useAuth()
   const today = todayPacific()
   const [day, setDay] = useState(today)
   const [tick, setTick] = useState(0)
   const [now, setNow] = useState(clock())
-  const [tv, setTv] = useState(false)
+  const [tv, setTv] = useTvMode()
   const { data, error } = useAsync(() => loadBoard(day), [day, tick])
   const [at, setAt] = useState('')
   useEffect(() => { if (data) setAt(clock()) }, [data])
@@ -70,15 +112,6 @@ function Board() {
     const a = setInterval(() => setTick((n) => n + 1), 60_000), b = setInterval(() => setNow(clock()), 15_000)
     return () => { clearInterval(a); clearInterval(b) }
   }, [])
-  // TV mode: the menu and top bar hidden, the page full screen; Esc (or leaving full screen) ends it
-  useEffect(() => {
-    document.body.classList.toggle('tv', tv)
-    if (tv && !document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => {})
-    if (!tv && document.fullscreenElement) document.exitFullscreen?.().catch(() => {})
-    const off = () => { if (!document.fullscreenElement) setTv(false) }
-    document.addEventListener('fullscreenchange', off)
-    return () => { document.removeEventListener('fullscreenchange', off); document.body.classList.remove('tv') }
-  }, [tv])
 
   const isToday = day === today
   const step = (n: number) => { const d = addDays(day, n); setDay(d > today ? today : d) }
@@ -127,7 +160,7 @@ function Board() {
   const owner = (n: string | null) => people.find((p) => p.mine(n)) || null
   const tally = new Map<string, { name: string; out: number; inb: number; agent?: Agent }>()
   const row = (name: string) => { const t = tally.get(name) || { name, out: 0, inb: 0 }; tally.set(name, t); return t }
-  data.calls.forEach((c) => { const t = row(owner(c.agent)?.name || (c.agent || 'Unassigned').trim()); if (c.direction === 'inbound') t.inb++; else t.out++ })
+  data.calls.forEach((c) => { const t = row(owner(c.agent)?.name || callAgent(c.agent)); if (c.direction === 'inbound') t.inb++; else t.out++ })
   const live = isToday ? data.agents.filter((a) => a.active) : []
   live.forEach((a) => { const n = owner(a.name)?.name || a.name; if (phone(a) || tally.has(n)) row(n).agent = a })
   const board = [...tally.values()].sort((a, b) => b.out + b.inb - (a.out + a.inb) || a.name.localeCompare(b.name))
@@ -137,10 +170,36 @@ function Board() {
   const phonesNow = [['call', 'on a call'], ['preview', 'preview dialing'], ['busy', 'busy'], ['avail', 'available']].map(([k, l]) => [countNow(k as Phone['k']), l] as const).filter(([n]) => n)
   const synced = data.agents.reduce((m, a) => (a.updated_at > m ? a.updated_at : m), '')
   const agentOf = (p: TeamPerson) => live.find((a) => p.mine(a.name))
+  // the wins: what the team achieved — life sold, the top writer, goals met, most calls, lists finished, tasks closed
+  const first = (n: string) => n.split(' ')[0]
+  const wins: { i: string; t: string }[] = []
+  people.filter((p) => p.life).forEach((p) => wins.push({ i: '🎉', t: `${first(p.name)} sold ${p.life} life polic${p.life === 1 ? 'y' : 'ies'}` }))
+  if (need && prem >= need) wins.push({ i: '🎯', t: `The team hit ${isToday ? "today's" : "the day's"} goal: ${money0(prem)} of ${money0(need)}` })
+  const topSeller = [...people].sort((a, b) => b.prem - a.prem)[0]
+  if (topSeller?.prem) wins.push({ i: '🏆', t: `${first(topSeller.name)} wrote the most: ${money0(topSeller.prem)} (${topSeller.sales} sale${topSeller.sales === 1 ? '' : 's'})` })
+  people.filter((p) => p !== topSeller && p.sales).forEach((p) => wins.push({ i: '🧾', t: `${first(p.name)} wrote ${money0(p.prem)} (${p.sales} sale${p.sales === 1 ? '' : 's'})` }))
+  const topCaller = board.filter((t) => t.name !== UNANSWERED)[0]
+  if (topCaller && topCaller.out + topCaller.inb >= 10) wins.push({ i: '📞', t: `${first(topCaller.name)} made the most calls: ${topCaller.out + topCaller.inb}` })
+  people.filter((p) => p.reviews && p.worked >= p.reviews).forEach((p) => wins.push({ i: '🔁', t: `${first(p.name)} worked every renewal review on the list (${p.worked})` }))
+  people.filter((p) => p.done + p.logged >= 3).forEach((p) => wins.push({ i: '✅', t: `${first(p.name)} closed ${p.done + p.logged} tasks` }))
+  people.filter((p) => p.quotes >= 3).forEach((p) => wins.push({ i: '📝', t: `${first(p.name)} sent ${p.quotes} quotes (${money0(p.qprem)})` }))
+  // the folio closing: today, or within two working days
+  const closeIn = F && P && isToday ? P.days.filter((s) => s >= today).length : 0
+  const closeDay = F ? new Date(F.end_date + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'long', month: 'numeric', day: 'numeric', timeZone: 'UTC' }) : ''
+  const toGo = Math.max(0, goal - ftd)
+  const closing = F && closeIn > 0 && closeIn <= 2 ? (
+    <div className={'ts-alert' + (closeIn === 1 ? ' last' : '')} role="status">
+      <b>🔔 Folio closes {closeIn === 1 ? 'today' : 'tomorrow'}</b> · {closeDay}
+      <span>{money0(ftd)} written{goal ? (toGo ? ` · ${money0(toGo)} to the ${money0(goal)} goal · ${money0(toGo / closeIn)} a day` : ' · goal reached 🎉') : ''} · get every sale entered in AgencyZoom before the close</span>
+    </div>
+  ) : null
 
   return (
     <div className="ts">
       {head}
+      <IncomingCalls on={isToday} />
+      <DayStrip day={day} today={today} onPick={setDay} tick={tick} />
+      {closing}
       <div className="ts-kpis">
         <div className="ts-k hero">
           <span>Written {when}</span><b>{money0(prem)}</b>
@@ -169,7 +228,17 @@ function Board() {
           <div className="ts-grid">
             {people.map((p) => {
               const t = tally.get(p.name), n = t ? t.out + t.inb : 0, a = agentOf(p), ph = phone(a)
-              const bits = [...(n ? [`📞 ${n} call${n === 1 ? '' : 's'}`] : []), ...personBits(p, money0)], folio = mineFolio(p.keys)
+              // the day in chips, not sentences
+              const chips = [
+                n ? { i: '📞', v: String(n), t: `${n} call${n === 1 ? '' : 's'}` } : null,
+                p.sales ? { i: '🧾', v: String(p.sales), t: `${p.sales} sale${p.sales === 1 ? '' : 's'} · ${money0(p.prem)}` } : null,
+                p.quotes ? { i: '📝', v: String(p.quotes), t: `${p.quotes} quote${p.quotes === 1 ? '' : 's'} · ${money0(p.qprem)}` } : null,
+                p.reviews ? { i: '🔁', v: `${p.worked}/${p.reviews}`, t: `${p.worked} of ${p.reviews} renewal reviews worked · ${p.reached} reached` } : null,
+                p.calls ? { i: '☎️', v: String(p.calls), t: `${p.calls} call-list call${p.calls === 1 ? '' : 's'}` } : null,
+                p.done + p.logged ? { i: '✅', v: String(p.done + p.logged), t: `${p.done + p.logged} task${p.done + p.logged === 1 ? '' : 's'} done` } : null,
+                p.ret ? { i: '📒', v: String(p.ret), t: `${p.ret} retention log entr${p.ret === 1 ? 'y' : 'ies'}` } : null,
+                p.notes ? { i: '🗒️', v: String(p.notes), t: `${p.notes} note${p.notes === 1 ? '' : 's'}` } : null,
+              ].filter(Boolean) as { i: string; v: string; t: string }[], folio = mineFolio(p.keys)
               return (
                 <div key={p.name} className={'ts-p' + (p.out ? ' out' : '') + (p.life ? ' life' : '') + (ph?.k === 'call' ? ' call' : '')}>
                   <div className="ts-top">
@@ -181,26 +250,30 @@ function Board() {
                   {ph && <div className={'ts-phone k-' + ph.k} title={`Ricochet: ${a!.status}`}>{ph.k === 'call' ? <i aria-hidden="true" /> : <span aria-hidden="true">{ICON[ph.k]}</span>}{ph.label} · {mins(a!.status_since)}</div>}
                   {p.out ? <div className="ts-line muted">Out{isToday ? ' today' : ''}{p.note ? ` · ${p.note}` : ''}</div> : <>
                     {p.sales ? <div className="ts-big">{money0(p.prem)}<span>{when}</span></div> : null}
-                    <div className="ts-line">{p.life ? <b className="ts-life">🎉 {p.life} life sold · </b> : null}{bits.length ? bits.join(' · ') : <span className="muted">Nothing in Declara {isToday ? 'yet today' : 'that day'}</span>}</div>
+                    {chips.length || p.life ? <div className="ts-chips">{p.life ? <span className="life">🎉 {p.life} life</span> : null}{chips.map((c) => <span key={c.i} title={c.t}>{c.i} {c.v}</span>)}</div>
+                      : <div className="ts-line"><span className="muted">Nothing in Declara {isToday ? 'yet today' : 'that day'}</span></div>}
                   </>}
                   {folio > 0 && <div className="ts-ftd">{money0(folio)} written this folio{isToday ? '' : ` through ${md(day)}`}</div>}
                 </div>
               )
             })}
           </div>
+          {wins.length > 0 && <div className="ts-feed ts-wins">
+            <p className="ts-h">🏆 Wins {when}</p>
+            <ul>{wins.map((w, i) => <li key={i}><span className="ts-win-i" aria-hidden="true">{w.i}</span><span>{w.t}</span></li>)}</ul>
+          </div>}
         </section>
         <aside className="ts-side">
           <div className="ts-feed ts-calls">
             <p className="ts-h">📞 Calls {when} <span>{data.calls.length ? `${data.calls.length} · Ricochet` : 'Ricochet'}{isToday && synced ? ` · synced ${new Date(synced).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles' })}` : ''}</span></p>
-            {board.length ? <ul>{board.map((t) => { const ph = phone(t.agent); return (
-              <li key={t.name} className={ph ? 'k-' + ph.k : ''}>
-                <b>{t.name.split(' ')[0]}{ph?.k === 'call' ? <span className="ts-dot" title={`On a call · ${mins(t.agent!.status_since)}`} /> : null}</b>
-                <span className="ts-cbar"><i style={{ width: ((t.out + t.inb) / top) * 100 + '%' }} /></span>
-                <em>{t.out + t.inb}</em>
-                <small>{t.out} out · {t.inb} in{ph ? ` · ${ICON[ph.k]} ${ph.label.toLowerCase()} ${mins(t.agent!.status_since)}` : ''}</small>
-              </li>) })}</ul> : <p className="ts-none">{data.agents.length ? `No calls in Ricochet ${isToday ? 'yet today' : 'that day'}.` : 'Calls show up here once the Ricochet sync is running.'}</p>}
+            {board.length ? <HBars keys={[{ k: 'o', label: 'Outbound', color: SERIES.a }, { k: 'i', label: 'Inbound', color: SERIES.b }]} fmt={(n) => String(n)} max={top}
+              rows={board.map((t) => { const ph = phone(t.agent); return { label: t.name === UNANSWERED ? t.name : t.name.split(' ')[0], parts: { o: t.out, i: t.inb },
+                badge: ph?.k === 'call' ? <span className="ts-dot" title={`On a call · ${mins(t.agent!.status_since)}`} /> : null,
+                note: ph ? <span className={'ts-st k-' + ph.k}>{ICON[ph.k]} {ph.label} · {mins(t.agent!.status_since)}</span> : undefined } })} />
+              : <p className="ts-none">{data.agents.length ? `No calls in Ricochet ${isToday ? 'yet today' : 'that day'}.` : 'Calls show up here once the Ricochet sync is running.'}</p>}
           </div>
-          {F && <div className="xd ts-run"><RunningChart title="Running total vs goal" today={day} start={F.start_date} end={F.end_date} goal={goal || null} points={points} /></div>}
+          {data.calls.some((c) => c.started_at) && <div className="ts-feed"><p className="ts-h">Calls by hour <span>{when}</span></p><HourChart calls={data.calls} /></div>}
+          {F && <div className="xd ts-run"><RunningChart title="Running total vs goal" today={day} start={F.start_date} end={F.end_date} goal={goal || null} points={points} clean /></div>}
           <div className="ts-feed">
             <p className="ts-h">Sales {when} <span>{sales.length ? money0(prem) : ''}</span></p>
             {sales.length ? <ul>{[...sales].reverse().map((r, i) => (
@@ -211,6 +284,7 @@ function Board() {
           </div>
         </aside>
       </div>
+      <BoardToday day={day} isToday={isToday} edit={edit} tick={tick} />
     </div>
   )
 }
@@ -228,7 +302,7 @@ export default function TeamSpace() {
           <button role="tab" aria-selected={tab === 'board'} className={tab === 'board' ? 'on' : ''} onClick={() => go('/team')}>Board</button>
           <button role="tab" aria-selected={tab === 'chat'} className={tab === 'chat' ? 'on' : ''} onClick={() => go('/team/chat')}>Team Chat</button>
         </div> : undefined} />
-      {tab === 'board' ? <Board /> : chat ? <Chat embedded /> : null}
+      {tab === 'board' ? <TeamBoard /> : chat ? <Chat embedded /> : null}
     </>
   )
 }

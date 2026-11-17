@@ -45,7 +45,8 @@ function Gate() {
   if ((me.must_change_password || sessionStorage.getItem('vx_recovery')) && !pwDone) return <ChangePassword forced onDone={() => { sessionStorage.removeItem('vx_recovery'); setPwDone(true) }} />
   // a new hire has only the training (and settings): it is their home and the rest isn't routed
   const trainee = me.role === 'new_hire'
-  const home = trainee ? '/training' : can(me, 'performance') ? '/' : '/today'
+  // the owner lands on his Space (the team's day as a board); others with the numbers on the Executive Dashboard
+  const home = trainee ? '/training' : me.role === 'owner' ? '/today' : can(me, 'performance') ? '/' : '/today'
   // "My Commissions only": that page, Farmers University, their settings and changing their password are all that is routed
   if (commissionsOnly(me)) {
     return (

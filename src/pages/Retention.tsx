@@ -10,6 +10,7 @@ import { agencyName } from '../lib/data'
 import { downloadRetentionPdf } from '../lib/retentionPdf'
 import { useAsync } from '../lib/useAsync'
 import RenewalReview from './RenewalReview'
+import { ClientSuccessView, loadClientSuccess } from '../components/ClientSuccess'
 import type { BonusTier } from '../lib/payday'
 import { LOSS_REASONS, ROLE_FROM, TARGETS, folioBonus, monthEnd, monthLabel, movement, type RetentionDay, type RetentionEntry, type RetentionMonth } from '../lib/retention'
 
@@ -242,6 +243,11 @@ export default function Retention() {
         </tbody></table>
         <div className="sub" style={{ marginTop: 8 }}>Escalate immediately: rate increase or price complaint, cancellation or nonrenewal language, nonpayment or reinstatement risk, coverage reduction because of price, dissatisfaction or complaint, underwriting or missing information, brokered renewal/payment/carrier concern, or a request for a manager. A transfer doesn’t end ownership.</div></details>
       </Section>
+
+      {/* the bottom: client success for the day picked, as the Daily Huddle shows it (reinstatements worked count) */}
+      <Section title="Client success" sub={`${longDay(day)} · the scorecard, the log and the renewal reviews worked`}>
+        <ClientSuccessBlock name={name} day={day} reload={reload} />
+      </Section>
     </div>
   )
 }
@@ -419,4 +425,11 @@ export function PdfButton({ name, folio, agency, className = 'btn-ghost' }: { na
       try { await downloadRetentionPdf(name, folio, todayPacific(), agency) } catch (e) { alert('The report could not be made: ' + String((e as Error)?.message || e)) } finally { setBusy(false) }
     }}>{busy ? 'Making the PDF…' : 'Download PDF report'}</button>
   )
+}
+
+function ClientSuccessBlock({ name, day, reload }: { name: string; day: string; reload: number }) {
+  const c = useAsync(() => loadClientSuccess(day, name), [name, day, reload])
+  if (c.error) return <ErrorBox error={c.error} />
+  if (!c.data) return <Loading what="Loading client success" />
+  return <ClientSuccessView c={c.data} day={day} look="page" />
 }
