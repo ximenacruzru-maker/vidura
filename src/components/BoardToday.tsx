@@ -32,9 +32,9 @@ const MARKS = ['🚀', '🔥', '💪', '🏆', '⭐', '🎯', '📞', '🙌']
 const ago = (iso: string | null) => { if (!iso) return ''; const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000); return m < 60 ? `${Math.max(1, m)}m ago` : m < 1440 ? `${Math.round(m / 60)}h ago` : new Date(iso).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' }) }
 const goodGif = (u: string) => /^https:\/\/\S+$/i.test(u)
 
-/** the day's headlines, read every 5 minutes (shared by the news panel and the breaking-news banner) */
+/** the day's headlines, read every hour (shared by the news panel and the breaking-news banner) */
 export function useBoardNews(day: string, tick: number) {
-  const slot = Math.floor(tick / 5)
+  const slot = Math.floor(tick / 60)
   return useAsync(async () => {
     const { data, error } = await supabase.functions.invoke('board-news', { body: { day } })
     if (error) throw error
