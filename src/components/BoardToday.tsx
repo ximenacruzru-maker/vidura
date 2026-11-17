@@ -1,12 +1,12 @@
-// The "Today" row at the bottom of Team Space: something fun to start the day (a quote of the day with an animated
-// mark, or a GIF the owner picks — paste any GIF link) and the day's headlines: San Jose, US outages and the top US
-// stories (Google News, through the board-news function; titles and links only).
+// Team Space's news and boost: the day's headlines (outages and major events, the top US stories, San Jose — Google
+// News through the board-news function; titles and links only), and something fun (a quote of the day with an
+// animated mark, or a GIF the owner picks — paste any GIF link).
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAsync } from '../lib/useAsync'
 
 type Item = { title: string; source: string; link: string; at: string | null }
-type News = { day: string; local: Item[]; outages: Item[]; top: Item[] }
+type News = { day: string; local: Item[]; outages: Item[]; top: Item[]; breaking?: Item[] }
 
 const QUOTES: [string, string][] = [
   ['Success is the sum of small efforts, repeated day in and day out.', 'Robert Collier'],
@@ -32,13 +32,54 @@ const MARKS = ['🚀', '🔥', '💪', '🏆', '⭐', '🎯', '📞', '🙌']
 const ago = (iso: string | null) => { if (!iso) return ''; const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000); return m < 60 ? `${Math.max(1, m)}m ago` : m < 1440 ? `${Math.round(m / 60)}h ago` : new Date(iso).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' }) }
 const goodGif = (u: string) => /^https:\/\/\S+$/i.test(u)
 
-export default function BoardToday({ day, isToday, edit, tick }: { day: string; isToday: boolean; edit: boolean; tick: number }) {
-  const slot = Math.floor(tick / 20) // the headlines every 20 minutes
-  const news = useAsync(async () => {
+/** the day's headlines, read every 5 minutes (shared by the news panel and the breaking-news banner) */
+export function useBoardNews(day: string, tick: number) {
+  const slot = Math.floor(tick / 5)
+  return useAsync(async () => {
     const { data, error } = await supabase.functions.invoke('board-news', { body: { day } })
     if (error) throw error
     return data as News
   }, [day, slot])
+}
+export type BoardNewsData = ReturnType<typeof useBoardNews>
+
+/** the red banner at the top of the board: an outage or breaking story from the last three hours */
+export function BreakingNews({ news }: { news: BoardNewsData }) {
+  const b = news.data?.breaking || []
+  if (!b.length) return null
+  const time = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles' }) : '')
+  return (
+    <div className="bt-breaking" role="alert">
+      <b className="bt-breaking-tag">🚨 Breaking</b>
+      <div className="bt-breaking-list">{b.map((i) => (
+        <a key={i.link} href={i.link} target="_blank" rel="noreferrer"><span>{i.title}</span><small>{i.source}{i.at ? ` · ${time(i.at)}` : ''}</small></a>
+      ))}</div>
+    </div>
+  )
+}
+
+/** the day's headlines in one panel: outages and major events first, then the top US stories, then San Jose */
+export function BoardNews({ news, isToday }: { news: BoardNewsData; isToday: boolean }) {
+  const part = (title: string, items: Item[] | undefined, n: number) => items?.length ? (
+    <div className="bt-part"><span className="bt-part-h">{title}</span>
+      <ul>{items.slice(0, n).map((i) => <li key={i.link}><a href={i.link} target="_blank" rel="noreferrer">{i.title}</a><small>{i.source}{i.at ? ` · ${ago(i.at)}` : ''}</small></li>)}</ul></div>
+  ) : null
+  const d = news.data
+  return (
+    <div className="ts-feed bt-news">
+      <p className="ts-h">📰 {isToday ? 'Today’s news' : 'That day’s news'}</p>
+      {!d && !news.error ? <p className="ts-none">Loading…</p> : news.error ? <p className="ts-none">Headlines are unavailable right now.</p> : <div className="bt-parts">
+        {part('⚡ Outages', d?.outages, 3)}
+        {part(isToday ? '🇺🇸 Top stories' : '🇺🇸 Major US news', d?.top, 3)}
+        {part('📍 San Jose', d?.local, 3)}
+        {!d?.outages.length && !d?.top.length && !d?.local.length && <p className="ts-none">No headlines for this day.</p>}
+      </div>}
+    </div>
+  )
+}
+
+/** something fun: the quote of the day with an animated mark, or the GIF the owner picked */
+export function BoardBoost({ day, isToday, edit }: { day: string; isToday: boolean; edit: boolean }) {
   const [gifTick, setGifTick] = useState(0)
   const gif = useAsync(async () => {
     const { data } = await supabase.from('reference_data').select('data').eq('key', 'board:GIF').maybeSingle()
@@ -47,7 +88,6 @@ export default function BoardToday({ day, isToday, edit, tick }: { day: string; 
   }, [gifTick])
   const n = Math.floor(new Date(day + 'T12:00:00Z').getTime() / 864e5)
   const [quote, by] = QUOTES[n % QUOTES.length], mark = MARKS[n % MARKS.length]
-
   const setGif = async () => {
     const u = prompt('Paste a GIF link (for example from giphy.com: open the GIF, then “Copy link” › GIF link). Leave it empty to show the quote of the day.', gif.data || '')
     if (u === null) return
@@ -56,26 +96,13 @@ export default function BoardToday({ day, isToday, edit, tick }: { day: string; 
     const { error } = await supabase.from('reference_data').upsert({ key: 'board:GIF', data: { url }, updated_at: new Date().toISOString() }, { onConflict: 'agency_id,key' })
     if (error) alert(error.message); else setGifTick((x) => x + 1)
   }
-
-  const list = (title: string, items: Item[] | undefined, empty: string) => (
-    <div className="ts-feed bt-news">
-      <p className="ts-h">{title}</p>
-      {!news.data && !news.error ? <p className="ts-none">Loading…</p> : items?.length ? <ul>{items.map((i) => (
-        <li key={i.link}><a href={i.link} target="_blank" rel="noreferrer">{i.title}</a><small>{i.source}{i.at ? ` · ${ago(i.at)}` : ''}</small></li>
-      ))}</ul> : <p className="ts-none">{news.error ? 'Headlines are unavailable right now.' : empty}</p>}
-    </div>
-  )
-
   return (
-    <div className="bt">
-      <div className="ts-feed bt-fun">
-        <p className="ts-h">{isToday ? '✨ Today’s boost' : '✨ That day’s boost'}{edit && <button type="button" className="bt-edit" onClick={setGif}>{gif.data ? 'Change GIF' : 'Add a GIF'}</button>}</p>
+    <div className="ts-feed bt-fun">
+      <p className="ts-h">{isToday ? '✨ Today’s boost' : '✨ That day’s boost'}{edit && <button type="button" className="bt-edit" onClick={setGif}>{gif.data ? 'Change GIF' : 'Add a GIF'}</button>}</p>
+      <div className="bt-fun-b">
         {gif.data ? <img className="bt-gif" src={gif.data} alt="The team’s GIF of the day" /> : <div className="bt-mark" aria-hidden="true">{mark}</div>}
         <blockquote className="bt-quote">“{quote}”<cite>— {by}</cite></blockquote>
       </div>
-      {list('📍 San Jose', news.data?.local, 'No San Jose headlines for this day.')}
-      {list('⚡ Outages', news.data?.outages, 'No outages in the news — all systems go.')}
-      {list(isToday ? '🇺🇸 Top stories' : '🇺🇸 Major US news', news.data?.top, 'No headlines for this day.')}
     </div>
   )
 }
