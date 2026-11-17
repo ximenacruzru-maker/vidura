@@ -115,11 +115,13 @@ function Projected({ D, k }: { D: PerfData; k: string }) {
           <div className="pj-cards">
             <div><span>Written so far</span><b>{money0(one.written)}</b></div>
             <div><span>Average day</span><b>{money0(one.avg)}</b><em>{one.trimmed ? 'largest & smallest left out' : 'all days'}</em></div>
-            <div><span>Projected premium</span><b>{money0(one.projPrem)}</b><em>by {md(P.end)}</em></div>
+            <div><span>Projected premium</span><b>{money0(one.projPrem)}</b><em>by {md(P.end)} · {money0(one.lowPrem)} – {money0(one.highPrem)}</em></div>
             <div className="hl"><span>Projected commission</span><b>{money0(one.projected)}</b><em>{one.qualifies ? `${pct(one.tierRate)} tier` : 'not qualified at this pace'} · now {money0(one.now)}</em></div>
+            <div><span>Commission range</span><b>{money0(one.low)} – {money0(one.high)}</b><em>slowest day {money0(one.lowDay)} · best day {money0(one.highDay)}</em></div>
           </div>
           <p className="pj-say">{first} has written <b>{money0(one.written)}</b> so far. At {first}’s average day of <b>{money0(one.avg)}</b>, that’s <b>{money0(one.projPrem)}</b> by {md(P.end)}
             {one.qualifies ? <>, which pays about <b>{money0(one.projected)}</b> at the {pct(one.tierRate)} tier</> : <>, which doesn’t qualify under {P.plan.name} yet (about <b>{money0(one.projected)}</b> from the parts that pay without qualifying)</>}.
+            {P.left > 0 && <> If the rest of the folio goes like {first}’s slowest day it’s about <b>{money0(one.low)}</b>; like {first}’s best day, about <b>{money0(one.high)}</b>.</>}
             {one.nextTier ? <> Another <b>{money0(one.nextTier.need)}</b> in premium reaches the {pct(one.nextTier.rate)} tier ({money0(one.nextTier.min)}).</> : <> That’s the top tier.</>}
             {one.nextBonus ? <> <b>{money0(one.nextBonus.need)}</b> more unlocks the {one.nextBonus.label} (+{pct(one.nextBonus.rate)} over {money0(one.nextBonus.min)}).</> : null}</p>
         </div>
@@ -131,10 +133,10 @@ function Projected({ D, k }: { D: PerfData; k: string }) {
                 <tr key={x.producer} className={x.producer === one.producer ? 'pj-on' : undefined} onClick={() => setWho(x.producer)} style={{ cursor: 'pointer' }}>
                   <td style={{ fontWeight: 600, color: 'var(--bistre)' }}>{x.producer}</td>
                   <td className="tr mono">{money0(x.written)}</td><td className="tr mono">{money0(x.avg)}</td>
-                  <td className="tr mono" style={{ fontWeight: 700 }}>{money0(x.projPrem)}</td>
+                  <td className="tr mono" style={{ fontWeight: 700 }}>{money0(x.projPrem)}<div className="wk-note">{money0(x.lowPrem)} – {money0(x.highPrem)}</div></td>
                   <td className="tr">{x.qualifies ? <span style={{ color: '#1F7A4D', fontWeight: 700 }}>{pct(x.tierRate)}</span> : <span style={{ color: 'var(--muted)' }}>Not qualified</span>}</td>
                   <td className="tr mono">{money0(x.now)}</td>
-                  <td className="tr mono" style={{ fontWeight: 700 }}>{money0(x.projected)}</td>
+                  <td className="tr mono" style={{ fontWeight: 700 }}>{money0(x.projected)}<div className="wk-note">{money0(x.low)} – {money0(x.high)}</div></td>
                   <td className="tr mono">{x.nextTier ? `${money0(x.nextTier.need)} → ${pct(x.nextTier.rate)}` : 'Top tier'}{x.nextBonus ? <div className="wk-note">{money0(x.nextBonus.need)} → {x.nextBonus.label}</div> : null}</td>
                 </tr>
               ))}
@@ -146,7 +148,7 @@ function Projected({ D, k }: { D: PerfData; k: string }) {
             </tbody>
           </table>
         </div>
-        <p className="an-fn" style={{ marginBottom: 0 }}>An estimate, not pay: the rest of the folio is added in the same mix of business the producer has written so far. Life promo pay counts only on life policies already written, and projected business doesn’t add life policies toward qualifying. Pay is figured on the closed folio.</p>
+        <p className="an-fn" style={{ marginBottom: 0 }}>The range under each projection: every day left like the producer’s slowest day with sales (low) or best day (high). An estimate, not pay: the rest of the folio is added in the same mix of business the producer has written so far. Life promo pay counts only on life policies already written, and projected business doesn’t add life policies toward qualifying. Pay is figured on the closed folio.</p>
       </div>
     </div>
   )

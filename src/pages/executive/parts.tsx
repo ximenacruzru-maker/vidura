@@ -278,8 +278,13 @@ export function RunningChart({ title, start, end, today, points, goal, noGoal }:
   let proj = total
   const fut = left.map((s) => ({ x: day(s), y: (proj += avg) }))
   const projected = left.length ? proj : null
+  // the range: every day left like the slowest day with sales so far (low) or the best day (high)
+  const sold = vals.filter((v) => v > 0)
+  // kept on either side of the average day (zero days pull the average below the slowest day with sales)
+  const lowDay = Math.min(sold.length ? Math.min(...sold) : 0, avg), highDay = Math.max(vals.length ? mx : 0, avg)
+  const low = left.length ? total + lowDay * left.length : null, high = left.length ? total + highDay * left.length : null
   const need = goal && left.length ? Math.max(0, goal - total) / left.length : null
-  const top = Math.max(total, projected || 0, goal || 0, 1) * 1.1
+  const top = Math.max(total, projected || 0, high || 0, goal || 0, 1) * 1.1
   const W = 560, H = 210, L = 54, R = 16, T = 14, B = 26
   const X = (x: number) => L + ((x - d0) / (d1 - d0)) * (W - L - R), Y = (y: number) => T + (1 - y / top) * (H - T - B)
   const step = (from: { x: number; y: number }, list: { x: number; y: number }[]) => [`${X(from.x)},${Y(from.y)}`, ...list.flatMap((p, i) => [`${X(p.x)},${Y(i ? list[i - 1].y : from.y)}`, `${X(p.x)},${Y(p.y)}`])].join(' ')
@@ -302,7 +307,7 @@ export function RunningChart({ title, start, end, today, points, goal, noGoal }:
   return (
     <div className="panel">
       <div className="panel-h"><div><div className="panel-t">{title}</div>
-        <div className="panel-s">{money0(total)} written{goal ? ` of ${money0(goal)} · ${Math.round((total / goal) * 100)}% of goal` : ''}{projected != null ? ` · projected ${money0(projected)}` : ''}</div></div>
+        <div className="panel-s">{money0(total)} written{goal ? ` of ${money0(goal)} · ${Math.round((total / goal) * 100)}% of goal` : ''}{projected != null ? ` · projected ${money0(projected)} (${money0(low || 0)} – ${money0(high || 0)})` : ''}</div></div>
         <button type="button" className="rc-open" onClick={() => setOpen(true)}>📋 Day by day</button></div>
       {/* drawn at the page's top level so it takes the app's theme, not the dashboard's own look */}
       {open && createPortal(<Drawer open onClose={() => setOpen(false)} title="Day by day" sub={`${label(start)} – ${label(end)} · ${days.length} working days · written so far, then the average day for each day left`}>
@@ -311,6 +316,7 @@ export function RunningChart({ title, start, end, today, points, goal, noGoal }:
           <div><b>{money0(avg)}</b><span>average day{mid.length ? `: ${mid.length} days, largest (${money0(mx)}) & smallest (${money0(mn)}) left out` : vals.length ? `: all ${vals.length} days` : ''}</span></div>
           <div><b>{left.length ? money0(projected || 0) : money0(total)}</b><span>{left.length ? `projected finish · ${left.length} day${left.length === 1 ? '' : 's'} left` : 'final'}</span></div>
           {goal ? <div><b>{money0(goal)}</b><span>goal{need != null ? ` · ${need ? money0(need) + ' needed a day' : 'reached'}` : ''}</span></div> : null}
+          {left.length > 0 && <div><b>{money0(low || 0)} – {money0(high || 0)}</b><span>range: each day left like the slowest day with sales ({money0(lowDay)}) or the best day ({money0(highDay)})</span></div>}
         </div>
         <div className="tbl-wrap"><table className="tbl rc-sheet">
           <thead><tr><th>Day</th><th className="r">Premium</th><th className="r">Running total</th>{goal ? <><th className="r">Even pace</th><th className="r">vs pace</th></> : null}</tr></thead>
@@ -331,6 +337,7 @@ export function RunningChart({ title, start, end, today, points, goal, noGoal }:
             <div><b>{left.length}</b><span>working day{left.length === 1 ? '' : 's'} left</span></div>
             <div><b>{money0(avg)}</b><span>average day{mid.length ? ' (largest & smallest left out)' : ''}</span></div>
             <div><b>{money0(projected || 0)}</b><span>projected finish{goal ? ` · ${Math.round(((projected || 0) / goal) * 100)}% of goal` : ''}</span></div>
+            <div><b className="rc-range">{money0(low || 0)} – {money0(high || 0)}</b><span>low (slowest day {money0(lowDay)}) to high (best day {money0(highDay)})</span></div>
             {need != null && <div className={need <= avg ? 'ok' : 'warn'}><b>{need ? money0(need) : '✓'}</b><span>{need ? 'needed a day for the goal' : 'goal reached'}</span></div>}
           </div>
         )}
@@ -343,6 +350,11 @@ export function RunningChart({ title, start, end, today, points, goal, noGoal }:
             <text x={L + 6} y={Y(goal) - 6} className="rc-goal-t">Goal {money0(goal)}</text>
           </> : null}
           <polygon points={area} fill="url(#rc-fill)" />
+          {fut.length > 0 && low != null && high != null && <>
+            <polygon points={`${X(last)},${Y(total)} ${X(fut[fut.length - 1].x)},${Y(high)} ${X(fut[fut.length - 1].x)},${Y(low)}`} className="rc-band" />
+            <text x={X(fut[fut.length - 1].x) - 8} y={Y(high) - 6} textAnchor="end" className="rc-hl">High {money0(high)}</text>
+            <text x={X(fut[fut.length - 1].x) - 8} y={Y(low) + 13} textAnchor="end" className="rc-hl">Low {money0(low)}</text>
+          </>}
           {projLine && <polyline points={projLine} className="rc-proj" />}
           <polyline points={line} className="rc-line" />
           <circle cx={X(last)} cy={Y(total)} r="5" className="rc-dot" />
@@ -351,7 +363,7 @@ export function RunningChart({ title, start, end, today, points, goal, noGoal }:
             <text x={X(fut[fut.length - 1].x) - 8} y={Y(proj) - 9} textAnchor="end" className="rc-pval">Projected {money0(proj)}</text></>}
           {[start, middle, end].map((d, i) => <text key={i} x={i === 0 ? L : i === 2 ? W - R : X(day(d))} y={H - 7} textAnchor={i === 0 ? 'start' : i === 2 ? 'end' : 'middle'} className="rc-ax">{label(d)}</text>)}
         </svg>
-        <div className="rc-key"><span className="k-act">Written</span>{left.length > 0 && <span className="k-proj">Projected (average day)</span>}{goal ? <><span className="k-goal">Goal</span><span className="k-pace">Even pace to the goal</span></> : null}</div>
+        <div className="rc-key"><span className="k-act">Written</span>{left.length > 0 && <><span className="k-proj">Projected (average day)</span><span className="k-band">Low–high range</span></>}{goal ? <><span className="k-goal">Goal</span><span className="k-pace">Even pace to the goal</span></> : null}</div>
         {!goal && <div className="rc-note">{noGoal || 'No premium goal is set: set one with Edit Goals to see the goal and the pace.'}</div>}
       </div>
     </div>

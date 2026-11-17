@@ -139,7 +139,8 @@ Deno.serve(async (req) => {
   if (!me || !me.active) return json({ error: "Your login isn't set up as a staff account yet." }, 403);
   const body = await req.json().catch(() => ({}));
   const seesAll = me.role === "owner" || me.role === "admin" || (me.access && (me.access as Record<string, unknown>).commission_sheet === true);
-  if (!seesAll && !["producer", "protege"].includes(me.role)) return json({ error: "Commissions aren't part of your role." }, 403);
+  // an SDR on the path to producer who writes policies sees their own commission too
+  if (!seesAll && !["producer", "protege", "sdr"].includes(me.role)) return json({ error: "Commissions aren't part of your role." }, 403);
 
   // The service role skips row-level security, so every read below is limited to the caller's agency.
   const A = me.agency_id as string;
@@ -180,7 +181,9 @@ Deno.serve(async (req) => {
   }
 
   let results = compute(planRow.plan, rows, promo);
-  if (!seesAll) results = results.filter((r: any) => r.producer.toLowerCase() === String(me.producer_name || "").toLowerCase());
+  // names compared tidied: AgencyZoom sometimes sends a double space ("Cindy  Ruiz")
+  const tidy = (s: string) => String(s || "").trim().replace(/\s+/g, " ").toLowerCase();
+  if (!seesAll) results = results.filter((r: any) => tidy(r.producer) === tidy(me.producer_name));
 
   return json({
     folio: { ...folio, end },

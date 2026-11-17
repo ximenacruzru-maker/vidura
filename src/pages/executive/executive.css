@@ -770,3 +770,9 @@
 .xd[data-mode="dark"] .rc-key span::before {border-top-color:#8ea2ff}
 .xd[data-mode="dark"] .rc-key .k-goal::before {border-top-color:#12B76A}
 .xd[data-mode="dark"] .rc-key .k-pace::before {border-top-color:#F79009}
+.xd .rc-band {fill:var(--mid,#4d60ff);opacity:.12}
+.xd .rc-hl {font-size:10.5px;font-weight:700;fill:var(--muted,#6b7280)}
+.xd .rc-range {font-size:14px !important}
+.xd .rc-key .k-band::before {height:8px;border:0;background:var(--mid,#4d60ff);opacity:.25;border-radius:2px}
+.xd[data-mode="dark"] .rc-band {fill:#8ea2ff;opacity:.16}
+.xd[data-mode="dark"] .rc-hl {fill:#9fb0e8}

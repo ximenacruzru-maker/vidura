@@ -174,16 +174,23 @@ export function commProjection(D: PerfData, k: string, today: string) {
     const mx = Math.max(...vals), mn = Math.min(...vals), mid = vals.filter((v) => v < mx && v > mn)
     const avg = mid.length ? mid.reduce((a, v) => a + v, 0) / mid.length : vals.length ? vals.reduce((a, v) => a + v, 0) / vals.length : 0
     const written = mine.reduce((a, r) => a + (Number(r.premium) || 0), 0), projPrem = written + avg * left
-    const grow = written > 0 ? (projPrem - written) / written : 0
+    // the range: every day left like their slowest day with sales (low) or their best day (high)
+    // kept on either side of the average day (zero days pull the average below the slowest day with sales)
+    const sold = vals.filter((v) => v > 0), lowDay = Math.min(sold.length ? Math.min(...sold) : 0, avg), highDay = Math.max(vals.length ? mx : 0, avg)
+    const lowPrem = written + lowDay * left, highPrem = written + highDay * left
     // the rest of the folio in the same mix: a copy of each sale scaled to the extra premium, dated the folio's last day
     // (not a promo case), and a life copy doesn't count as another life policy
-    const extra = grow > 0 ? mine.map((r) => ({ ...r, client: 'Projected', when: endMdy, premium: (Number(r.premium) || 0) * grow, line: isLife(r) ? 'Projected (L)' : r.line })) : []
-    const now = commCompute(plan, mine, promo)[p], proj = commCompute(plan, [...mine, ...extra], promo)[p]
+    const at = (target: number) => {
+      const grow = written > 0 ? (target - written) / written : 0
+      const extra = grow > 0 ? mine.map((r) => ({ ...r, client: 'Projected', when: endMdy, premium: (Number(r.premium) || 0) * grow, line: isLife(r) ? 'Projected (L)' : r.line })) : []
+      return commCompute(plan, [...mine, ...extra], promo)[p]
+    }
+    const now = commCompute(plan, mine, promo)[p], proj = at(projPrem), lo = at(lowPrem), hi = at(highPrem)
     const next = tiers.find((t: Json) => Number(t.min) > proj.totalPremium)
     // the next bonus the projected premium doesn't reach yet (an accelerator over a threshold, say)
     const bonus = (plan.bonuses || []).filter((b: Json) => (b.basis || 'totalPremium') === 'totalPremium' && Number(b.threshold) > proj.totalPremium)
       .sort((a: Json, b: Json) => Number(a.threshold) - Number(b.threshold))[0]
-    return { producer: p, written, avg, trimmed: mid.length > 0, left, projPrem, now: now.total as number, qualifiesNow: !!now.qualifies, projected: proj.total as number,
+    return { producer: p, written, avg, trimmed: mid.length > 0, left, projPrem, lowDay, highDay, lowPrem, highPrem, low: lo.total as number, high: hi.total as number, now: now.total as number, qualifiesNow: !!now.qualifies, projected: proj.total as number,
       qualifies: !!proj.qualifies, tierRate: Number(proj.tierRate) || 0, nextTier: next ? { rate: Number(next.rate), need: Number(next.min) - proj.totalPremium, min: Number(next.min) } : null,
       nextBonus: bonus ? { label: String(bonus.label || bonus.key), rate: Number(bonus.rate) || 0, need: Number(bonus.threshold) - proj.totalPremium, min: Number(bonus.threshold) } : null }
   }).sort((a, b) => b.projected - a.projected || b.projPrem - a.projPrem)
