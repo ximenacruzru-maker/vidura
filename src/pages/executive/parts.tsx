@@ -255,7 +255,9 @@ export function Donut({ rows, colors = DONUT, center, centerSub }: { rows: { lab
  *  at the goal, a dotted "on pace" line from nothing on the first day to the goal on the last, and the projection —
  *  each working day left counts as the average day so far with the largest and smallest days left out (the plain
  *  average when there are too few days; the same rule as the folio worksheet), so it moves every day as sales come in. */
-export function RunningChart({ title, start, end, today, points, goal, noGoal }: { title: string; start: string; end: string; today: string; points: { date: string; value: number }[]; goal: number | null; noGoal?: string }) {
+/** `clean` (Team Space, the big screen): the line, the projection and its band, and the goal — no even-pace line, no
+ *  band labels, three gridlines and a short key, sized to read from across the room */
+export function RunningChart({ title, start, end, today, points, goal, noGoal, clean }: { title: string; start: string; end: string; today: string; points: { date: string; value: number }[]; goal: number | null; noGoal?: string; clean?: boolean }) {
   // the pace by the folio worksheet's rule (src/lib/pace.ts), shared with Team Space
   const { day, iso, d0, d1, sums, days, done, left, vals, mx, mn, mid, avg, total, projected, low, high, lowDay, highDay } = pace(start, end, today, points)
   const happened = (s: string) => s < today || (s === today && sums.has(s))
@@ -273,7 +275,7 @@ export function RunningChart({ title, start, end, today, points, goal, noGoal }:
   const area = `${line} ${X(last)},${Y(0)}`
   const projLine = fut.length ? step({ x: last, y: total }, fut) : ''
   const k = (v: number) => (v >= 1000 ? '$' + (Math.round(v / 100) / 10).toString().replace(/\.0$/, '') + 'k' : '$' + Math.round(v))
-  const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => f * top)
+  const ticks = (clean ? [0, 0.5, 1] : [0, 0.25, 0.5, 0.75, 1]).map((f) => f * top)
   const label = (d: string) => d.slice(5).replace('-', '/')
   const middle = iso(Math.round(d0 + (d1 - d0) / 2))
   // the worksheet, day by day: written or projected, the running total and the even pace to the goal
@@ -286,7 +288,7 @@ export function RunningChart({ title, start, end, today, points, goal, noGoal }:
     return { d, real, v, cum, pace: goal ? (goal * (i + 1)) / days.length : null, out, today: d === today }
   })
   return (
-    <div className="panel">
+    <div className={'panel' + (clean ? ' rc-clean' : '')}>
       <div className="panel-h"><div><div className="panel-t">{title}</div>
         <div className="panel-s">{money0(total)} written{goal ? ` of ${money0(goal)} · ${Math.round((total / goal) * 100)}% of goal` : ''}{projected != null ? ` · projected ${money0(projected)} (${money0(low || 0)} – ${money0(high || 0)})` : ''}</div></div>
         <button type="button" className="rc-open" onClick={() => setOpen(true)}>📋 Day by day</button></div>
@@ -326,15 +328,15 @@ export function RunningChart({ title, start, end, today, points, goal, noGoal }:
           <defs><linearGradient id="rc-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="var(--mid, #4d60ff)" stopOpacity=".35" /><stop offset="1" stopColor="var(--mid, #4d60ff)" stopOpacity="0" /></linearGradient></defs>
           {ticks.map((t, i) => <g key={i}><line x1={L} x2={W - R} y1={Y(t)} y2={Y(t)} className="rc-grid" /><text x={L - 8} y={Y(t) + 3.5} textAnchor="end" className="rc-ax">{k(t)}</text></g>)}
           {goal ? <>
-            <line x1={X(d0)} y1={Y(0)} x2={X(d1)} y2={Y(goal)} className="rc-pace" />
+            {!clean && <line x1={X(d0)} y1={Y(0)} x2={X(d1)} y2={Y(goal)} className="rc-pace" />}
             <line x1={L} x2={W - R} y1={Y(goal)} y2={Y(goal)} className="rc-goal" />
             <text x={L + 6} y={Y(goal) - 6} className="rc-goal-t">Goal {money0(goal)}</text>
           </> : null}
           <polygon points={area} fill="url(#rc-fill)" />
           {fut.length > 0 && low != null && high != null && <>
             <polygon points={`${X(last)},${Y(total)} ${X(fut[fut.length - 1].x)},${Y(high)} ${X(fut[fut.length - 1].x)},${Y(low)}`} className="rc-band" />
-            <text x={X(fut[fut.length - 1].x) - 8} y={Y(high) - 6} textAnchor="end" className="rc-hl">High {money0(high)}</text>
-            <text x={X(fut[fut.length - 1].x) - 8} y={Y(low) + 13} textAnchor="end" className="rc-hl">Low {money0(low)}</text>
+            {!clean && <text x={X(fut[fut.length - 1].x) - 8} y={Y(high) - 6} textAnchor="end" className="rc-hl">High {money0(high)}</text>}
+            {!clean && <text x={X(fut[fut.length - 1].x) - 8} y={Y(low) + 13} textAnchor="end" className="rc-hl">Low {money0(low)}</text>}
           </>}
           {projLine && <polyline points={projLine} className="rc-proj" />}
           <polyline points={line} className="rc-line" />
@@ -344,7 +346,7 @@ export function RunningChart({ title, start, end, today, points, goal, noGoal }:
             <text x={X(fut[fut.length - 1].x) - 8} y={Y(proj) - 9} textAnchor="end" className="rc-pval">Projected {money0(proj)}</text></>}
           {[start, middle, end].map((d, i) => <text key={i} x={i === 0 ? L : i === 2 ? W - R : X(day(d))} y={H - 7} textAnchor={i === 0 ? 'start' : i === 2 ? 'end' : 'middle'} className="rc-ax">{label(d)}</text>)}
         </svg>
-        <div className="rc-key"><span className="k-act">Written</span>{left.length > 0 && <><span className="k-proj">Projected (average day)</span><span className="k-band">Low–high range</span></>}{goal ? <><span className="k-goal">Goal</span><span className="k-pace">Even pace to the goal</span></> : null}</div>
+        <div className="rc-key"><span className="k-act">Written</span>{left.length > 0 && <><span className="k-proj">{clean ? 'Projected' : 'Projected (average day)'}</span><span className="k-band">{clean ? 'Range' : 'Low–high range'}</span></>}{goal ? <><span className="k-goal">Goal</span>{!clean && <span className="k-pace">Even pace to the goal</span>}</> : null}</div>
         {!goal && <div className="rc-note">{noGoal || 'No premium goal is set: set one with Edit Goals to see the goal and the pace.'}</div>}
       </div>
     </div>

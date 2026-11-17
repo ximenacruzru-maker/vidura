@@ -3,10 +3,12 @@
 // Reads Ricochet over its API and keeps, for Team Space and the Daily Huddle Report:
 //   * ricochet_agents — each Ricochet user and their live status (On_Phone = on a call, Busy, Offline…) and since when
 //   * ricochet_calls  — each call made or taken (who, when, inbound or outbound, the queue), one row per call
+//   * ricochet_texts  — each text sent or received (who, when, which way), from the same lead activity
+//   * ricochet_voicemails — each voicemail on Ricochet's voicemail list (when, for whom, heard or not)
 // Ricochet has no call-log endpoint, so the calls come from the leads, newest-called first: each lead lists the calls
 // on it (`actions`, outbound_call / incoming_call, with the user and the time). Reading stops at the first lead last
 // called before the day asked for. Ricochet keeps only a lead's most recent actions, so the sync runs every minute and
-// every call is kept the first time it's seen. No phone numbers or client names are stored.
+// every call is kept the first time it's seen. No phone numbers, client names or message text are stored.
 //
 // Called every minute in office hours by the ricochet-sync cron job, with the agency's hook token (ricochet_hooks) in
 // x-cron-secret; ricochet_hooks.api_base is the agency's Ricochet address. The API token is the edge function secret
@@ -25,6 +27,8 @@ const local = (s: unknown) => {
   let h = +m[4] % 12; if (m[7] === "PM") h += 12;
   return `${m[3]}-${m[1]}-${m[2]}T${String(h).padStart(2, "0")}:${m[5]}:${m[6]}`;
 };
+/** a time as Ricochet sends it ("11/17/2026 08:49:38 AM" or ISO "2026-11-17 08:49:38"), Pacific wall clock */
+const wall = (s: unknown) => local(s) || (/^\d{4}-\d\d-\d\d[ T]\d\d:\d\d(:\d\d)?/.test(String(s || "")) ? String(s).replace(" ", "T").slice(0, 19) : null);
 /** a Pacific wall-clock time as an instant */
 const utc = (wall: string) => {
   const guess = new Date(wall + "Z");
@@ -66,7 +70,7 @@ Deno.serve(async (req) => {
     if (agents.length) { const { error } = await db.from("ricochet_agents").upsert(agents, { onConflict: "agency_id,user_id" }); if (error) throw error; }
 
     // the calls: the leads called most recently first, until one was last called before `from`
-    const calls = new Map<string, Record<string, unknown>>();
+    const calls = new Map<string, Record<string, unknown>>(), texts = new Map<string, Record<string, unknown>>();
     let pages = 0;
     for (let page = 1; page <= 30; page++) {
       const leads = Object.values((await get(`/api/v4/leads?sort=last_called_at&order=desc&limit=200&page=${page}`))?.data?.leads || {}) as any[];
@@ -79,10 +83,20 @@ Deno.serve(async (req) => {
         if (last) lastDated = last;
         if (!last || last.slice(0, 10) < from) continue;
         for (const a of (l.actions || []) as any[]) {
-          if (a.action_type !== "outbound_call" && a.action_type !== "incoming_call") continue;
+          const isCall = a.action_type === "outbound_call" || a.action_type === "incoming_call", isText = /sms|text/i.test(String(a.action_type || ""));
+          if (!isCall && !isText) continue;
           const at = local(a.created_at);
           if (!at || at.slice(0, 10) < from) continue;
           const uid = a.user_id == null ? null : Number(a.user_id);
+          if (isText) {
+            // which way: Ricochet marks an incoming text in the action type or its data; a text with a user is one sent
+            const way = String(a.data?.direction || a.data?.type || a.action_type || "").toLowerCase();
+            const inbound = /in(bound|coming)|receiv/.test(way) || (!/out/.test(way) && uid == null);
+            const text_id = `api:${a.lead_id ?? l.id}:${uid ?? 0}:${at}`;
+            texts.set(text_id, { agency_id: A, text_id, day: at.slice(0, 10), sent_at: utc(at), agent: uid != null ? names.get(uid) || `Ricochet user ${uid}` : null,
+              ricochet_user_id: uid, direction: inbound ? "inbound" : "outbound", lead_id: String(a.lead_id ?? l.id) });
+            continue;
+          }
           const call_id = `api:${a.lead_id ?? l.id}:${uid ?? 0}:${at}`;
           calls.set(call_id, {
             agency_id: A, call_id, day: at.slice(0, 10), started_at: utc(at), agent: uid != null ? names.get(uid) || `Ricochet user ${uid}` : "Unassigned",
@@ -98,7 +112,30 @@ Deno.serve(async (req) => {
       const { error } = await db.from("ricochet_calls").upsert(rows.slice(i, i + 500), { onConflict: "agency_id,call_id" });
       if (error) throw error;
     }
-    return json({ ok: true, from, agents: agents.length, onCall: agents.filter((x: any) => /on.?phone|on.?call/i.test(x.status || "")).length, calls: rows.length, pages });
+    const tx = [...texts.values()];
+    for (let i = 0; i < tx.length; i += 500) {
+      const { error } = await db.from("ricochet_texts").upsert(tx.slice(i, i + 500), { onConflict: "agency_id,text_id" });
+      if (error) throw error;
+    }
+
+    // voicemails: Ricochet's voicemail list (a failure here doesn't stop the calls)
+    let vms = 0;
+    try {
+      const v = (await get("/api/v4/voicemails"))?.data;
+      const list = (Array.isArray(v) ? v : Array.isArray(v?.voicemails) ? v.voicemails : v && typeof v === "object" ? Object.values(v) : []) as any[];
+      const vrows = list.map((m) => {
+        const at = wall(m.created_at || m.date || m.received_at || m.datetime);
+        if (!at || at.slice(0, 10) < from) return null;
+        const uid = m.user_id ?? m.agent_id ?? null;
+        const heard = m.listened ?? m.heard ?? m.is_read ?? m.read ?? (m.new != null ? !m.new : m.status ? !/new|unread|unheard/i.test(String(m.status)) : null);
+        return { agency_id: A, vm_id: String(m.id ?? `${uid ?? 0}:${at}`), day: at.slice(0, 10), left_at: utc(at),
+          for_user: uid != null ? names.get(Number(uid)) || m.user_name || `Ricochet user ${uid}` : m.user_name || m.mailbox || null,
+          heard: heard == null ? null : !!Number(heard) || heard === true, duration_sec: Number(m.duration ?? m.length) || null };
+      }).filter(Boolean);
+      if (vrows.length) { const { error } = await db.from("ricochet_voicemails").upsert(vrows, { onConflict: "agency_id,vm_id" }); if (error) throw error; }
+      vms = vrows.length;
+    } catch (_) { /* the voicemail list is optional */ }
+    return json({ ok: true, from, agents: agents.length, onCall: agents.filter((x: any) => /on.?phone|on.?call/i.test(x.status || "")).length, calls: rows.length, texts: tx.length, voicemails: vms, pages });
   } catch (e) {
     return json({ ok: false, error: (e as Error).message || String(e) }, 502);
   }

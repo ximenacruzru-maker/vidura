@@ -2045,3 +2045,58 @@ body.tv .ts-title { display: block; }
 .hd-split i { display: block; height: 100%; background: #7dffb5; }
 .hd-pill.k-farmers { background: #7dffb5; color: #06302b; font-size: .75em; }
 .hd-pill.k-brokered { background: #8fb4ff; color: #0b2160; font-size: .75em; }
+/* Team Space: the calendar, the folio-close alert and the cleaner chart */
+.ts-cal { display: flex; align-items: stretch; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+.ts-cal-nav { flex: none; width: 34px; border: 1px solid rgba(255, 255, 255, .3); border-radius: 12px; font: inherit; font-size: 20px; font-weight: 800; color: #fff; background: rgba(255, 255, 255, .08); cursor: pointer; }
+.ts-cal-nav:disabled { opacity: .35; cursor: default; }
+.ts-cal-d { flex: 1 0 74px; display: grid; justify-items: center; gap: 1px; padding: 7px 4px; border: 1px solid rgba(255, 255, 255, .18); border-radius: 12px; font: inherit; color: #fff; background: rgba(255, 255, 255, .07); cursor: pointer; }
+.ts-cal-d span { font-size: clamp(10.5px, .7vw, 14px); font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: rgba(255, 255, 255, .7); }
+.ts-cal-d b { font-size: clamp(17px, 1.2vw, 26px); font-weight: 900; line-height: 1.1; }
+.ts-cal-d em { font-style: normal; font-size: clamp(11.5px, .8vw, 16px); font-weight: 800; color: #7dffb5; }
+.ts-cal-d small { min-height: 1.2em; font-size: clamp(10.5px, .7vw, 14px); color: rgba(255, 255, 255, .75); }
+.ts-cal-d:hover:not(:disabled) { background: rgba(255, 255, 255, .14); }
+.ts-cal-d:disabled { opacity: .35; cursor: default; }
+.ts-cal-d.today { border-color: #7dffb5; }
+.ts-cal-d.on { background: #fff; border-color: #fff; color: #0d1c45; }
+.ts-cal-d.on span, .ts-cal-d.on small { color: #3a4a7a; }
+.ts-cal-d.on em { color: #0e8a5f; }
+.ts-alert { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 12px 16px; border-radius: 14px; color: #3a2300; background: #ffd76a; font-size: clamp(13px, .95vw, 20px); font-weight: 700; box-shadow: 0 6px 18px rgba(0, 0, 0, .18); }
+.ts-alert b { font-size: 1.12em; font-weight: 900; }
+.ts-alert span { font-weight: 600; }
+.ts-alert.last { color: #fff; background: linear-gradient(90deg, #d63c48, #f0703a); animation: ts-glow 2.4s ease-in-out infinite; }
+@keyframes ts-glow { 50% { box-shadow: 0 0 0 4px rgba(255, 215, 106, .45), 0 6px 18px rgba(0, 0, 0, .18); } }
+.ts-run .rc-clean .rc-key { font-size: clamp(12px, .8vw, 16px); }
+@media (prefers-reduced-motion: reduce) { .ts-alert.last { animation: none; } }
+/* Daily Huddle on one screen: compact tiles, then three columns (producers · phones and the month · the lists in
+   tabs); each column scrolls inside itself on a wide screen instead of the page growing */
+.hd .ts-kpis { grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); gap: 10px; }
+.hd .ts-k { padding: 10px 13px; gap: 3px; }
+.hd .ts-k b { font-size: clamp(22px, 1.75vw, 38px); }
+.hd .ts-k em { font-size: clamp(11.5px, .75vw, 15px); }
+.hd .ts-k em .hd-pct { font-size: 1.15em; color: #7dffb5; }
+.hd-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1.15fr); gap: clamp(10px, 1vw, 18px); align-items: start; }
+.hd-col1, .hd-col2 { display: grid; gap: clamp(10px, 1vw, 18px); grid-template-columns: minmax(0, 1fr); min-width: 0; }
+.hd-col3 { min-width: 0; }
+.hd-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
+.hd .ts-p { padding: 10px 12px; gap: 4px; }
+.hd .ts-p .ts-av { width: clamp(30px, 2vw, 42px); height: clamp(30px, 2vw, 42px); font-size: clamp(11px, .75vw, 15px); }
+.hd .ts-p .ts-big { margin-left: auto; font-size: clamp(18px, 1.3vw, 28px); }
+.hd .ts-p .ts-line { font-size: clamp(12px, .8vw, 16px); }
+.hd-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.hd-tabs button { border: 1px solid rgba(255, 255, 255, .3); border-radius: 999px; padding: 5px 12px; font: inherit; font-size: clamp(12px, .8vw, 15px); font-weight: 800; color: #fff; background: rgba(255, 255, 255, .07); cursor: pointer; }
+.hd-tabs button.on { background: #fff; color: #0d1c45; border-color: #fff; }
+.hd .ts-feed ul { max-height: none; }
+.hd-col-p { font-size: 9.5px; font-weight: 800; text-align: center; color: rgba(255, 255, 255, .6); }
+.hd-col.hit .hd-col-p { color: #7dffb5; }
+.hd-col { grid-template-rows: auto 1fr auto auto; }
+.hd-col-track { position: relative; }
+.hd-col-track u { position: absolute; left: 0; right: 0; height: 0; border-top: 2px dashed #ffd76a; z-index: 1; text-decoration: none; }
+.hd-chart { height: 190px; }
+@media (min-width: 1200px) {
+  .hd-scroll { max-height: calc(100vh - 430px); min-height: 280px; overflow: auto; }
+  .hd-col2 .ts-calls ul { max-height: calc(100vh - 690px); min-height: 120px; overflow: auto; }
+  body.tv .hd-scroll { max-height: calc(100vh - 330px); }
+  body.tv .hd-col2 .ts-calls ul { max-height: calc(100vh - 590px); }
+}
+@media (max-width: 1199px) { .hd-grid { grid-template-columns: minmax(0, 1fr); } }
+.hd .ts-p .ts-who b { white-space: normal; overflow: visible; line-height: 1.15; }

@@ -3,14 +3,16 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../../auth'
 import { ErrorBox, Loading } from '../../components/ui'
 import { agencyName } from '../../lib/data'
-import { mdy, money0, todayPacific } from '../../lib/format'
+import { addDays, mdy, money0, todayPacific } from '../../lib/format'
 import { loadPerfData, type PerfData } from '../../lib/perf/data'
 import { isFarmersCarrier } from '../../lib/perf/executive'
-import { movement, type RetentionDay, type RetentionEntry } from '../../lib/retention'
 import { supabase } from '../../lib/supabase'
 import { useSyncStamp } from '../../lib/syncEvents'
 import { tidyName } from '../../lib/teamToday'
 import { useAsync } from '../../lib/useAsync'
+import { bestCalls, callAgent, UNANSWERED } from '../../lib/ricochet'
+import { useTvMode } from '../../lib/tvMode'
+import { ClientSuccessView, loadClientSuccess } from '../../components/ClientSuccess'
 
 /** Daily Huddle Report: one page with the previous workday's performance for the 10:00 huddle — what was written and
  *  quoted, phone activity from Ricochet, by producer, the policies and quotes themselves, SDR transfers and client
@@ -22,7 +24,6 @@ const step = (day: string, by: 1 | -1) => { const d = new Date(day + 'T12:00:00Z
 const longDay = (day: string) => new Date(day + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
 const weekday = (day: string) => new Date(day + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' })
 const isFarmers = (s: Json) => isFarmersCarrier(s.carrier) || isFarmersCarrier(s.source)
-const RET_KIND: Record<RetentionEntry['kind'], string> = { save: 'Save', loss: 'Loss', cross_sell: 'Cross-sell', new_business: 'New business', review: 'Service' }
 
 export default function DailyHuddle() {
   const synced = useSyncStamp() // reload when an AgencyZoom sync finishes
@@ -83,23 +84,23 @@ function Huddle({ D }: { D: PerfData }) {
 
   const transfers: Json[] = ((D.WB_EXTRA.sdr || {}).transfers || []).filter((t: Json) => t.dateTime === day)
 
-  // client success: the retention scorecard and log for the day
-  const ret = useAsync(async () => {
-    const [d, l] = await Promise.all([
-      supabase.from('retention_days').select('*').eq('day', day).then((r) => (r.error ? [] : (r.data as RetentionDay[]))),
-      supabase.from('retention_log').select('*').eq('day', day).order('id').then((r) => (r.error ? [] : (r.data as RetentionEntry[]))),
-    ])
-    return { d, l }
-  }, [day])
+  // client success: the scorecard, the log and the renewal reviews worked (reinstatements included)
+  const ret = useAsync(() => loadClientSuccess(day), [day])
 
-  // phone activity: every call Ricochet reported for the day (ricochet-sync, or the webhook)
-  const calls = useAsync(async () => {
-    const { data, error } = await supabase.from('ricochet_calls').select('agent, direction, duration_sec, talk_sec, disposition').eq('day', day)
-    return error ? [] : (data as Call[])
+  // phone activity: the day's calls (the call webhook's when it sent any, else the API sync's), texts and voicemails
+  const phone = useAsync(async () => {
+    const [c, t, v] = await Promise.all([
+      supabase.from('ricochet_calls').select('agent, direction, duration_sec, talk_sec, disposition, source').eq('day', day).limit(5000).then((r) => (r.error ? [] : bestCalls(r.data as Call[]))),
+      supabase.from('ricochet_texts').select('agent, direction').eq('day', day).then((r) => (r.error ? [] : (r.data as { agent: string | null; direction: string | null }[]))),
+      supabase.from('ricochet_voicemails').select('for_user, heard').eq('day', day).then((r) => (r.error ? [] : (r.data as { for_user: string | null; heard: boolean | null }[]))),
+    ])
+    return { c, t, v }
   }, [day])
+  const [tab, setTab] = useState<'policies' | 'quotes' | 'sdr' | 'client'>('policies')
+  const [tv, setTv] = useTvMode()
 
   const agency = agencyName(me)
-  const callRows = calls.data || []
+  const callRows = phone.data?.c || [], texts = phone.data?.t || [], vms = phone.data?.v || []
   const firstName = (n: string) => n.trim().replace(/\s+/g, ' ').split(' ')[0]
   /** a producer's calls: Ricochet names matched to AgencyZoom producer names (full name, or first name) */
   const callsOf = (producer: string) => {
@@ -111,6 +112,22 @@ function Huddle({ D }: { D: PerfData }) {
   const short = (iso: string) => mdy(iso).slice(0, 5)
   /** a two-part bar: Farmers, then brokered */
   const split = (f: number, all: number) => all ? <span className="hd-split" title={`${Math.round((f / all) * 100)}% Farmers`}><i style={{ width: (f / all) * 100 + '%' }} /></span> : null
+  // the daily goal: the folio's premium goal spread over its working days
+  const goalPrem = Number(D.GOALS?.premium) || 0
+  let folioDays = 0
+  if (folio) for (let d = new Date(folio.start + 'T12:00:00Z'); d.toISOString().slice(0, 10) <= folio.end; d.setUTCDate(d.getUTCDate() + 1)) { const wd = d.getUTCDay(); if (wd !== 0 && wd !== 6) folioDays++ }
+  const dayGoal = goalPrem && folioDays ? goalPrem / folioDays : 0
+  const pctGoal = (v: number) => (dayGoal ? Math.round((v / dayGoal) * 100) : 0)
+  // the folio closing: within two working days of today
+  let closeIn = 0
+  if (folio && folio.end >= today) for (let d = today; d <= folio.end; d = addDays(d, 1)) { const wd = new Date(d + 'T12:00:00Z').getUTCDay(); if (wd !== 0 && wd !== 6) closeIn++ }
+  const ftdNow = folio ? sumDays(folio.start, today) : null
+  const tabs = [
+    { k: 'policies' as const, l: `Policies written · ${sales.length}` },
+    { k: 'quotes' as const, l: `Quotes · ${quotes.length}` },
+    { k: 'sdr' as const, l: `SDR transfers · ${transfers.length}` },
+    { k: 'client' as const, l: 'Client success' },
+  ]
 
   return (
     <div className="ts hd">
@@ -127,150 +144,135 @@ function Huddle({ D }: { D: PerfData }) {
             <button type="button" disabled={day >= step(today, -1)} onClick={() => go(step(day, 1))} aria-label="Next day">Next ›</button>
             {day !== step(today, -1) && <button type="button" className="on" onClick={() => setDay(step(today, -1))}>Yesterday</button>}
           </div>
+          <button type="button" className="ts-tv" onClick={() => setTv(!tv)}>{tv ? '✕ Exit TV mode' : '📺 TV mode'}</button>
         </div>
       </div>
 
+      {folio && closeIn > 0 && closeIn <= 2 && (
+        <div className={'ts-alert' + (closeIn === 1 ? ' last' : '')} role="status">
+          <b>🔔 Folio closes {closeIn === 1 ? 'today' : 'tomorrow'}</b> · {new Date(folio.end + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'long', month: 'numeric', day: 'numeric', timeZone: 'UTC' })}
+          <span>{ftdNow ? `${money0(ftdNow.p)} written` : ''}{goalPrem && ftdNow ? (goalPrem > ftdNow.p ? ` · ${money0(goalPrem - ftdNow.p)} to the ${money0(goalPrem)} goal` : ' · goal reached 🎉') : ''} · get every sale entered in AgencyZoom before the close</span>
+        </div>
+      )}
+
       <div className="ts-kpis">
-        <div className="ts-k hero"><span>Premium written · {weekday(day)}</span><b>{money0(written)}</b><em>{sales.length} polic{sales.length === 1 ? 'y' : 'ies'} · {customers} customer{customers === 1 ? '' : 's'}{sales.length ? ` · ${money0(written / sales.length)} average` : ''}</em></div>
-        <div className="ts-k"><span>Farmers vs brokered · {weekday(day)}</span><b>{money0(farmersDay)}</b><em>Farmers · {money0(written - farmersDay)} brokered{written ? ` · ${Math.round((farmersDay / written) * 100)}% Farmers` : ''}</em>{split(farmersDay, written)}</div>
-        <div className="ts-k"><span>Quotes</span><b>{quotes.length}</b><em>{money0(quoted)} quoted</em></div>
-        <div className="ts-k"><span>Quote to sale</span><b>{quotes.length ? Math.round((customers / quotes.length) * 100) + '%' : '—'}</b><em>customers written ÷ leads quoted</em></div>
-        <div className="ts-k"><span>Calls · Ricochet</span><b>{callRows.length}</b><em>{dials} dials · {callRows.length - dials} inbound</em></div>
+        <div className="ts-k hero"><span>Premium written · {weekday(day)}</span><b>{money0(written)}</b>
+          <em>{dayGoal ? <><b className="hd-pct">{pctGoal(written)}%</b> of the {money0(dayGoal)} daily goal · </> : null}{sales.length} polic{sales.length === 1 ? 'y' : 'ies'} · {customers} customer{customers === 1 ? '' : 's'}</em>
+          {dayGoal ? <span className="ts-bar"><i style={{ width: Math.min(100, pctGoal(written)) + '%' }} /></span> : null}</div>
+        <div className="ts-k"><span>Farmers vs brokered</span><b>{money0(farmersDay)}</b><em>Farmers · {money0(written - farmersDay)} brokered{written ? ` · ${Math.round((farmersDay / written) * 100)}%` : ''}</em>{split(farmersDay, written)}</div>
+        <div className="ts-k"><span>Quotes</span><b>{quotes.length}</b><em>{money0(quoted)} quoted · {quotes.length ? Math.round((customers / quotes.length) * 100) + '% to sale' : 'none'}</em></div>
+        <div className="ts-k"><span>Calls · Ricochet</span><b>{callRows.length}</b><em>{dials} out · {callRows.length - dials} in · 💬 {texts.length} texts · 📮 {vms.length} voicemail{vms.length === 1 ? '' : 's'}</em></div>
         <div className="ts-k"><span>SDR transfers</span><b>{transfers.length}</b><em>{transfers.filter((t) => t.azQualifies).length} qualified · {transfers.filter((t) => t.bound).length} bound</em></div>
-        <div className="ts-k"><span>Month to date · through {short(day)}</span><b>{money0(mtd.p)}</b><em>{mtd.n} policies · {left} working day{left === 1 ? '' : 's'} left<br />{money0(mtd.f)} Farmers · {money0(mtd.p - mtd.f)} brokered</em>{split(mtd.f, mtd.p)}</div>
-        <div className="ts-k"><span>{folio ? `Folio to date · ${short(folio.start)} – ${short(folio.end)}` : 'Folio to date'}</span><b>{ftd ? money0(ftd.p) : '—'}</b><em>{ftd ? <>{ftd.n} policies<br />{money0(ftd.f)} Farmers · {money0(ftd.p - ftd.f)} brokered</> : 'no folio on file'}</em>{ftd ? split(ftd.f, ftd.p) : null}</div>
+        <div className="ts-k"><span>Month to date</span><b>{money0(mtd.p)}</b><em>{mtd.n} policies · {left} day{left === 1 ? '' : 's'} left · {mtd.p ? Math.round((mtd.f / mtd.p) * 100) : 0}% Farmers</em>{split(mtd.f, mtd.p)}</div>
+        <div className="ts-k"><span>Folio to date</span><b>{ftd ? money0(ftd.p) : '—'}</b><em>{ftd ? <>{ftd.n} policies{goalPrem ? ` · ${Math.round((ftd.p / goalPrem) * 100)}% of goal` : ''} · {ftd.p ? Math.round((ftd.f / ftd.p) * 100) : 0}% Farmers</> : 'no folio on file'}</em>{ftd ? split(ftd.f, ftd.p) : null}</div>
       </div>
 
-      <div className="ts-main">
-        <section className="hd-left">
-          <p className="ts-h">By producer <span>{weekday(day)} · and the {folio ? `folio to date (${short(folio.start)} – ${short(day)})` : 'month to date'}</span></p>
-          {producers.length ? <div className="ts-grid">
-            {producers.map(([n, r], i) => {
-              const c = callsOf(n)
-              const bits = [`${r.n} polic${r.n === 1 ? 'y' : 'ies'}`, r.prem ? `${money0(r.farm)} Farmers · ${money0(r.prem - r.farm)} brokered` : '', r.q ? `${r.q} quote${r.q === 1 ? '' : 's'} · ${money0(r.qp)}` : '', c ? `📞 ${c} call${c === 1 ? '' : 's'}` : ''].filter(Boolean)
-              return (
-                <div key={n} className="ts-p">
-                  <div className="ts-top">
-                    <span className="ts-av" style={{ background: colors[i % colors.length] }}>{n.split(' ').map((w) => w[0]).slice(0, 2).join('')}</span>
-                    <div className="ts-who"><b>{n}</b></div>
+      <div className="hd-grid">
+        <section className="hd-col1">
+          <p className="ts-h">By producer <span>{folio ? `and folio to date (${short(folio.start)} – ${short(day)})` : 'and month to date'}</span></p>
+          <div className="hd-scroll">
+            {producers.length ? <div className="hd-cards">
+              {producers.map(([n, r], i) => {
+                const c = callsOf(n)
+                return (
+                  <div key={n} className="ts-p">
+                    <div className="ts-top">
+                      <span className="ts-av" style={{ background: colors[i % colors.length] }}>{n.split(' ').map((w) => w[0]).slice(0, 2).join('')}</span>
+                      <div className="ts-who"><b>{n}</b></div>
+                      <div className="ts-big">{money0(r.prem)}</div>
+                    </div>
+                    <div className="ts-line">{[`${r.n} polic${r.n === 1 ? 'y' : 'ies'}`, r.prem ? `${money0(r.farm)} Farmers · ${money0(r.prem - r.farm)} brokered` : '', r.q ? `${r.q} quote${r.q === 1 ? '' : 's'} · ${money0(r.qp)}` : '', c ? `📞 ${c}` : ''].filter(Boolean).join(' · ')}</div>
+                    <div className="ts-ftd">{money0(r.ftd)} {folio ? 'folio to date' : 'month to date'}</div>
                   </div>
-                  <div className="ts-big">{money0(r.prem)}<span>{weekday(day).slice(0, 3)}</span></div>
-                  <div className="ts-line">{bits.join(' · ')}</div>
-                  <div className="ts-ftd">{money0(r.ftd)} {folio ? 'folio to date' : 'month to date'}</div>
-                </div>
-              )
-            })}
-          </div> : <p className="ts-none">No quotes or sales on {mdy(day)}.</p>}
-          <p className="hd-total">Total: {quotes.length} quotes · {money0(quoted)} quoted · {sales.length} policies · <b>{money0(written)}</b> written · {money0((ftd || mtd).p)} {folio ? 'folio to date' : 'month to date'}</p>
-
-          <div className="ts-feed">
-            <p className="ts-h">Policies written <span>{sales.length} on {mdy(day)}</span></p>
-            {sales.length ? <div className="tbl-wrap"><table className="hd-tbl">
-              <thead><tr><th>Customer</th><th>Producer</th><th>Line</th><th>Carrier</th><th className="r">Premium</th></tr></thead>
-              <tbody>{sales.map((s, i) => (
-                <tr key={(s.id || s.name) + i}><td className="strong">{s.name}</td><td>{s.producer}</td><td>{s.policyType}</td><td>{s.carrier} <span className={'hd-pill ' + (isFarmers(s) ? 'k-farmers' : 'k-brokered')}>{isFarmers(s) ? 'Farmers' : 'Brokered'}</span></td><td className="r mono strong">{money0(Number(s.premium) || 0)}</td></tr>
-              ))}</tbody>
-            </table></div> : <p className="ts-none">Nothing written on {mdy(day)}.</p>}
-          </div>
-
-          <div className="ts-feed">
-            <p className="ts-h">Quotes <span>{quotes.length} leads quoted · by producer</span></p>
-            {quotes.length ? <div className="tbl-wrap"><table className="hd-tbl">
-              <thead><tr><th>Lead</th><th>Producer</th><th>Lines</th><th>Source</th><th className="r">Quoted</th></tr></thead>
-              <tbody>{quotes.map((q, i) => (
-                <tr key={(q.leadId || q.name) + i}><td className="strong">{q.name}</td><td>{q.producer}</td>
-                  <td>{Array.isArray(q.lines) ? q.lines.join(', ') : q.lines || (q.quotes || []).map((x: Json) => x.product).filter(Boolean).join(', ')}</td>
-                  <td className="muted">{q.leadSource || ''}</td><td className="r mono strong">{money0(Number(q.quotedPremium) || 0)}</td></tr>
-              ))}</tbody>
-            </table></div> : <p className="ts-none">No quotes on {mdy(day)}.</p>}
+                )
+              })}
+            </div> : <p className="ts-none">No quotes or sales on {mdy(day)}.</p>}
           </div>
         </section>
 
-        <aside className="ts-side">
+        <section className="hd-col2">
           <div className="ts-feed ts-calls">
-            <p className="ts-h">📞 Phone activity <span>Ricochet · calls made and taken, by person</span></p>
-            {!calls.data ? <p className="ts-none">Loading calls…</p> : <PhoneActivity calls={callRows} day={day} />}
+            <p className="ts-h">📞 Phone activity <span>Ricochet{callRows.length && !callRows.some((c) => c.source === 'webhook') ? ' · from lead activity' : ''}</span></p>
+            {!phone.data ? <p className="ts-none">Loading calls…</p> : <PhoneActivity calls={callRows} texts={texts} vms={vms} day={day} />}
           </div>
-
           <div className="ts-feed">
-            <p className="ts-h">The month by day <span>premium written each workday · {new Date(day + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'long', timeZone: 'UTC' })}</span></p>
+            <p className="ts-h">The month by day <span>premium written · % of the daily goal{dayGoal ? ` (${money0(dayGoal)})` : ''}</span></p>
             <div className="hd-chart">{byDay.map((x) => (
-              <button key={x.d} type="button" className={'hd-col' + (x.d === day ? ' on' : '')} onClick={() => go(x.d)} title={`${mdy(x.d)} · ${money0(x.p)}`}>
+              <button key={x.d} type="button" className={'hd-col' + (x.d === day ? ' on' : '') + (dayGoal && x.p >= dayGoal ? ' hit' : '')} onClick={() => go(x.d)} title={`${mdy(x.d)} · ${money0(x.p)}${dayGoal ? ` · ${pctGoal(x.p)}% of goal` : ''}`}>
                 <span className="hd-col-v">{x.p ? '$' + Math.round(x.p / 1000) + 'k' : ''}</span>
-                <span className="hd-col-track"><i style={{ height: Math.max(x.p ? 3 : 0, (x.p / maxDay) * 100) + '%' }} /></span>
+                <span className="hd-col-track">{dayGoal ? <u style={{ bottom: Math.min(100, (dayGoal / Math.max(maxDay, dayGoal)) * 100) + '%' }} /> : null}<i style={{ height: Math.max(x.p ? 3 : 0, (x.p / Math.max(maxDay, dayGoal || 0)) * 100) + '%' }} /></span>
                 <span className="hd-col-m">{x.d.slice(8)}</span>
+                {dayGoal ? <span className="hd-col-p">{pctGoal(x.p)}%</span> : null}
               </button>
             ))}</div>
           </div>
+        </section>
 
-          <div className="ts-feed">
-            <p className="ts-h">SDR transfers <span>{transfers.length} on {mdy(day)}</span></p>
-            {transfers.length ? <ul>{transfers.map((t) => (
-              <li key={t.leadId}><b>{firstName(String(t.sdr || '—'))}</b><span>{t.client} → {firstName(String(t.producer || '—'))} · {t.status}</span>
-                <em>{t.bound ? 'Bound' : t.azQualifies ? 'Qualified' : 'Not yet'}</em></li>
-            ))}</ul> : <p className="ts-none">No SDR transfers on {mdy(day)}.</p>}
+        <section className="hd-col3 ts-feed">
+          <div className="hd-tabs" role="tablist">{tabs.map((t) => <button key={t.k} type="button" role="tab" aria-selected={tab === t.k} className={tab === t.k ? 'on' : ''} onClick={() => setTab(t.k)}>{t.l}</button>)}</div>
+          <div className="hd-scroll">
+            {tab === 'policies' && (sales.length ? <div className="tbl-wrap"><table className="hd-tbl">
+              <thead><tr><th>Customer</th><th>Producer</th><th>Line · carrier</th><th className="r">Premium</th></tr></thead>
+              <tbody>{sales.map((s, i) => (
+                <tr key={(s.id || s.name) + i}><td className="strong">{s.name}</td><td>{firstName(String(s.producer || '—'))}</td>
+                  <td>{[s.policyType, s.carrier].filter(Boolean).join(' · ')} <span className={'hd-pill ' + (isFarmers(s) ? 'k-farmers' : 'k-brokered')}>{isFarmers(s) ? 'Farmers' : 'Brokered'}</span></td>
+                  <td className="r mono strong">{money0(Number(s.premium) || 0)}</td></tr>
+              ))}</tbody>
+            </table></div> : <p className="ts-none">Nothing written on {mdy(day)}.</p>)}
+            {tab === 'quotes' && (quotes.length ? <div className="tbl-wrap"><table className="hd-tbl">
+              <thead><tr><th>Lead</th><th>Producer</th><th>Lines</th><th className="r">Quoted</th></tr></thead>
+              <tbody>{quotes.map((q, i) => (
+                <tr key={(q.leadId || q.name) + i}><td className="strong">{q.name}<div className="muted">{q.leadSource || ''}</div></td><td>{firstName(String(q.producer || '—'))}</td>
+                  <td>{Array.isArray(q.lines) ? q.lines.join(', ') : q.lines || (q.quotes || []).map((x: Json) => x.product).filter(Boolean).join(', ')}</td>
+                  <td className="r mono strong">{money0(Number(q.quotedPremium) || 0)}</td></tr>
+              ))}</tbody>
+            </table></div> : <p className="ts-none">No quotes on {mdy(day)}.</p>)}
+            {tab === 'sdr' && (transfers.length ? <div className="tbl-wrap"><table className="hd-tbl">
+              <thead><tr><th>SDR</th><th>Client</th><th>Producer</th><th>Status</th></tr></thead>
+              <tbody>{transfers.map((t) => (
+                <tr key={t.leadId}><td className="strong">{firstName(String(t.sdr || '—'))}</td><td>{t.client}</td><td>{firstName(String(t.producer || '—'))}</td>
+                  <td>{t.status} {t.bound ? <span className="hd-pill k-save">Bound</span> : t.azQualifies ? <span className="hd-pill k-save">Qualified</span> : null}</td></tr>
+              ))}</tbody>
+            </table></div> : <p className="ts-none">No SDR transfers on {mdy(day)}.</p>)}
+            {tab === 'client' && (!ret.data ? <p className="ts-none">Loading…</p> : <><ClientSuccessView c={ret.data} day={day} look="board" /><p className="hd-foot"><Link to="/retention">Open Retention ›</Link></p></>)}
           </div>
-
-          <div className="ts-feed">
-            <p className="ts-h">Client success <span>retention scorecard and log · <Link to="/retention">Open Retention ›</Link></span></p>
-            {!ret.data ? <p className="ts-none">Loading…</p> : <ClientSuccess d={ret.data.d} l={ret.data.l} day={day} />}
-          </div>
-        </aside>
+        </section>
       </div>
       <p className="hd-foot"><Link to="/sales-kpis">Full Sales KPIs by period ›</Link> · Written business is the AgencyZoom sales ledger by sold date; quotes are AgencyZoom quoted leads by quote day.</p>
     </div>
   )
 }
 
-interface Call { agent: string | null; direction: string | null; duration_sec: number | null; talk_sec: number | null; disposition: string | null }
+interface Call { agent: string | null; direction: string | null; duration_sec: number | null; talk_sec: number | null; disposition: string | null; source?: string | null }
 const hm = (s: number) => { const h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60); return h ? `${h}h ${String(m).padStart(2, '0')}m` : `${m}m` }
 
-function PhoneActivity({ calls, day }: { calls: Call[]; day: string }) {
-  if (!calls.length) return <p className="ts-none">No calls from Ricochet on {mdy(day)}.</p>
-  // calls read over Ricochet's API (ricochet-sync) carry no talk time; webhook calls may
+function PhoneActivity({ calls, texts, vms, day }: { calls: Call[]; texts: { agent: string | null; direction: string | null }[]; vms: { for_user: string | null; heard: boolean | null }[]; day: string }) {
+  const sent = texts.filter((t) => t.direction !== 'inbound').length, unheard = vms.filter((v) => v.heard === false).length
+  const extras = <p className="hd-sum">💬 {texts.length} text{texts.length === 1 ? '' : 's'}{texts.length ? ` (${sent} sent · ${texts.length - sent} received)` : ''} · 📮 {vms.length} voicemail{vms.length === 1 ? '' : 's'}{unheard ? ` (${unheard} not heard yet)` : ''}</p>
+  if (!calls.length) return <><p className="ts-none">No calls from Ricochet on {mdy(day)}.</p>{extras}</>
+  // calls read over Ricochet's API carry no talk time; the call webhook's do
   const timed = calls.some((c) => c.talk_sec != null || c.duration_sec != null)
   const by: Record<string, { dials: number; inbound: number; contacts: number; talk: number }> = {}
   const tot = { dials: 0, inbound: 0, contacts: 0, talk: 0 }
   calls.forEach((c) => {
-    const k = (c.agent || 'Unassigned').trim().replace(/\s+/g, ' ')
+    const k = callAgent(c.agent)
     const r = (by[k] = by[k] || { dials: 0, inbound: 0, contacts: 0, talk: 0 })
     const talk = Number(c.talk_sec ?? c.duration_sec ?? 0)
     for (const x of [r, tot]) { if (c.direction === 'inbound') x.inbound++; else x.dials++; if (talk >= 30) x.contacts++; x.talk += talk }
   })
-  const rows = Object.entries(by).sort((a, b) => b[1].dials + b[1].inbound - (a[1].dials + a[1].inbound))
+  const textsBy = (n: string) => texts.filter((t) => callAgent(t.agent) === n).length
+  const rows = Object.entries(by).sort((a, b) => (a[0] === UNANSWERED ? 1 : 0) - (b[0] === UNANSWERED ? 1 : 0) || b[1].dials + b[1].inbound - (a[1].dials + a[1].inbound))
+  const people = rows.filter(([n]) => n !== UNANSWERED).length
   const top = Math.max(1, ...rows.map(([, r]) => r.dials + r.inbound))
   return (<>
-    <p className="hd-sum">{calls.length} calls · {tot.dials} dials · {tot.inbound} inbound{timed ? ` · ${tot.contacts} contacts (30s+) · ${hm(tot.talk)} talk time` : ''} · {rows.length} on the phones</p>
-    <ul>{rows.map(([n, r]) => (
-      <li key={n}>
-        <b>{n.split(' ')[0]}</b>
+    <p className="hd-sum">{calls.length} calls · {tot.dials} out · {tot.inbound} in{timed ? ` · ${tot.contacts} contacts (30s+) · ${hm(tot.talk)} talk time` : ''} · {people} on the phones</p>
+    {extras}
+    <ul>{rows.map(([n, r]) => { const t = textsBy(n); return (
+      <li key={n} className={n === UNANSWERED ? 'k-busy' : ''}>
+        <b>{n === UNANSWERED ? n : n.split(' ')[0]}</b>
         <span className="ts-cbar"><i style={{ width: ((r.dials + r.inbound) / top) * 100 + '%' }} /></span>
         <em>{r.dials + r.inbound}</em>
-        <small>{r.dials} dials · {r.inbound} inbound{timed ? ` · ${r.contacts} contacts · ${hm(r.talk)}` : ''}</small>
-      </li>
-    ))}</ul>
-  </>)
-}
-
-function ClientSuccess({ d, l, day }: { d: RetentionDay[]; l: RetentionEntry[]; day: string }) {
-  const mv = movement(l)
-  const sum = (k: keyof RetentionDay) => d.reduce((a, x) => a + Number(x[k] || 0), 0)
-  if (!d.length && !l.length) return <p className="ts-none">Nothing logged on {mdy(day)}.</p>
-  const tiles = [
-    { k: 'At-risk touches', v: `${sum('at_risk_touches')} / 15`, good: sum('at_risk_touches') >= 15 },
-    { k: 'Renewal conversations', v: `${sum('renewal_conversations')} / 5`, good: sum('renewal_conversations') >= 5 },
-    { k: 'Net book movement', v: money0(mv.net), good: mv.net >= 0, note: `${mv.saved.n} saved · ${mv.cross.n} cross-sell · ${mv.fresh.n} new · ${mv.lost.n} lost` },
-    { k: 'Service calls', v: String(l.filter((e) => e.kind === 'review').length), good: true, note: `${sum('escalations_same_day')} of ${sum('escalations')} escalations same day` },
-  ]
-  return (<>
-    <div className="hd-mini">{tiles.map((t) => <div key={t.k} className={t.good ? 'good' : 'warn'}><span>{t.k}</span><b>{t.v}</b>{t.note ? <em>{t.note}</em> : null}</div>)}</div>
-    {l.length > 0 && <div className="tbl-wrap"><table className="hd-tbl">
-      <thead><tr><th>Who</th><th>Type</th><th>Client</th><th className="r">Premium</th><th>Notes</th></tr></thead>
-      <tbody>{l.map((e) => (
-        <tr key={e.id}><td className="muted">{e.name.split(' ')[0]}</td><td><span className={'hd-pill k-' + e.kind}>{RET_KIND[e.kind]}</span></td><td className="strong">{e.client}</td>
-          <td className={'r mono strong ' + (e.kind === 'loss' ? 'down' : e.kind === 'review' ? 'muted' : 'up')}>{e.kind === 'review' ? '—' : (e.kind === 'loss' ? '−' : '+') + money0(Number(e.premium))}</td>
-          <td className="hd-notes">{[e.reason, e.note].filter(Boolean).join(' · ') || '—'}</td></tr>
-      ))}</tbody>
-    </table></div>}
+        <small>{r.dials} out · {r.inbound} in{timed ? ` · ${hm(r.talk)} talk` : ''}{t ? ` · 💬 ${t}` : ''}</small>
+      </li>) })}</ul>
   </>)
 }
