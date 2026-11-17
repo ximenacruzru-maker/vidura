@@ -1,7 +1,7 @@
 // Supabase Edge Function: ricochet-sync
 //
 // Reads Ricochet over its API and keeps, for Team Space and the Daily Huddle Report:
-//   * ricochet_agents — each Ricochet user and their live status (Busy = on a call, Available, Offline…) and since when
+//   * ricochet_agents — each Ricochet user and their live status (On_Phone = on a call, Busy, Offline…) and since when
 //   * ricochet_calls  — each call made or taken (who, when, inbound or outbound, the queue), one row per call
 // Ricochet has no call-log endpoint, so the calls come from the leads, newest-called first: each lead lists the calls
 // on it (`actions`, outbound_call / incoming_call, with the user and the time). Reading stops at the first lead last
@@ -71,10 +71,13 @@ Deno.serve(async (req) => {
     for (let page = 1; page <= 30; page++) {
       const leads = Object.values((await get(`/api/v4/leads?sort=last_called_at&order=desc&limit=200&page=${page}`))?.data?.leads || {}) as any[];
       pages++;
-      let older = false;
+      // the page is sorted newest-called first: once its last dated lead is before `from`, nothing after it is newer
+      // (a lead with no call date, e.g. one only called in, doesn't end the read)
+      let lastDated: string | null = null;
       for (const l of leads) {
         const last = local(l.last_called_at);
-        if (!last || last.slice(0, 10) < from) { older = true; continue; }
+        if (last) lastDated = last;
+        if (!last || last.slice(0, 10) < from) continue;
         for (const a of (l.actions || []) as any[]) {
           if (a.action_type !== "outbound_call" && a.action_type !== "incoming_call") continue;
           const at = local(a.created_at);
@@ -88,14 +91,14 @@ Deno.serve(async (req) => {
           });
         }
       }
-      if (older || leads.length < 200) break;
+      if (!leads.length || (lastDated && lastDated.slice(0, 10) < from)) break;
     }
     const rows = [...calls.values()];
     for (let i = 0; i < rows.length; i += 500) {
       const { error } = await db.from("ricochet_calls").upsert(rows.slice(i, i + 500), { onConflict: "agency_id,call_id" });
       if (error) throw error;
     }
-    return json({ ok: true, from, agents: agents.length, onCall: agents.filter((x: any) => /busy|call/i.test(x.status || "")).length, calls: rows.length, pages });
+    return json({ ok: true, from, agents: agents.length, onCall: agents.filter((x: any) => /on.?phone|on.?call/i.test(x.status || "")).length, calls: rows.length, pages });
   } catch (e) {
     return json({ ok: false, error: (e as Error).message || String(e) }, 502);
   }

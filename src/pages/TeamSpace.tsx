@@ -40,8 +40,20 @@ async function loadBoard(day: string) {
 
 const clock = () => new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles' })
 const mins = (iso: string | null) => { if (!iso) return ''; const m = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000)); return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m` }
-/** Ricochet's "Busy" is an agent on a call */
-const onCall = (a: Agent | undefined) => !!a && a.active && /busy|on.?call|talk/i.test(a.status || '')
+/** a Ricochet status as the board shows it: On_Phone is on a call, then preview dialing, Busy (phone set to busy),
+ *  available; Offline (or no status) isn't shown; anything else shows as Ricochet names it */
+type Phone = { k: 'call' | 'preview' | 'busy' | 'avail' | 'other'; label: string }
+function phone(a: Agent | undefined): Phone | null {
+  if (!a || !a.active || !a.status) return null
+  const s = a.status.toLowerCase().replace(/[_-]+/g, ' ')
+  if (/on phone|on call|talk/.test(s)) return { k: 'call', label: 'On a call' }
+  if (/preview|dial/.test(s)) return { k: 'preview', label: 'Preview dialing' }
+  if (/busy/.test(s)) return { k: 'busy', label: 'Busy' }
+  if (/avail|ready|idle|online|waiting/.test(s)) return { k: 'avail', label: 'Available' }
+  if (/offline|logged out|log out/.test(s)) return null
+  return { k: 'other', label: a.status.replace(/[_-]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) }
+}
+const ICON: Record<Phone['k'], string> = { call: '📞', preview: '👀', busy: '⛔', avail: '✅', other: '•' }
 
 function Board() {
   const { me } = useAuth()
@@ -117,11 +129,12 @@ function Board() {
   const row = (name: string) => { const t = tally.get(name) || { name, out: 0, inb: 0 }; tally.set(name, t); return t }
   data.calls.forEach((c) => { const t = row(owner(c.agent)?.name || (c.agent || 'Unassigned').trim()); if (c.direction === 'inbound') t.inb++; else t.out++ })
   const live = isToday ? data.agents.filter((a) => a.active) : []
-  live.forEach((a) => { const n = owner(a.name)?.name || a.name; if (onCall(a) || tally.has(n)) row(n).agent = a })
+  live.forEach((a) => { const n = owner(a.name)?.name || a.name; if (phone(a) || tally.has(n)) row(n).agent = a })
   const board = [...tally.values()].sort((a, b) => b.out + b.inb - (a.out + a.inb) || a.name.localeCompare(b.name))
   const top = Math.max(1, ...board.map((t) => t.out + t.inb))
   const totalOut = data.calls.filter((c) => c.direction !== 'inbound').length, totalIn = data.calls.length - totalOut
-  const busyNow = live.filter(onCall).length
+  const countNow = (k: Phone['k']) => live.filter((a) => phone(a)?.k === k).length
+  const phonesNow = [['call', 'on a call'], ['preview', 'preview dialing'], ['busy', 'busy'], ['avail', 'available']].map(([k, l]) => [countNow(k as Phone['k']), l] as const).filter(([n]) => n)
   const synced = data.agents.reduce((m, a) => (a.updated_at > m ? a.updated_at : m), '')
   const agentOf = (p: TeamPerson) => live.find((a) => p.mine(a.name))
 
@@ -134,7 +147,7 @@ function Board() {
           <em>{sales.length} polic{sales.length === 1 ? 'y' : 'ies'}{need ? <> · {money0(need)} needed {isToday ? 'today' : 'that day'} for the goal</> : null}</em>
           {need ? bar(prem, need) : null}
         </div>
-        <div className="ts-k"><span>Calls {when}</span><b>{data.calls.length}</b><em>{totalOut} outbound · {totalIn} inbound{isToday ? ` · ${busyNow} on a call now` : ''}</em></div>
+        <div className="ts-k"><span>Calls {when}</span><b>{data.calls.length}</b><em>{totalOut} outbound · {totalIn} inbound{isToday && phonesNow.length ? <><br />Now: {phonesNow.map(([n, l]) => `${n} ${l}`).join(' · ')}</> : null}</em></div>
         <div className={'ts-k' + (life ? ' life' : '')}><span>Life {when}</span><b>{life ? `🎉 ${life}` : '0'}</b><em>{life ? `life polic${life === 1 ? 'y' : 'ies'} sold` : 'no life sold'}</em></div>
         <div className="ts-k"><span>Quotes {when}</span><b>{d.quotes.length}</b><em>{money0(qprem)} quoted</em></div>
         {F && P ? <>
@@ -155,17 +168,17 @@ function Board() {
           <p className="ts-h">What everyone {isToday ? 'is up to' : 'did'} <span>{inToday.length} in{out.length ? ` · ${out.map((p) => p.name.split(' ')[0]).join(' & ')} out` : ''}</span></p>
           <div className="ts-grid">
             {people.map((p) => {
-              const t = tally.get(p.name), n = t ? t.out + t.inb : 0, a = agentOf(p)
+              const t = tally.get(p.name), n = t ? t.out + t.inb : 0, a = agentOf(p), ph = phone(a)
               const bits = [...(n ? [`📞 ${n} call${n === 1 ? '' : 's'}`] : []), ...personBits(p, money0)], folio = mineFolio(p.keys)
               return (
-                <div key={p.name} className={'ts-p' + (p.out ? ' out' : '') + (p.life ? ' life' : '') + (onCall(a) ? ' call' : '')}>
+                <div key={p.name} className={'ts-p' + (p.out ? ' out' : '') + (p.life ? ' life' : '') + (ph?.k === 'call' ? ' call' : '')}>
                   <div className="ts-top">
                     <span className="ts-av" style={{ background: p.color }}>{p.name.split(' ').map((w) => w[0]).slice(0, 2).join('')}</span>
                     <div className="ts-who"><b>{p.name}</b>
                       {edit ? <FocusPick name={p.name} focus={p.focus} onChange={again} className="ts-focus" /> : <span className="ts-focus">{p.focus}</span>}</div>
                     {edit ? <OutToggle day={day} name={p.name} out={p.out} onChange={again} className="ts-out" /> : <span className={'ts-out' + (p.out ? ' on' : '')}>{p.out ? 'Out' : 'In'}</span>}
                   </div>
-                  {onCall(a) && <div className="ts-oncall" title={`Ricochet: ${a!.status}`}><i aria-hidden="true" />On a call · {mins(a!.status_since)}</div>}
+                  {ph && <div className={'ts-phone k-' + ph.k} title={`Ricochet: ${a!.status}`}>{ph.k === 'call' ? <i aria-hidden="true" /> : <span aria-hidden="true">{ICON[ph.k]}</span>}{ph.label} · {mins(a!.status_since)}</div>}
                   {p.out ? <div className="ts-line muted">Out{isToday ? ' today' : ''}{p.note ? ` · ${p.note}` : ''}</div> : <>
                     {p.sales ? <div className="ts-big">{money0(p.prem)}<span>{when}</span></div> : null}
                     <div className="ts-line">{p.life ? <b className="ts-life">🎉 {p.life} life sold · </b> : null}{bits.length ? bits.join(' · ') : <span className="muted">Nothing in Declara {isToday ? 'yet today' : 'that day'}</span>}</div>
@@ -179,13 +192,13 @@ function Board() {
         <aside className="ts-side">
           <div className="ts-feed ts-calls">
             <p className="ts-h">📞 Calls {when} <span>{data.calls.length ? `${data.calls.length} · Ricochet` : 'Ricochet'}{isToday && synced ? ` · synced ${new Date(synced).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles' })}` : ''}</span></p>
-            {board.length ? <ul>{board.map((t) => (
-              <li key={t.name} className={onCall(t.agent) ? 'call' : ''}>
-                <b>{t.name.split(' ')[0]}{onCall(t.agent) ? <span className="ts-dot" title={`On a call · ${mins(t.agent!.status_since)}`} /> : null}</b>
+            {board.length ? <ul>{board.map((t) => { const ph = phone(t.agent); return (
+              <li key={t.name} className={ph ? 'k-' + ph.k : ''}>
+                <b>{t.name.split(' ')[0]}{ph?.k === 'call' ? <span className="ts-dot" title={`On a call · ${mins(t.agent!.status_since)}`} /> : null}</b>
                 <span className="ts-cbar"><i style={{ width: ((t.out + t.inb) / top) * 100 + '%' }} /></span>
                 <em>{t.out + t.inb}</em>
-                <small>{t.out} out · {t.inb} in{onCall(t.agent) ? ` · on a call ${mins(t.agent!.status_since)}` : ''}</small>
-              </li>))}</ul> : <p className="ts-none">{data.agents.length ? `No calls in Ricochet ${isToday ? 'yet today' : 'that day'}.` : 'Calls show up here once the Ricochet sync is running.'}</p>}
+                <small>{t.out} out · {t.inb} in{ph ? ` · ${ICON[ph.k]} ${ph.label.toLowerCase()} ${mins(t.agent!.status_since)}` : ''}</small>
+              </li>) })}</ul> : <p className="ts-none">{data.agents.length ? `No calls in Ricochet ${isToday ? 'yet today' : 'that day'}.` : 'Calls show up here once the Ricochet sync is running.'}</p>}
           </div>
           {F && <div className="xd ts-run"><RunningChart title="Running total vs goal" today={day} start={F.start_date} end={F.end_date} goal={goal || null} points={points} /></div>}
           <div className="ts-feed">
