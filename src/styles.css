@@ -2174,3 +2174,16 @@ body.tv .ts-title { display: block; }
 .hd-donut-k .bc-donut svg { width: clamp(64px, 4vw, 84px); }
 .hd-tabchart { margin-bottom: 12px; }
 .hd-month .hd-chart { height: clamp(200px, 24vh, 320px); }
+/* the incoming-call alert: big, on top of the board, until someone picks up */
+.ic { position: fixed; z-index: 60; left: 50%; top: clamp(16px, 4vh, 48px); transform: translateX(-50%); display: grid; gap: 10px; width: min(860px, calc(100vw - 32px)); padding: clamp(14px, 1.4vw, 26px); border-radius: 22px; color: #fff;
+  background: linear-gradient(120deg, #d63c48, #f0703a); box-shadow: 0 18px 48px rgba(0, 0, 0, .45), 0 0 0 4px rgba(255, 215, 106, .55); animation: ic-pulse 1.4s ease-in-out infinite; }
+.ic-call { display: flex; align-items: center; gap: clamp(12px, 1.2vw, 22px); }
+.ic-icon { font-size: clamp(40px, 4vw, 76px); animation: ic-ring .5s ease-in-out infinite alternate; }
+.ic-t { display: grid; gap: 2px; min-width: 0; flex: 1; }
+.ic-t span { font-size: clamp(13px, 1vw, 20px); font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: rgba(255, 255, 255, .85); }
+.ic-t b { font-size: clamp(28px, 3vw, 60px); font-weight: 900; line-height: 1.05; overflow-wrap: anywhere; }
+.ic-time { flex: none; font-size: clamp(22px, 2vw, 40px); font-weight: 900; font-variant-numeric: tabular-nums; padding: 4px 14px; border-radius: 999px; background: rgba(0, 0, 0, .2); }
+.ic-ask { margin: 0; font-size: clamp(13px, .95vw, 19px); font-weight: 700; color: rgba(255, 255, 255, .9); }
+@keyframes ic-pulse { 50% { box-shadow: 0 18px 48px rgba(0, 0, 0, .45), 0 0 0 12px rgba(255, 215, 106, .25); } }
+@keyframes ic-ring { from { transform: rotate(-14deg); } to { transform: rotate(14deg); } }
+@media (prefers-reduced-motion: reduce) { .ic, .ic-icon { animation: none; } }

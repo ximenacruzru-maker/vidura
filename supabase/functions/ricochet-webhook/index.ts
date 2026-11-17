@@ -6,6 +6,10 @@
 // the fields below, each set to the matching Call Field / Lead Field / User Field. Then Configuration > Event Actions >
 // Call Events Action fires it on every call. Field names are matched loosely (case and punctuation don't matter, and
 // common alternatives are accepted); whatever is sent is also kept as-is in `raw`.
+// Live calls: when the body carries a call state (an `event`, `call_event`, `state` or `call_state` field: ringing /
+// answered / ended), the call's latest state goes to ricochet_live_calls with who or what is calling (caller ID name,
+// the line or queue, e.g. "Service Advantage") — Team Space shows a big alert while an inbound call rings. A ringing or
+// answered event isn't a finished call, so it isn't counted; the ended event (or any post without a state) is.
 // Deployed with verify_jwt off: Ricochet can't send a Supabase login, so the key in the URL is the credential.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -23,6 +27,9 @@ const FIELDS: Record<string, string[]> = {
   last: ["last_name", "lastname", "last"],
   lead_name: ["lead_name", "name", "full_name", "contact_name"],
   recording: ["recording_url", "recording", "recording_link", "call_recording"],
+  state: ["event", "call_event", "event_type", "state", "call_state", "call_progress"],
+  caller: ["caller_name", "caller_id_name", "callerid_name", "cnam", "line", "line_name", "did_name", "number_name", "inbound_number_name", "tracking_number_name", "source_name"],
+  queue: ["queue", "queue_name", "call_type", "campaign", "campaign_name", "ivr", "ivr_name"],
 };
 const norm = (k: string) => k.toLowerCase().replace(/[^a-z0-9]/g, "");
 const pick = (body: Record<string, unknown>, f: string) => {
@@ -70,6 +77,21 @@ Deno.serve(async (req) => {
     phone: pick(body, "phone"), duration_sec: secs(pick(body, "duration")), talk_sec: secs(pick(body, "talk")), disposition: pick(body, "disposition"),
     lead_id: pick(body, "lead_id"), lead_name: name, recording_url: pick(body, "recording"), raw: body,
   };
+  // a live event: ringing / answered / ended
+  const ev = (pick(body, "state") || "").toLowerCase();
+  const state = /ring|incoming|start|new|queue|offer/.test(ev) ? "ringing" : /answer|connect|bridg|talk|pick/.test(ev) ? "answered" : /end|hang|complete|finish|done|miss|abandon|voicemail/.test(ev) ? "ended" : null;
+  if (state) {
+    const key = row.call_id || [row.phone || "", row.started_at || ""].join("|");
+    const live: Record<string, unknown> = { agency_id: hook.agency_id, call_key: key, state, updated_at: new Date().toISOString() };
+    const caller = pick(body, "caller") || name, queue = pick(body, "queue");
+    if (caller) live.caller = caller;
+    if (queue) live.queue = queue;
+    if (row.agent) live.agent = row.agent;
+    if (state === "ringing") live.started_at = row.started_at || new Date().toISOString();
+    const { error: le } = await supabase.from("ricochet_live_calls").upsert(live, { onConflict: "agency_id,call_key" });
+    if (le) return json({ ok: false, error: le.message }, 500);
+    if (state !== "ended") return json({ ok: true, live: state });
+  }
   const q = row.call_id
     ? supabase.from("ricochet_calls").upsert(row, { onConflict: "agency_id,call_id" })
     : supabase.from("ricochet_calls").insert(row);

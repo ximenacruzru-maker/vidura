@@ -19,6 +19,7 @@ import { loadTeamToday, teamPeople, tidyName, type TeamPerson } from '../lib/tea
 import { bestCalls, callAgent, UNANSWERED } from '../lib/ricochet'
 import { HBars, HourChart, SERIES } from '../components/BoardCharts'
 import BoardToday from '../components/BoardToday'
+import IncomingCalls from '../components/IncomingCalls'
 import { useTvMode } from '../lib/tvMode'
 import { useAsync } from '../lib/useAsync'
 import { RunningChart } from './executive/parts'
@@ -196,6 +197,7 @@ export function TeamBoard() {
   return (
     <div className="ts">
       {head}
+      <IncomingCalls on={isToday} />
       <DayStrip day={day} today={today} onPick={setDay} tick={tick} />
       {closing}
       <div className="ts-kpis">
