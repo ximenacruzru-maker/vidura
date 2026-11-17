@@ -11,7 +11,8 @@ import {
 import { wbFolioKeys, type Json, type PerfData } from '../../lib/perf/data'
 import { money0 } from '../../lib/perf/executive'
 import { wbFolioLabel } from '../../lib/perf/reports'
-import { ICO } from '../executive/parts'
+import { ICO, RunningChart } from '../executive/parts'
+import '../executive/executive.css'
 
 const note = { fontSize: 12, color: 'var(--beaver)', background: 'var(--paper)', borderLeft: '3px solid var(--gold)', padding: '12px 14px', lineHeight: 1.6 } as const
 
@@ -124,6 +125,11 @@ function Projected({ D, k }: { D: PerfData; k: string }) {
             {P.left > 0 && <> If the rest of the folio goes like {first}’s slowest day it’s about <b>{money0(one.low)}</b>; like {first}’s best day, about <b>{money0(one.high)}</b>.</>}
             {one.nextTier ? <> Another <b>{money0(one.nextTier.need)}</b> in premium reaches the {pct(one.nextTier.rate)} tier ({money0(one.nextTier.min)}).</> : <> That’s the top tier.</>}
             {one.nextBonus ? <> <b>{money0(one.nextBonus.need)}</b> more unlocks the {one.nextBonus.label} (+{pct(one.nextBonus.rate)} over {money0(one.nextBonus.min)}).</> : null}</p>
+          {/* the same running total vs goal as the Executive Dashboard, for this producer; the goal line is their next tier (or bonus) */}
+          <div className="xd pj-run">
+            <RunningChart key={one.producer} title={`${one.producer} · running total vs ${one.nextTier ? `the ${pct(one.nextTier.rate)} tier` : one.nextBonus ? `the ${one.nextBonus.label}` : 'goal'}`} today={todayPacific()} start={P.start} end={P.end} points={one.points}
+              goal={one.nextTier ? one.nextTier.min : one.nextBonus ? one.nextBonus.min : null} />
+          </div>
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table className="dect">
