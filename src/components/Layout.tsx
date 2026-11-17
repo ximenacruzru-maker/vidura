@@ -52,7 +52,8 @@ export default function Layout({ children }: { children: ReactNode }) {
     { to: '/training', label: 'Training', icon: 'training', show: path },
     { to: '/today', label: first ? `${first}’s Space` : 'My Space', icon: 'today', show: !trainee },
     { to: '/work', label: 'Work & Tickets', icon: 'tickets', show: c('work') },
-    { to: '/chat', label: 'Team Chat', icon: 'chat', show: c('chat') },
+    // Team Space: the big-screen board of the day (owner, admins, whoever runs the work queue) with Team Chat as its other tab
+    { to: '/team', label: 'Team Space', icon: 'proteges', show: c('chat') || c('work_manager'), also: ['/chat'] },
     { to: '/retention', label: 'Retention', icon: 'renew', show: c('retention') },
     { to: '/pay', label: 'My Pay', icon: 'dollar', show: me?.role !== 'owner' && !trainee },
     { to: '/my-commissions', label: 'My Commissions', icon: 'sales', show: me?.role === 'sdr' || me?.role === 'va' },

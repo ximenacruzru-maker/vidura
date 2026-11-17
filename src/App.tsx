@@ -15,7 +15,7 @@ const Resources = lazy(() => import('./pages/Resources'))
 const SalesFlow = lazy(() => import('./pages/SalesFlow'))
 const WorkQueue = lazy(() => import('./pages/WorkQueue'))
 const MySpace = lazy(() => import('./pages/MySpace'))
-const Chat = lazy(() => import('./pages/Chat'))
+const TeamSpace = lazy(() => import('./pages/TeamSpace'))
 const Proteges = lazy(() => import('./pages/Proteges'))
 const Licensing = lazy(() => import('./pages/Licensing'))
 const Payroll = lazy(() => import('./pages/Payroll'))
@@ -83,7 +83,6 @@ function Gate() {
           <Route path="/settings" element={<Settings />} />
           {!trainee && <Route path="/call-lists" element={<CallLists />} />}
           {me.platform_admin && <Route path="/agencies" element={<Agencies />} />}
-          <Route path="/team" element={<Navigate to="/settings" replace />} />
           <Route path="/password" element={<ChangePassword />} />
           {can(me, 'retention') && <Route path="/retention" element={<Retention />} />}
           {!trainee && <Route path="/pay" element={<MyPay />} />}
@@ -96,7 +95,10 @@ function Gate() {
           {(can(me, 'resources') || can(me, 'passwords')) && <Route path="/resources" element={<Resources />} />}
           {can(me, 'resources') && <Route path="/sales-flow" element={<SalesFlow />} />}
           {can(me, 'work') && <Route path="/work" element={<WorkQueue />} />}
-          {can(me, 'chat') && <Route path="/chat" element={<Chat />} />}
+          {(can(me, 'chat') || can(me, 'work_manager')) && <Route path="/team" element={<TeamSpace />} />}
+          {can(me, 'chat') && <Route path="/team/chat" element={<TeamSpace />} />}
+          {/* Team Chat is a tab of Team Space now */}
+          {can(me, 'chat') && <Route path="/chat" element={<Navigate to="/team/chat" replace />} />}
           {can(me, 'proteges') && <Route path="/proteges" element={<Proteges />} />}
           {!trainee && <Route path="/hr" element={<Licensing />} />}
           {can(me, 'payroll') && <Route path="/payroll" element={<Payroll />} />}

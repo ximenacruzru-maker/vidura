@@ -22,7 +22,8 @@ const when = (ts: string) => {
 }
 const linkify = (t: string) => t.split(/(https?:\/\/\S+)/g).map((p, i) => (/^https?:\/\//.test(p) ? <a key={i} href={p} target="_blank" rel="noreferrer">{p}</a> : p))
 
-export default function Chat() {
+/** Team Chat; inside Team Space (`embedded`) the page heading is Team Space's */
+export default function Chat({ embedded = false }: { embedded?: boolean }) {
   const { me, session } = useAuth()
   const uid = session!.user.id
   const [room, setRoom] = useState('general')
@@ -67,7 +68,7 @@ export default function Chat() {
 
   return (
     <>
-      <PageHead kicker="Workspace" title="Team Chat" sub="Shared with signed-in staff. Messages older than 30 days are hidden." />
+      {!embedded && <PageHead kicker="Workspace" title="Team Chat" sub="Shared with signed-in staff. Messages older than 30 days are hidden." />}
       {err ? <ErrorBox error={err} /> : null}
       <div className="chat">
         <aside className="chat-side">

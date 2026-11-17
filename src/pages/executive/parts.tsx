@@ -4,6 +4,7 @@ import { Fragment, useLayoutEffect, useRef, useState, type ReactNode } from 'rea
 import { money0, type Bar, type Month } from '../../lib/perf/executive'
 import { createPortal } from 'react-dom'
 import { Drawer } from '../../components/ui'
+import { pace } from '../../lib/pace'
 
 /* ---------- icons ---------- */
 const V = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round', viewBox: '0 0 24 24' } as const
@@ -255,34 +256,14 @@ export function Donut({ rows, colors = DONUT, center, centerSub }: { rows: { lab
  *  each working day left counts as the average day so far with the largest and smallest days left out (the plain
  *  average when there are too few days; the same rule as the folio worksheet), so it moves every day as sales come in. */
 export function RunningChart({ title, start, end, today, points, goal, noGoal }: { title: string; start: string; end: string; today: string; points: { date: string; value: number }[]; goal: number | null; noGoal?: string }) {
-  const day = (iso: string) => Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)) / 864e5
-  const iso = (n: number) => new Date(n * 864e5).toISOString().slice(0, 10)
-  const d0 = day(start), d1 = Math.max(day(end), d0 + 1)
-  // each day's premium
-  const sums = new Map<string, number>()
-  points.filter((p) => p.date >= start && p.date <= end).forEach((p) => sums.set(p.date, (sums.get(p.date) || 0) + (Number(p.value) || 0)))
-  // the folio's working days (Monday–Friday, and any other day something was sold); a day has happened once it's
-  // before today, or it's today and something has been sold
-  const days: string[] = []
-  for (let n = d0; n <= d1; n++) { const s = iso(n), wd = new Date(n * 864e5).getUTCDay(); if ((wd !== 0 && wd !== 6) || sums.has(s)) days.push(s) }
+  // the pace by the folio worksheet's rule (src/lib/pace.ts), shared with Team Space
+  const { day, iso, d0, d1, sums, days, done, left, vals, mx, mn, mid, avg, total, projected, low, high, lowDay, highDay } = pace(start, end, today, points)
   const happened = (s: string) => s < today || (s === today && sums.has(s))
-  const done = days.filter(happened), left = days.filter((s) => !happened(s))
-  const vals = done.map((s) => sums.get(s) || 0)
-  const mx = Math.max(...vals), mn = Math.min(...vals)
-  const mid = vals.filter((v) => v < mx && v > mn)
-  const avg = mid.length ? mid.reduce((a, v) => a + v, 0) / mid.length : vals.length ? vals.reduce((a, v) => a + v, 0) / vals.length : 0
   let run = 0
   const pts = done.filter((s) => sums.has(s)).map((s) => ({ x: day(s), y: (run += sums.get(s) || 0) }))
-  const total = run
   const last = done.length ? day(done[done.length - 1]) : d0
   let proj = total
   const fut = left.map((s) => ({ x: day(s), y: (proj += avg) }))
-  const projected = left.length ? proj : null
-  // the range: every day left like the slowest day with sales so far (low) or the best day (high)
-  const sold = vals.filter((v) => v > 0)
-  // kept on either side of the average day (zero days pull the average below the slowest day with sales)
-  const lowDay = Math.min(sold.length ? Math.min(...sold) : 0, avg), highDay = Math.max(vals.length ? mx : 0, avg)
-  const low = left.length ? total + lowDay * left.length : null, high = left.length ? total + highDay * left.length : null
   const need = goal && left.length ? Math.max(0, goal - total) / left.length : null
   const top = Math.max(total, projected || 0, high || 0, goal || 0, 1) * 1.1
   const W = 560, H = 210, L = 54, R = 16, T = 14, B = 26
