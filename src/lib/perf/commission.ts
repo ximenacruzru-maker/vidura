@@ -190,7 +190,9 @@ export function commProjection(D: PerfData, k: string, today: string) {
     // the next bonus the projected premium doesn't reach yet (an accelerator over a threshold, say)
     const bonus = (plan.bonuses || []).filter((b: Json) => (b.basis || 'totalPremium') === 'totalPremium' && Number(b.threshold) > proj.totalPremium)
       .sort((a: Json, b: Json) => Number(a.threshold) - Number(b.threshold))[0]
-    return { producer: p, written, avg, trimmed: mid.length > 0, left, projPrem, lowDay, highDay, lowPrem, highPrem, low: lo.total as number, high: hi.total as number, now: now.total as number, qualifiesNow: !!now.qualifies, projected: proj.total as number,
+    // each day's premium, for the producer's own running total vs goal chart
+    const points = [...sums].sort((a, b) => a[0].localeCompare(b[0])).map(([date, value]) => ({ date, value }))
+    return { producer: p, points, written, avg, trimmed: mid.length > 0, left, projPrem, lowDay, highDay, lowPrem, highPrem, low: lo.total as number, high: hi.total as number, now: now.total as number, qualifiesNow: !!now.qualifies, projected: proj.total as number,
       qualifies: !!proj.qualifies, tierRate: Number(proj.tierRate) || 0, nextTier: next ? { rate: Number(next.rate), need: Number(next.min) - proj.totalPremium, min: Number(next.min) } : null,
       nextBonus: bonus ? { label: String(bonus.label || bonus.key), rate: Number(bonus.rate) || 0, need: Number(bonus.threshold) - proj.totalPremium, min: Number(bonus.threshold) } : null }
   }).sort((a, b) => b.projected - a.projected || b.projPrem - a.projPrem)

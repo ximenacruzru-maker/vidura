@@ -9,7 +9,7 @@ import path from 'path'
 import { install } from './supabase-stub.mjs'
 
 const DIST = path.resolve('dist')
-const ROUTES = ['/today', '/work', '/chat', '/', '/sales', '/sales-kpis', '/legacy-sales', '/huddle', '/reports', '/legacy-reports', '/year-end', '/commissions', '/legacy-commissions', '/commission-setup', '/sdr', '/legacy-sdr', '/foresight', '/resources', '/resources?tab=coi',
+const ROUTES = ['/today', '/work', '/team', '/team/chat', '/', '/sales', '/sales-kpis', '/legacy-sales', '/huddle', '/reports', '/legacy-reports', '/year-end', '/commissions', '/legacy-commissions', '/commission-setup', '/sdr', '/legacy-sdr', '/foresight', '/resources', '/resources?tab=coi',
   '/books/farmers', '/books/commercial', '/sales-flow', '/hr?tab=files', '/hr?tab=legal', '/hr?tab=vendors', '/training', '/hr', '/payroll', '/payments', '/pay', '/retention', '/my-commissions', '/proteges', '/settings', '/agencies']
 const THEMES = ['talavera', 'declara', 'dark', 'astra', 'christmas']
 const SIZES = [['phone', { ...devices['iPhone 13'] }], ['desktop', { viewport: { width: 1440, height: 900 } }]]
