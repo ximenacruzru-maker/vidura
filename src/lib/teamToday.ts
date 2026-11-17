@@ -64,7 +64,7 @@ export function personBits(p: TeamPerson, money: (n: number) => string) {
     p.sales ? `${p.sales} sale${p.sales === 1 ? '' : 's'} · ${money(p.prem)}` : '',
     p.quotes ? `${p.quotes} quote${p.quotes === 1 ? '' : 's'} · ${money(p.qprem)}` : '',
     p.reviews ? `${p.worked} of ${p.reviews} reviews worked · ${p.reached} reached` : '',
-    p.calls ? `${p.calls} call${p.calls === 1 ? '' : 's'}` : '',
+    p.calls ? `${p.calls} call-list call${p.calls === 1 ? '' : 's'}` : '',
     p.done + p.logged ? `${p.done + p.logged} task${p.done + p.logged === 1 ? '' : 's'} done` : '',
     p.ret ? `${p.ret} log entr${p.ret === 1 ? 'y' : 'ies'}` : '',
     p.notes ? `${p.notes} note${p.notes === 1 ? '' : 's'}` : '',

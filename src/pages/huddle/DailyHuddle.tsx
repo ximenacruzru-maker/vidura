@@ -134,7 +134,7 @@ function Huddle({ D }: { D: PerfData }) {
         <GoalCard label="Quote to sale" show={quotes.length ? Math.round((customers / quotes.length) * 100) + '%' : '—'} note="customers written ÷ leads quoted that day" good={false} neutral />
       </div>
 
-      <Section title="Phone activity" sub={`Ricochet · ${mdy(day)} · a contact is a call with 30+ seconds of talk time`}>
+      <Section title="Phone activity" sub={`Ricochet · ${mdy(day)} · calls made and taken, by person`}>
         {!calls.data ? <Loading what="Loading calls" /> : <PhoneActivity calls={calls.data} day={day} />}
       </Section>
 
@@ -213,7 +213,9 @@ interface Call { agent: string | null; direction: string | null; duration_sec: n
 const hm = (s: number) => { const h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60); return h ? `${h}h ${String(m).padStart(2, '0')}m` : `${m}m` }
 
 function PhoneActivity({ calls, day }: { calls: Call[]; day: string }) {
-  if (!calls.length) return <div className="rp-empty">No calls from Ricochet on {mdy(day)}. Calls show up here once Ricochet's call webhook is sending them.</div>
+  if (!calls.length) return <div className="rp-empty">No calls from Ricochet on {mdy(day)}.</div>
+  // calls read over Ricochet's API (ricochet-sync) carry no talk time: then it's dials and inbound calls by person
+  const timed = calls.some((c) => c.talk_sec != null || c.duration_sec != null)
   const by: Record<string, { dials: number; inbound: number; contacts: number; talk: number }> = {}
   const tot = { dials: 0, inbound: 0, contacts: 0, talk: 0 }
   calls.forEach((c) => {
@@ -226,13 +228,18 @@ function PhoneActivity({ calls, day }: { calls: Call[]; day: string }) {
     <div className="rp-cards">
       <GoalCard label="Dials" show={String(tot.dials)} note="outbound calls" good={false} neutral />
       <GoalCard label="Inbound calls" show={String(tot.inbound)} note="answered or missed" good={false} neutral />
-      <GoalCard label="Contacts" show={String(tot.contacts)} note={tot.dials + tot.inbound ? Math.round((tot.contacts / (tot.dials + tot.inbound)) * 100) + '% of calls' : ''} good={false} neutral />
-      <GoalCard label="Talk time" show={hm(tot.talk)} note={`${calls.length} calls`} good={false} neutral />
+      {timed ? <>
+        <GoalCard label="Contacts" show={String(tot.contacts)} note={tot.dials + tot.inbound ? Math.round((tot.contacts / (tot.dials + tot.inbound)) * 100) + '% of calls' : ''} good={false} neutral />
+        <GoalCard label="Talk time" show={hm(tot.talk)} note={`${calls.length} calls`} good={false} neutral />
+      </> : <>
+        <GoalCard label="Calls" show={String(calls.length)} note="made and taken" good={false} neutral />
+        <GoalCard label="On the phones" show={String(rows.length)} note={rows.length ? `${Math.round(calls.length / rows.length)} calls each on average` : ''} good={false} neutral />
+      </>}
     </div>
     <div className="tbl-wrap"><table className="rp-tbl">
-      <thead><tr><th>Agent</th><th className="r">Dials</th><th className="r">Inbound</th><th className="r">Contacts</th><th className="r">Talk time</th></tr></thead>
+      <thead><tr><th>Agent</th><th className="r">Dials</th><th className="r">Inbound</th>{timed ? <><th className="r">Contacts</th><th className="r">Talk time</th></> : <th className="r">Total</th>}</tr></thead>
       <tbody>{rows.map(([n, r]) => (
-        <tr key={n}><td className="strong">{n}</td><td className="r mono">{r.dials}</td><td className="r mono">{r.inbound}</td><td className="r mono">{r.contacts}</td><td className="r mono">{hm(r.talk)}</td></tr>
+        <tr key={n}><td className="strong">{n}</td><td className="r mono">{r.dials}</td><td className="r mono">{r.inbound}</td>{timed ? <><td className="r mono">{r.contacts}</td><td className="r mono">{hm(r.talk)}</td></> : <td className="r mono strong">{r.dials + r.inbound}</td>}</tr>
       ))}</tbody>
     </table></div>
   </>)
