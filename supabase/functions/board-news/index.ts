@@ -2,8 +2,8 @@
 //
 // Headlines for Team Space's news panel: San Jose news, US outages (power, internet, phone, cloud, banks…) and, for today,
 // the top US stories — from Google News' public RSS feeds, for the day asked for. Returns each headline's title,
-// source, link and time only. Signed-in staff only (verify_jwt on). Kept in memory for 20 minutes per day so the
-// board's refresh doesn't hit the feeds each time (5 minutes for today, so breaking news shows up quickly).
+// source, link and time only. Signed-in staff only (verify_jwt on). Kept in memory for an hour per day: the board
+// reads the headlines, and the breaking news, once an hour.
 // `breaking`: outage or breaking stories from the last three hours, for the board's red banner.
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" };
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...cors, "Content-Type": "application/json" } });
@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Los_Angeles" }).format(new Date());
   const day = /^\d{4}-\d{2}-\d{2}$/.test(body?.day || "") && body.day <= today ? body.day : today;
   const hit = cache.get(day);
-  if (hit && Date.now() - hit.at < (day === today ? 5 : 60) * 60_000) return json(hit.body);
+  if (hit && Date.now() - hit.at < 60 * 60_000) return json(hit.body);
   const next = new Date(new Date(day + "T12:00:00Z").getTime() + 864e5).toISOString().slice(0, 10);
   const span = day === today ? " when:1d" : ` after:${day} before:${next}`;
   try {
