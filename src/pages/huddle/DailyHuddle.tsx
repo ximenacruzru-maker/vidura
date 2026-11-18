@@ -178,6 +178,12 @@ function Huddle({ D }: { D: PerfData }) {
               : <p className="ts-none">Nothing written on {mdy(day)}.</p>}
           </div>
           <div className="ts-feed">
+            <p className="ts-h">Quotes by producer <span>{weekday(day)} · {quotes.length} quote{quotes.length === 1 ? '' : 's'} · {money0(quoted)}</span></p>
+            {quotes.length ? <HBars legend={false} keys={[{ k: 'q', label: 'Quotes', color: SERIES.c }]} fmt={(n) => String(n)}
+              rows={producers.filter(([, r]) => r.q).sort((x, y) => y[1].q - x[1].q || y[1].qp - x[1].qp).map(([n, r]) => ({ label: n, parts: { q: r.q }, note: `${money0(r.qp)} quoted${r.n ? ` · ${r.n} sold` : ''}` }))} />
+              : <p className="ts-none">No quotes on {mdy(day)}.</p>}
+          </div>
+          <div className="ts-feed">
             <p className="ts-h">{folio ? 'Folio to date' : 'Month to date'} by producer <span>{folio ? `${short(folio.start)} – ${short(day)}` : ''}</span></p>
             <HBars legend={false} keys={[{ k: 't', label: folio ? 'Folio to date' : 'Month to date', color: SERIES.a }]} fmt={money0}
               rows={producers.filter(([, r]) => r.ftd).sort((x, y) => y[1].ftd - x[1].ftd).map(([n, r]) => ({ label: n, parts: { t: r.ftd } }))} />
@@ -203,8 +209,6 @@ function Huddle({ D }: { D: PerfData }) {
                   <td className="r mono strong">{money0(Number(s.premium) || 0)}</td></tr>
               ))}</tbody>
             </table></div> : <p className="ts-none">Nothing written on {mdy(day)}.</p>)}
-            {tab === 'quotes' && quotes.length > 0 && <div className="hd-tabchart"><HBars legend={false} keys={[{ k: 'q', label: 'Quoted', color: SERIES.c }]} fmt={money0}
-              rows={producers.filter(([, r]) => r.q).sort((x, y) => y[1].qp - x[1].qp).map(([n, r]) => ({ label: n, parts: { q: r.qp }, note: `${r.q} quote${r.q === 1 ? '' : 's'}` }))} /></div>}
             {tab === 'quotes' && (quotes.length ? <div className="tbl-wrap"><table className="hd-tbl">
               <thead><tr><th>Lead</th><th>Producer</th><th>Lines</th><th className="r">Quoted</th></tr></thead>
               <tbody>{quotes.map((q, i) => (

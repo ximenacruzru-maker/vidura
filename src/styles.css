@@ -2172,7 +2172,6 @@ body.tv .ts-title { display: block; }
 .ts-k .bc-donut-key b, .ts-k .bc-donut-key span { font-size: clamp(11.5px, .78vw, 15px); overflow-wrap: normal; line-height: 1.25; }
 .hd-donut-k .bc-donut { gap: 10px; }
 .hd-donut-k .bc-donut svg { width: clamp(64px, 4vw, 84px); }
-.hd-tabchart { margin-bottom: 12px; }
 .hd-month .hd-chart { height: clamp(200px, 24vh, 320px); }
 /* the incoming-call alert: big, on top of the board, until someone picks up */
 .ic { position: fixed; z-index: 60; left: 50%; top: clamp(16px, 4vh, 48px); transform: translateX(-50%); display: grid; gap: 10px; width: min(860px, calc(100vw - 32px)); padding: clamp(14px, 1.4vw, 26px); border-radius: 22px; color: #fff;
