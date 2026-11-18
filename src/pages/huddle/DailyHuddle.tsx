@@ -54,14 +54,12 @@ function Huddle({ D }: { D: PerfData }) {
 
   // the month and folio through the day
   const sumDays = (from: string, to: string) => Object.entries(daily).filter(([d]) => d >= from && d <= to).reduce((a, [, v]) => ({ p: a.p + (Number(v.total) || 0), n: a.n + (v.sales || []).length,
-    f: a.f + (v.sales || []).filter(isFarmers).reduce((t: number, x: Json) => t + (Number(x.premium) || 0), 0) }), { p: 0, n: 0, f: 0 })
+    f: a.f + (v.sales || []).filter(isFarmers).reduce((t: number, x: Json) => t + (Number(x.premium) || 0), 0), fn: a.fn + (v.sales || []).filter(isFarmers).length }), { p: 0, n: 0, f: 0, fn: 0 })
   const monthFrom = day.slice(0, 7) + '-01'
-  const mtd = sumDays(monthFrom, day)
   const folio = Object.values(D.WB_DATA.folio || {}).find((f: Json) => f.start <= day && f.end >= day) as Json | undefined
   const ftd = folio ? sumDays(folio.start, day) : null
-  const [y, m] = day.split('-').map(Number)
-  const monthEnd = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10)
-  let left = 0; for (let d = step(day, 1); d <= monthEnd; d = step(d, 1)) left++
+  // Farmers and brokered premium: the folio to date (the month to date when no folio covers the day)
+  const mix = ftd || sumDays(monthFrom, day), mixWhen = folio ? 'folio to date' : 'month to date'
 
   // by producer: the day's quotes and sales, and the folio to date (the month to date when no folio covers the day)
   const ftdFrom = folio ? folio.start : monthFrom
@@ -165,7 +163,8 @@ function Huddle({ D }: { D: PerfData }) {
         <div className="ts-k"><span>Quotes</span><b>{quotes.length}</b><em>{money0(quoted)} · {quotes.length ? Math.round((customers / quotes.length) * 100) + '% to sale' : '—'}</em></div>
         <div className="ts-k"><span>Calls</span><b>{callRows.length}</b><em>{dials} out · {callRows.length - dials} in</em><div className="ts-chips"><span>💬 {texts.length}</span><span>📮 {vms.length}</span></div></div>
         <div className="ts-k"><span>SDR transfers</span><b>{transfers.length}</b><em>{transfers.filter((t) => t.azQualifies).length} qualified · {transfers.filter((t) => t.bound).length} bound</em></div>
-        <div className="ts-k"><span>Month to date</span><b>{money0(mtd.p)}</b><em>{mtd.n} policies · {left} day{left === 1 ? '' : 's'} left</em>{split(mtd.f, mtd.p)}</div>
+        <div className="ts-k hd-mix f"><span>Farmers premium · {mixWhen}</span><b>{money0(mix.f)}</b><em>{mix.fn} polic{mix.fn === 1 ? 'y' : 'ies'}{mix.p ? ` · ${Math.round((mix.f / mix.p) * 100)}% of written` : ''} · {money0(farmersDay)} {weekday(day)}</em></div>
+        <div className="ts-k hd-mix b"><span>Brokered premium · {mixWhen}</span><b>{money0(mix.p - mix.f)}</b><em>{mix.n - mix.fn} polic{mix.n - mix.fn === 1 ? 'y' : 'ies'}{mix.p ? ` · ${Math.round(((mix.p - mix.f) / mix.p) * 100)}% of written` : ''} · {money0(written - farmersDay)} {weekday(day)}</em></div>
         <div className="ts-k"><span>Folio to date</span><b>{ftd ? money0(ftd.p) : '—'}</b><em>{ftd ? <>{ftd.n} policies{goalPrem ? ` · ${Math.round((ftd.p / goalPrem) * 100)}% of goal` : ''}</> : 'no folio on file'}</em>{ftd ? split(ftd.f, ftd.p) : null}</div>
       </div>
 

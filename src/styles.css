@@ -2263,3 +2263,7 @@ body.tv .ts-title { display: block; }
   .ts-low .ts-grid, .ts-low .ts-side { max-height: calc(100vh - 640px); }
   body.tv .ts-low .ts-grid, body.tv .ts-low .ts-side { max-height: calc(100vh - 735px); min-height: 200px; }
 }
+/* Daily Huddle: Farmers and brokered premium tiles, keyed to the chart colors */
+.hd-mix { box-shadow: inset 4px 0 0 var(--hd-mix, #199e70); }
+.hd-mix.f { --hd-mix: #199e70; }
+.hd-mix.b { --hd-mix: #5b8def; }
