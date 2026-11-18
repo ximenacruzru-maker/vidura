@@ -24,6 +24,8 @@ export function RenewPill({ days }: { days: number | null }) {
 export const soldBy = (p: BookPolicy): { name: string; from: 'AgencyZoom' | 'FAIR Plan record' } | null =>
   p.data?.soldBy ? { name: String(p.data.soldBy), from: 'AgencyZoom' } : p.data?.broker ? { name: String(p.data.broker), from: 'FAIR Plan record' } : null
 
+const NO_PRODUCER = '__none__'
+
 export default function Books() {
   const { book = 'farmers' } = useParams()
   const nav = useNavigate()
@@ -31,6 +33,7 @@ export default function Books() {
   const meta = BOOKS.find((b) => b.key === key)!
   const today = todayPacific()
   const [q, setQ] = useState('')
+  const [seller, setSeller] = useState('') // CA FAIR Plan: '' = everyone, a name, or NO_PRODUCER
   const [open, setOpen] = useState<Account | null>(null)
   const [params, setParams] = useSearchParams()
   const { me } = useAuth()
@@ -66,9 +69,20 @@ export default function Books() {
     }).sort((x, y) => y.premium - x.premium)
   }, [data, today])
 
-  const shown = q ? rows.filter((r) => r.text.includes(q.toLowerCase())) : rows
+  // CA FAIR Plan: only the policies the chosen person sold (or with no producer in AgencyZoom), and the accounts holding them
+  const sellerOf = (p: BookPolicy) => soldBy(p)?.name || NO_PRODUCER
+  const bySeller = key === 'fair_plan' && seller ? rows.map((r) => {
+    const pols = r.pols.filter((p) => sellerOf(p) === seller)
+    return { ...r, pols, premium: pols.reduce((t, p) => t + (p.premium || 0), 0), sold: r.sold.filter((x) => x.name === seller) }
+  }).filter((r) => r.pols.length) : rows
+  const shown = q ? bySeller.filter((r) => r.text.includes(q.toLowerCase())) : bySeller
+  const sellers = useMemo(() => {
+    const m = new Map<string, { n: number; az: boolean }>()
+    ;(data?.policies || []).forEach((p) => { const s = soldBy(p), k = s?.name || NO_PRODUCER, o = m.get(k) || { n: 0, az: false }; o.n++; if (s?.from === 'AgencyZoom') o.az = true; m.set(k, o) })
+    return [...m.entries()].sort((a, b) => Number(b[1].az) - Number(a[1].az) || (a[0] === NO_PRODUCER ? 1 : 0) - (b[0] === NO_PRODUCER ? 1 : 0) || a[0].localeCompare(b[0]))
+  }, [data])
   const head = <PageHead kicker="Agency Management" title="Books of Business" sub={meta.blurb} />
-  const tabs = <Tabs tabs={BOOKS.map((b) => ({ key: b.key, label: b.short }))} value={key} onChange={(k) => { setQ(''); nav('/books/' + k) }} />
+  const tabs = <Tabs tabs={BOOKS.map((b) => ({ key: b.key, label: b.short }))} value={key} onChange={(k) => { setQ(''); setSeller(''); nav('/books/' + k) }} />
   if (error) return <>{head}{tabs}<ErrorBox error={error} /></>
   if (!data) return <>{head}{tabs}<Loading /></>
 
@@ -105,8 +119,12 @@ export default function Books() {
           <Tile label="Sold by (AgencyZoom)" value={`${azCount} of ${pols.length}`} sub={azCount ? Object.entries(azSold).sort((a, b) => b[1] - a[1]).map(([n, c]) => `${n.split(' ')[0]} ${c}`).join(' · ') : 'no producer set in AgencyZoom'} />
         </> : <Tile label="Past expiration" value={expired.length} sub={expired.length ? 'confirm renewed or lapsed' : 'none'} />}
       </Tiles>
-      <Panel title="Accounts" sub={`${shown.length} of ${rows.length} · click an account for policies, notes and documents`}
-        right={<div className="filters"><Search value={q} onChange={setQ} placeholder="Name, policy #, carrier, address" /><button className="btn-ghost" onClick={exportCsv}>Export Excel</button>{isAdmin(me?.role) && <DocUpload onDone={() => setReload((n) => n + 1)} />}</div>}>
+      <Panel title="Accounts" sub={`${shown.length} of ${rows.length}${fair && seller ? ` · sold by ${seller === NO_PRODUCER ? "no producer on file" : seller}` : ""} · click an account for policies, notes and documents`}
+        right={<div className="filters"><Search value={q} onChange={setQ} placeholder="Name, policy #, carrier, address" />
+          {fair && <select className="fld" value={seller} onChange={(e) => setSeller(e.target.value)} aria-label="Sold by">
+            <option value="">Sold by: everyone</option>
+            {sellers.map(([n, o]) => <option key={n} value={n}>{n === NO_PRODUCER ? 'No producer on file' : n + (o.az ? '' : ' (FAIR Plan record)')} · {o.n}</option>)}
+          </select>}<button className="btn-ghost" onClick={exportCsv}>Export Excel</button>{isAdmin(me?.role) && <DocUpload onDone={() => setReload((n) => n + 1)} />}</div>}>
         {shown.length ? (
           <div className="tbl-wrap">
             <table className="tbl">
