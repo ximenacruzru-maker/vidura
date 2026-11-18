@@ -13,7 +13,7 @@ import { useAsync } from '../../lib/useAsync'
 import { bestCalls, callAgent, UNANSWERED } from '../../lib/ricochet'
 import { useTvMode } from '../../lib/tvMode'
 import { ClientSuccessView, loadClientSuccess } from '../../components/ClientSuccess'
-import { Donut, HBars, HourChart, SERIES } from '../../components/BoardCharts'
+import { Donut, HBars, SERIES } from '../../components/BoardCharts'
 
 /** Daily Huddle Report: one page with the previous workday's performance for the 10:00 huddle — what was written and
  *  quoted, phone activity from Ricochet, by producer, the policies and quotes themselves, SDR transfers and client
@@ -195,7 +195,6 @@ function Huddle({ D }: { D: PerfData }) {
             <p className="ts-h">📞 Phone activity <span>Ricochet{callRows.length && !callRows.some((c) => c.source === 'webhook') ? ' · from lead activity' : ''}</span></p>
             {!phone.data ? <p className="ts-none">Loading calls…</p> : <PhoneActivity calls={callRows} texts={texts} vms={vms} day={day} />}
           </div>
-          {callRows.some((c) => c.started_at) && <div className="ts-feed"><p className="ts-h">Calls by hour</p><HourChart calls={callRows} /></div>}
         </section>
 
         <section className="hd-col3 ts-feed">
