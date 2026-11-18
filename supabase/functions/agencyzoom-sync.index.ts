@@ -1,4 +1,4 @@
-// Supabase Edge Function: agencyzoom-sync (v19)
+// Supabase Edge Function: agencyzoom-sync (v20)
 //
 // Keeps the Ironwood dashboard current from AgencyZoom:
 //   sold   - every policy written (from customer policies) -> daily_sales
@@ -13,6 +13,8 @@
 //
 // Every policy read is also kept in az_policies (for the last-year comparison); {"policies": true} fills it for all
 // customers, a page of 100 per call (az_sync_state.policies_page keeps its place).
+//
+// After a sync, the CA FAIR Plan book's "sold by" is refreshed from az_policies (public.fair_plan_sold_by).
 //
 // {"pipeline": true} replaces az_pipeline with every open lead in a "Quoted" stage or later (scheduled hourly at :30).
 //
@@ -615,6 +617,12 @@ Deno.serve(async (req) => {
         }, { onConflict: "agency_id,az_ref" });
         if (error) err(`quote_leads ${leadId}: ${error.message}`); else stats.quoteRows++;
       }
+    }
+
+    // CA FAIR Plan book: who sold each policy, from the AgencyZoom policies just read (see fair_plan_sold_by)
+    if (parts.includes("sold")) {
+      const { data: fp, error: fpErr } = await supabase.rpc("fair_plan_sold_by", { p_agency: A });
+      if (fpErr) err(`fair plan sold by: ${fpErr.message}`); else stats.fairPlanSoldByUpdated = fp;
     }
 
     stats.calls = calls; stats.truncated = outOfTime; stats.seconds = Math.round((Date.now() - t0) / 1000);

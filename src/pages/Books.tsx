@@ -19,6 +19,11 @@ export function RenewPill({ days }: { days: number | null }) {
   return <span className="pill pill-muted">{days}d</span>
 }
 
+/** CA FAIR Plan: who sold a policy — the AgencyZoom producer (matched by policy number or insured name), else the broker
+ *  on FAIR Plan's own record */
+export const soldBy = (p: BookPolicy): { name: string; from: 'AgencyZoom' | 'FAIR Plan record' } | null =>
+  p.data?.soldBy ? { name: String(p.data.soldBy), from: 'AgencyZoom' } : p.data?.broker ? { name: String(p.data.broker), from: 'FAIR Plan record' } : null
+
 export default function Books() {
   const { book = 'farmers' } = useParams()
   const nav = useNavigate()
@@ -55,6 +60,7 @@ export default function Books() {
         a, pols, premium: pols.reduce((s, p) => s + (p.premium || 0), 0), next: upcoming,
         lines: [...new Set(pols.map((p) => p.product).filter(Boolean))].join(', '),
         docs: docCount.get(a.id) || 0,
+        sold: [...new Map(pols.map(soldBy).filter((x): x is NonNullable<ReturnType<typeof soldBy>> => !!x).map((x) => [x.name, x])).values()],
         text: (a.name + ' ' + (a.dba || '') + ' ' + (a.address || '') + ' ' + pols.map((p) => `${p.policy_number} ${p.carrier} ${p.product} ${p.location}`).join(' ')).toLowerCase(),
       }
     }).sort((x, y) => y.premium - x.premium)
@@ -74,11 +80,14 @@ export default function Books() {
   const fair = key === 'fair_plan'
   const payDue30 = pols.filter((p) => { const d = daysUntil(p.data?.paymentDue, today); return d != null && d >= 0 && d <= 30 })
   const cancelPending = pols.filter((p) => /cancel/i.test(p.status || ''))
+  const azSold: Record<string, number> = {}
+  pols.forEach((p) => { if (p.data?.soldBy) azSold[p.data.soldBy] = (azSold[p.data.soldBy] || 0) + 1 })
+  const azCount = Object.values(azSold).reduce((a, n) => a + n, 0)
 
   const exportCsv = () => downloadSheet(`${key}-book-${today}.xlsx`, [
-    ['Account', 'DBA', 'Policy #', 'Insured', 'Carrier', 'Line', 'Effective', 'Expiration', 'Premium', 'Status', 'Location', ...(fair ? ['Payment plan', 'Payment method', 'Next payment due', 'Broker'] : [])],
+    ['Account', 'DBA', 'Policy #', 'Insured', 'Carrier', 'Line', 'Effective', 'Expiration', 'Premium', 'Status', 'Location', ...(fair ? ['Payment plan', 'Payment method', 'Next payment due', 'Broker', 'Sold by (AgencyZoom)', 'Sold date (AgencyZoom)'] : [])],
     ...shown.flatMap((r) => r.pols.map((p) => [r.a.name, r.a.dba, p.policy_number, p.insured, p.carrier, p.product, p.effective, p.expiration, p.premium, p.status, p.location,
-      ...(fair ? [p.data?.paymentPlan, p.data?.paymentMethod, p.data?.paymentDue, p.data?.broker] : [])])),
+      ...(fair ? [p.data?.paymentPlan, p.data?.paymentMethod, p.data?.paymentDue, p.data?.broker, p.data?.soldBy, p.data?.soldDate] : [])])),
   ], { sheet: 'Book' })
 
   return (
@@ -93,6 +102,7 @@ export default function Books() {
         {fair ? <>
           <Tile label="Payments due in 30 days" value={payDue30.length} sub={money0(payDue30.reduce((s, p) => s + (p.premium || 0), 0)) + ' premium on those policies'} tone={payDue30.length ? 'warn' : undefined} />
           <Tile label="Cancel pending" value={cancelPending.length} sub={cancelPending.length ? cancelPending.map((p) => p.insured).join(', ') : 'none'} tone={cancelPending.length ? 'warn' : undefined} />
+          <Tile label="Sold by (AgencyZoom)" value={`${azCount} of ${pols.length}`} sub={azCount ? Object.entries(azSold).sort((a, b) => b[1] - a[1]).map(([n, c]) => `${n.split(' ')[0]} ${c}`).join(' · ') : 'no producer set in AgencyZoom'} />
         </> : <Tile label="Past expiration" value={expired.length} sub={expired.length ? 'confirm renewed or lapsed' : 'none'} />}
       </Tiles>
       <Panel title="Accounts" sub={`${shown.length} of ${rows.length} · click an account for policies, notes and documents`}
@@ -100,11 +110,12 @@ export default function Books() {
         {shown.length ? (
           <div className="tbl-wrap">
             <table className="tbl">
-              <thead><tr><th>Account</th><th>Lines</th><th className="r">Policies</th><th className="r">Premium</th><th>Next renewal</th><th className="r">Docs</th></tr></thead>
+              <thead><tr><th>Account</th>{fair && <th>Sold by</th>}<th>Lines</th><th className="r">Policies</th><th className="r">Premium</th><th>Next renewal</th><th className="r">Docs</th></tr></thead>
               <tbody>
                 {shown.map((r) => (
                   <tr key={r.a.id} className="clickable" onClick={() => setOpen(r.a)}>
                     <td><div className="strong">{r.a.name}</div>{r.a.dba && r.a.dba !== r.a.name && <div className="sub">{r.a.dba}</div>}</td>
+                    {fair && <td>{r.sold.length ? r.sold.map((x) => <div key={x.name} className={x.from === 'AgencyZoom' ? '' : 'sub'} title={x.from}>{x.name}{x.from === 'AgencyZoom' ? '' : ' · FAIR Plan record'}</div>) : <span className="sub">—</span>}</td>}
                     <td className="sub">{r.lines}</td>
                     <td className="r">{r.pols.length}</td>
                     <td className="r mono">{money0(r.premium)}</td>
@@ -122,7 +133,7 @@ export default function Books() {
   )
 }
 
-const HIDE = new Set(['paymentDue', 'paymentPlan', 'paymentMethod', 'id', 'insured', 'policyNumber', 'policyNumberFormatted', 'annualPremium', 'inception', 'renewal', 'productType', 'carrier',
+const HIDE = new Set(['soldBy', 'soldDate', 'azPolicyId', 'soldByMatch', 'paymentDue', 'paymentPlan', 'paymentMethod', 'id', 'insured', 'policyNumber', 'policyNumberFormatted', 'annualPremium', 'inception', 'renewal', 'productType', 'carrier',
   'effective', 'expiration', 'kind', 'coverageType', 'premium', 'termFrom', 'termTo', 'policy', 'start', 'named', 'address', 'locationId', 'locationName', 'locationAddress', 'status'])
 
 function label(k: string) { return k.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase()) }
@@ -153,7 +164,7 @@ export function AccountDrawer({ account, policies, docs, onClose }: { account: A
                 <div><b>{p.product || 'Policy'}</b> · {p.carrier} {p.policy_number && <span className="sub">#{p.policy_number}</span>}</div>
                 <div><b className="mono">{p.premium != null ? money2(p.premium) : '—'}</b> {p.status && <span className="pill pill-muted">{p.status}</span>}</div>
               </div>
-              <KV rows={[['Insured', p.insured], ['Location', p.location], ...(p.data?.paymentDue ? [['Next payment due', <>{mdy(p.data.paymentDue)} <RenewPill days={daysUntil(p.data.paymentDue, today)} /></>], ['Payment plan', [p.data.paymentPlan, p.data.paymentMethod].filter(Boolean).join(' · ')]] as [string, ReactNode][] : []), ['Effective', p.effective ? mdy(p.effective) : ''],
+              <KV rows={[['Insured', p.insured], ...(p.book === 'fair_plan' ? [['Sold by', (() => { const s = soldBy(p); return s ? <>{s.name} <span className="sub">· {s.from === 'AgencyZoom' ? `AgencyZoom${p.data?.soldDate ? `, sold ${mdy(p.data.soldDate)}` : ''}` : 'FAIR Plan record (no producer in AgencyZoom)'}</span></> : 'Not found in AgencyZoom' })()]] as [string, ReactNode][] : []), ['Location', p.location], ...(p.data?.paymentDue ? [['Next payment due', <>{mdy(p.data.paymentDue)} <RenewPill days={daysUntil(p.data.paymentDue, today)} /></>], ['Payment plan', [p.data.paymentPlan, p.data.paymentMethod].filter(Boolean).join(' · ')]] as [string, ReactNode][] : []), ['Effective', p.effective ? mdy(p.effective) : ''],
                 ['Expiration', p.expiration ? <>{mdy(p.expiration)} <RenewPill days={daysUntil(p.expiration, today)} /></> : '']]} />
               {extra.length > 0 && (
                 <details><summary className="linkbtn">More detail ({extra.length})</summary>
