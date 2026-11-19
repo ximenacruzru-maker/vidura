@@ -1,7 +1,7 @@
 // Call lists: clients handed to one person to call (Rhon's retention call list, for one). The person works their list
 // on My Space and here: tap the number to dial, mark how the call went and note what the client said. The owner and
 // admins open anyone's list here to see the progress and every result (the report).
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../auth'
 import { Empty, ErrorBox, Loading, PageHead, Tile, Tiles } from '../components/ui'
@@ -12,7 +12,8 @@ import { supabase } from '../lib/supabase'
 import { useAsync } from '../lib/useAsync'
 
 export type CallResult = 'no_answer' | 'voicemail' | 'reached' | 'not_interested' | 'wrong_number'
-export interface CallItem { id: number; assignee: string; list_name: string; list_date: string; first_name: string | null; last_name: string | null; phone: string | null; line: string | null; opportunity_date: string | null; result: CallResult | null; notes: string | null; called_at: string | null; called_by: string | null; details?: CallDetails | null }
+export interface CallItem { id: number; assignee: string; list_name: string; list_date: string; first_name: string | null; last_name: string | null; phone: string | null; line: string | null; opportunity_date: string | null; result: CallResult | null; notes: string | null; called_at: string | null; called_by: string | null; details?: CallDetails | null
+  findings?: string | null; options_path?: string | null; options_file?: string | null }
 /** what a list brings beyond the name and number (the 30/60/90 renewal list: its window, policy, premium and increase) */
 export interface CallDetails { window?: string; daysOut?: number; policy?: string; premium?: number; increase?: number; increasePct?: number; altPhone?: string; email?: string; rank?: number }
 export const RESULT_LABEL: Record<CallResult, string> = { reached: 'Reached', voicemail: 'Left voicemail', no_answer: 'No answer', not_interested: 'Not interested', wrong_number: 'Wrong number' }
@@ -34,11 +35,14 @@ export async function getCallItems() {
   }
   return out
 }
-/** one list's numbers: how many called, reached and so on */
+/** a client is done once reached, not interested or a wrong number; no answer and voicemail stay on the list to call again */
+const FINAL: CallResult[] = ['reached', 'not_interested', 'wrong_number']
+export const finished = (r: CallItem) => !!r.result && FINAL.includes(r.result)
+/** one list's numbers: how many called (any try), done, left to call, reached and so on */
 export function callStats(rows: CallItem[]) {
   const by = Object.fromEntries(RESULTS.map((k) => [k, rows.filter((r) => r.result === k).length])) as Record<CallResult, number>
-  const called = rows.filter((r) => r.result).length
-  return { total: rows.length, called, left: rows.length - called, by, lastCall: rows.map((r) => r.called_at || '').sort().pop() || null }
+  const called = rows.filter((r) => r.result).length, done = rows.filter(finished).length
+  return { total: rows.length, called, done, left: rows.length - done, by, lastCall: rows.map((r) => r.called_at || '').sort().pop() || null }
 }
 /** the lists, newest first, as { key, assignee, name, date, rows } */
 export function groupLists(rows: CallItem[]) {
@@ -75,18 +79,18 @@ export default function CallLists() {
 export function TeamCallLists() {
   const [reload, setReload] = useState(0)
   const { data } = useAsync(getCallItems, [reload])
-  const lists = groupLists(data || []).filter((l) => l.rows.some((r) => !r.result))
+  const lists = groupLists(data || []).filter((l) => l.rows.some((r) => !finished(r)))
   if (!lists.length) return null
   return <>{lists.map((l) => <CallListBlock key={l.key} list={l} onChange={() => setReload((n) => n + 1)} compact />)}</>
 }
 
 /** On My Space: the signed-in person's own open list(s), if they have one. */
-export function MyCallList({ name }: { name: string }) {
+export function MyCallList({ name, full }: { name: string; full?: boolean }) {
   const [reload, setReload] = useState(0)
   const { data } = useAsync(getCallItems, [reload])
-  const lists = groupLists((data || []).filter((r) => r.assignee.toLowerCase() === name.toLowerCase())).filter((l) => l.rows.some((r) => !r.result))
+  const lists = groupLists((data || []).filter((r) => r.assignee.toLowerCase() === name.toLowerCase())).filter((l) => l.rows.some((r) => !finished(r)))
   if (!lists.length) return null
-  return <>{lists.map((l) => <CallListBlock key={l.key} list={l} onChange={() => setReload((n) => n + 1)} compact />)}</>
+  return <>{lists.map((l) => <CallListBlock key={l.key} list={l} onChange={() => setReload((n) => n + 1)} compact={!full} />)}</>
 }
 
 function CallListBlock({ list, onChange, report, compact }: { list: ReturnType<typeof groupLists>[number]; onChange: () => void; report?: boolean; compact?: boolean }) {
@@ -101,17 +105,17 @@ function CallListBlock({ list, onChange, report, compact }: { list: ReturnType<t
   // a renewal list split by window (30/60/90 days): a card per window, and a tap on one shows only its clients
   const windows = windowsOf(list.rows)
   const [win, setWin] = useState('')
-  const rows = list.rows.filter((r) => (!win || r.details?.window === win) && (show === 'all' ? true : show === 'todo' ? !r.result : !!r.result))
+  const rows = list.rows.filter((r) => (!win || r.details?.window === win) && (show === 'all' ? true : show === 'todo' ? !finished(r) : finished(r)))
   const pct = s.total ? Math.round((s.called / s.total) * 100) : 0
   return (
     <section className="panel cl">
       <div className="panel-h cl-h">
         <div>
           <div className="panel-t">📞 {list.name}</div>
-          <div className="panel-s">{list.assignee} · list of {mdy(list.date)} · {s.called} of {s.total} called · {s.by.reached} reached{s.lastCall ? ` · last call ${new Date(s.lastCall).toLocaleString('en-US', { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })}` : ''}</div>
+          <div className="panel-s">{list.assignee} · list of {mdy(list.date)} · {s.called} of {s.total} called · {s.by.reached} reached · {s.left} left to call{s.lastCall ? ` · last call ${new Date(s.lastCall).toLocaleString('en-US', { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })}` : ''}</div>
         </div>
         <div className="cl-acts"><button type="button" className="btn-ghost" onClick={pdf} disabled={busy}>{busy ? 'Making…' : '⬇ Download PDF'}</button>
-        <div className="cf-seg">{(['todo', 'done', 'all'] as const).map((k) => <button key={k} className={show === k ? 'on' : ''} onClick={() => setShow(k)}>{k === 'todo' ? `To call (${s.left})` : k === 'done' ? `Called (${s.called})` : `All (${s.total})`}</button>)}</div></div>
+        <div className="cf-seg">{(['todo', 'done', 'all'] as const).map((k) => <button key={k} className={show === k ? 'on' : ''} onClick={() => setShow(k)}>{k === 'todo' ? `To call (${s.left})` : k === 'done' ? `Done (${s.done})` : `All (${s.total})`}</button>)}</div></div>
       </div>
       <div className="cl-bar" role="img" aria-label={`${pct}% called`}><i style={{ width: pct + '%' }} /></div>
       {windows.length > 0 && (
@@ -140,22 +144,47 @@ function CallListBlock({ list, onChange, report, compact }: { list: ReturnType<t
       )}
       <div className="cl-rows">
         {rows.slice(0, compact ? 12 : rows.length).map((r) => <CallRow key={r.id} r={r} onChange={onChange} />)}
-        {!rows.length && <div className="rr-s">{show === 'todo' ? 'Everyone on the list has been called. 🎉' : 'No calls marked yet.'}</div>}
+        {!rows.length && <div className="rr-s">{show === 'todo' ? 'Everyone on the list is done. 🎉' : 'No one is done yet.'}</div>}
         {compact && rows.length > 12 && <a className="cl-more" href={`#/call-lists?who=${encodeURIComponent(list.assignee)}`}>See all {rows.length}{show === 'todo' ? ' to call' : ''} →</a>}
       </div>
     </section>
   )
 }
 
+/** a client's renewal options PDF, opened through a short-lived private link */
+async function openOptions(r: CallItem) {
+  if (!r.options_path) return
+  const { data, error } = await supabase.storage.from('documents').createSignedUrl(r.options_path, 120)
+  if (error || !data) { alert('Could not open the file: ' + (error?.message || 'unknown error')); return }
+  window.open(data.signedUrl, '_blank', 'noopener')
+}
+
 function CallRow({ r, onChange }: { r: CallItem; onChange: () => void }) {
-  const [notes, setNotes] = useState(r.notes || '')
+  const { me } = useAuth()
+  const [notes, setNotes] = useState(r.notes || ''), [findings, setFindings] = useState(r.findings || '')
+  const file = useRef<HTMLInputElement>(null)
+  const [busy, setBusy] = useState(false)
   const d = r.details || {}
   const save = async (patch: Partial<CallItem>) => {
     const { error } = await supabase.from('call_list_items').update(patch).eq('id', r.id)
     if (error) alert(error.message); else onChange()
   }
+  const attach = async (f: File) => {
+    setBusy(true)
+    try {
+      // a new file each time (storage won't replace in place); the old one is removed once the row points at the new one
+      const ext = (f.name.match(/\.([a-z0-9]+)$/i) || [])[1]?.toLowerCase() || 'pdf'
+      const path = `${me?.agency_id}/calllists/${r.id}-${Date.now()}.${ext}`
+      const up = await supabase.storage.from('documents').upload(path, f, { upsert: false, contentType: f.type || 'application/pdf' })
+      if (up.error) throw up.error
+      const { error } = await supabase.from('call_list_items').update({ options_path: path, options_file: f.name }).eq('id', r.id)
+      if (error) { await supabase.storage.from('documents').remove([path]); throw error }
+      if (r.options_path) await supabase.storage.from('documents').remove([r.options_path])
+      onChange()
+    } catch (e) { alert('Could not attach the file: ' + String((e as Error)?.message || e)) } finally { setBusy(false) }
+  }
   return (
-    <div className={'cl-row' + (r.result ? ' cl-done' : '')}>
+    <div className={'cl-row' + (finished(r) ? ' cl-done' : r.result ? ' cl-tried' : '')}>
       <div className="cl-who">
         <b>{fullName(r)}</b>
         <span>{[r.line, r.details?.policy && `#${r.details.policy}`, r.opportunity_date && `renews ${mdy(r.opportunity_date)}${r.details?.daysOut != null ? ` (${r.details.daysOut} days)` : ''}`].filter(Boolean).join(' · ')}</span>
@@ -168,7 +197,19 @@ function CallRow({ r, onChange }: { r: CallItem; onChange: () => void }) {
         {RESULTS.map((k) => <button key={k} type="button" className={'cl-b cl-' + k + (r.result === k ? ' on' : '')} onClick={() => save({ result: r.result === k ? null : k })}>{RESULT_LABEL[k]}</button>)}
         {r.called_at && <small>{r.called_by ? r.called_by + ' · ' : ''}{new Date(r.called_at).toLocaleString('en-US', { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</small>}
       </div>
-      <textarea className="fld" rows={2} value={notes} placeholder="What the client said, next step" onChange={(e) => setNotes(e.target.value)} onBlur={() => notes !== (r.notes || '') && save({ notes: notes || null })} aria-label={`Notes for ${fullName(r)}`} />
+      <div className="cl-prep">
+        <span className="cl-lbl">Before the call</span>
+        <textarea className="fld" rows={2} value={findings} placeholder="Your findings: why it's going up, coverage changes, options to offer" onChange={(e) => setFindings(e.target.value)} onBlur={() => findings !== (r.findings || '') && save({ findings: findings || null })} aria-label={`Findings before calling ${fullName(r)}`} />
+        <div className="cl-opt">
+          {r.options_path ? <><button type="button" className="linkbtn" onClick={() => openOptions(r)} title={r.options_file || ''}>📄 Options PDF</button><button type="button" className="linkbtn" disabled={busy} onClick={() => file.current?.click()}>Replace</button></>
+            : <button type="button" className="linkbtn" disabled={busy} onClick={() => file.current?.click()}>{busy ? 'Attaching…' : '+ Attach options PDF'}</button>}
+          <input ref={file} type="file" accept="application/pdf,image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) attach(f) }} />
+        </div>
+      </div>
+      <div className="cl-after">
+        <span className="cl-lbl">After the call</span>
+        <textarea className="fld" rows={2} value={notes} placeholder="What the client said, next step" onChange={(e) => setNotes(e.target.value)} onBlur={() => notes !== (r.notes || '') && save({ notes: notes || null })} aria-label={`Notes for ${fullName(r)}`} />
+      </div>
     </div>
   )
 }

@@ -2327,3 +2327,11 @@ html[data-theme] .nav-h { padding-top: 12px; font-size: 10px; opacity: .8; }
 .nav button.nav-more { opacity: .85; font-weight: 600; }
 .nav button.nav-more svg { width: 14px; height: 14px; transition: transform .15s; transform: rotate(-90deg); }
 .nav button.nav-more[aria-expanded="true"] svg { transform: none; }
+/* call list rows: who and the result on top; findings + options PDF (before the call) and notes (after) below */
+.cl-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); grid-template-areas: "who res" "prep after"; align-items: start; }
+.cl-row .cl-who { grid-area: who; } .cl-row .cl-res { grid-area: res; } .cl-row .cl-prep { grid-area: prep; } .cl-row .cl-after { grid-area: after; }
+.cl-prep, .cl-after { display: grid; gap: 4px; min-width: 0; }
+.cl-lbl { font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.cl-opt { display: flex; gap: 12px; align-items: center; font-size: 13px; }
+.cl-row.cl-tried { border-left-color: #2b6cb0; }
+@media (max-width: 860px) { .cl-row { grid-template-columns: 1fr; grid-template-areas: "who" "res" "prep" "after"; } }
