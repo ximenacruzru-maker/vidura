@@ -76,15 +76,15 @@ export default function SyncControl() {
         <span className="sync-dot" data-ok={sync?.status === 'success' || sync?.status === 'partial'} data-bad={bad} />
         <span className="tsync-l">{label}</span>
       </button>
-      {(connected || demo) && <button className="tsync-btn" onClick={run} disabled={busy || left === 0} title={left === 0 && nextAt ? `3 of 3 used · next ${fmtWhen(nextAt)}` : `${left} of ${LIMIT} force refreshes left in 12 hours`}>
-        <Icon name="refresh" width={1.9} /><span>Refresh</span><em>{left}</em>
-      </button>}
       {open && (
         <div className="tsync-pop">
           <b>AgencyZoom</b>
           <div>{bad ? `Last good sync ${timeAgo(sync?.last_ok || null)}` : `Last synced ${timeAgo(sync?.finished_at || null)}`}</div>
           {bad && <div className="sync-err" title={sync?.error || ''}>{/login failed/i.test(sync?.error || '') ? 'AgencyZoom rejected the saved login. Update the username/password in Supabase → Edge Functions → Secrets.' : sync?.error}</div>}
           {msg && <div className="tsync-msg">{msg}</div>}
+          {(connected || demo) && <button className="tsync-btn" onClick={run} disabled={busy || left === 0}>
+            <Icon name="refresh" width={1.9} /><span>{busy ? 'Refreshing…' : 'Refresh now'}</span><em>{left}</em>
+          </button>}
           <div className="sub">{left === 0 && nextAt ? `3 of 3 force refreshes used · next ${fmtWhen(nextAt)}` : `${left} of ${LIMIT} force refreshes left in 12 hours`}</div>
           <div className="sub">Auto-sync runs hourly, Mon–Fri 8 AM – 5 PM Pacific.</div>
         </div>

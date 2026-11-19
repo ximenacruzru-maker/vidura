@@ -2335,3 +2335,12 @@ html[data-theme] .nav-h { padding-top: 12px; font-size: 10px; opacity: .8; }
 .cl-opt { display: flex; gap: 12px; align-items: center; font-size: 13px; }
 .cl-row.cl-tried { border-left-color: #2b6cb0; }
 @media (max-width: 860px) { .cl-row { grid-template-columns: 1fr; grid-template-areas: "who" "res" "prep" "after"; } }
+/* clean look: the refresh button sits inside the sync menu; the AI buttons are icons (their name shows on hover) */
+.tsync-pop .tsync-btn { align-self: flex-start; margin-top: 4px; }
+html[data-theme] .hd-kai span { display: none; }
+html[data-theme] .hd-kai { width: 38px; padding: 0; justify-content: center; }
+html[data-theme] .hd-kai svg { width: 18px; height: 18px; }
+/* clean look on the Executive Dashboard: no eyebrow label, no repeated filter line, no icon squares, a quiet link */
+.xd .eyebrow, .xd .fcrumb, .xd .sc-i, .xd .fb-u { display: none !important; }
+.xd .mc-btn { background: transparent !important; border-color: transparent !important; box-shadow: none !important; padding-left: 6px !important; padding-right: 6px !important; }
+.xd .mc-btn:hover { text-decoration: underline; }

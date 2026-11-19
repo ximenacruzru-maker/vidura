@@ -310,7 +310,7 @@ export default function DeclaraAI() {
 
   return (
     <>
-      <button className="hd-kai" onClick={() => setOpen(true)} aria-label="Open Declara AI">
+      <button className="hd-kai" onClick={() => setOpen(true)} aria-label="Open Declara AI" title="Declara AI">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5l1.9 5.6 5.6 1.9-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.9L12 2.5zM5 15.5l.9 2.6 2.6.9-2.6.9L5 22.5l-.9-2.6-2.6-.9 2.6-.9.9-2.6z" /></svg>
         <span>Declara AI</span>
       </button>

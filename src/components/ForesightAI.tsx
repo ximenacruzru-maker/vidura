@@ -220,7 +220,7 @@ export default function ForesightAI() {
 
   return (
     <>
-      <button className="hd-kai hd-foresight" onClick={show} aria-label="Open Foresight AI">
+      <button className="hd-kai hd-foresight" onClick={show} aria-label="Open Foresight AI" title="Foresight AI">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 20h18M6 17V11M11 17V7M16 17v-4" /><path d="M16.5 3.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z" fill="currentColor" stroke="none" /></svg>
         <span>Foresight AI</span>
       </button>
