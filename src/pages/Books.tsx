@@ -8,6 +8,8 @@ import { useAsync } from '../lib/useAsync'
 import { useAuth } from '../auth'
 import { isAdmin } from '../lib/data'
 import DocUpload from '../components/DocUpload'
+import LoginCreds from '../components/LoginCreds'
+import { getLogins, loginsFor } from '../lib/logins'
 import RenewalAlert from './RenewalAlert'
 import ClientPortalPanel from './client/ClientPortalPanel'
 
@@ -163,6 +165,39 @@ function show(v: any): string {
   return String(v)
 }
 
+/** The wholesale brokers' and carriers' sites, matched to an account's broker and its policies' carriers. The saved
+ *  logins for each (Passwords) show beside it for staff who can see passwords. */
+const PORTALS: { rx: RegExp; name: string; url: string; kind: 'Wholesale broker' | 'Carrier'; note?: string }[] = [
+  { rx: /\busg\b/i, name: 'USG Insurance Services', url: 'https://usginslink.com/', kind: 'Wholesale broker', note: 'Binders, endorsements and documents for policies placed through USG' },
+  { rx: /evanston|markel/i, name: 'Markel (Evanston Insurance Company)', url: 'https://www.markel.com/', kind: 'Carrier' },
+  { rx: /kinsale/i, name: 'Kinsale Insurance', url: 'https://www.kinsaleins.com/', kind: 'Carrier' },
+  { rx: /penn-?star/i, name: 'Penn-Star (Global Indemnity)', url: 'https://www.global-indemnity.com/', kind: 'Carrier' },
+  { rx: /richmond national/i, name: 'Richmond National', url: 'https://www.richmondnational.com/', kind: 'Carrier' },
+  { rx: /fair plan/i, name: 'California FAIR Plan', url: 'https://www.cfpnet.com/insfront/pgLogin.aspx', kind: 'Carrier' },
+  { rx: /bamboo/i, name: 'Bamboo Insurance', url: 'https://agent.bambooinsurance.com/', kind: 'Carrier' },
+]
+
+function Portals({ account, policies }: { account: Account; policies: BookPolicy[] }) {
+  const logins = useAsync(() => getLogins().catch(() => []), [])
+  const text = [account.data?.broker, ...policies.map((p) => p.carrier), ...policies.map((p) => p.data?.broker)].filter(Boolean).join(' · ')
+  const hits = PORTALS.filter((x) => x.rx.test(text))
+  if (!hits.length) return null
+  return (
+    <Panel title="Broker & carrier logins" sub="Open the site to find this client's record">
+      {hits.map((x) => (
+        <div key={x.name} className="plan">
+          <div className="plan-h" style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+            <div><b>{x.name}</b> <span className="sub">· {x.kind}</span></div>
+            <a className="linkbtn" href={x.url} target="_blank" rel="noreferrer">Open site ↗</a>
+          </div>
+          {x.note && <div className="sub">{x.note}</div>}
+          <LoginCreds logins={loginsFor(logins.data || [], { name: x.name, portal: x.url })} />
+        </div>
+      ))}
+    </Panel>
+  )
+}
+
 export function AccountDrawer({ account, policies, docs, onClose }: { account: Account; policies: BookPolicy[]; docs: Doc[]; onClose: () => void }) {
   const today = todayPacific()
   const total = policies.reduce((s, p) => s + (p.premium || 0), 0)
@@ -172,6 +207,8 @@ export function AccountDrawer({ account, policies, docs, onClose }: { account: A
       <KV rows={[['Contact', account.contact], ['Phone', account.phone], ['Address', account.address], ['Producer', account.producer],
         ['Broker', d.broker], ['AOR', d.aor], ['Household', d.household], ['Source', d.source === 'shannon-transfer' ? 'Shannon book transfer' : d.source]]} />
       {d.wcNote && <div className="note-box">{d.wcNote}</div>}
+
+      <Portals account={account} policies={policies} />
 
       <Panel title="Policies">
         {policies.length ? policies.map((p) => {
