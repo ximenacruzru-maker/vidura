@@ -49,10 +49,13 @@ check(calls.some((c) => c.includes('rpc/ai_key_save')), 'the Claude key is hande
 
 // 2. Changes made by the app and by the original screens' frame are saved.
 await page.evaluate(() => localStorage.setItem('declara_foresight_commission_rate', '12'))
-await page.evaluate(() => { location.hash = '#/legacy-reports' }); await page.waitForTimeout(2500)
+await page.evaluate(() => { location.hash = '#/legacy-reports' })
+// the original screens' frame hands its storage to the app once it has loaded: wait for that, not a fixed time
+await page.waitForFunction(() => { const w = document.querySelector('.legacy-host iframe')?.contentWindow; try { return !!w && !String(w.Storage.prototype.setItem).includes('[native code]') } catch { return false } }, null, { timeout: 30000 })
 await page.evaluate(() => document.querySelector('.legacy-host iframe').contentWindow.localStorage.setItem('declara_work_v1', '[{"id":1}]'))
 await page.evaluate(() => localStorage.removeItem('declara_comm_recon_v1'))
-await page.waitForTimeout(1500)
+// then wait for the save (debounced) rather than a fixed time
+for (let i = 0; i < 40 && !(saved('declara_work_v1') === '[{"id":1}]' && saved('declara_foresight_commission_rate') === '12' && !saved('declara_comm_recon_v1')); i++) await page.waitForTimeout(250)
 check(saved('declara_foresight_commission_rate') === '12', 'a change made by the app is saved to the database')
 check(saved('declara_work_v1') === '[{"id":1}]', 'a change made by the original screens is saved to the database')
 check(saved('declara_comm_recon_v1') === undefined, 'a removed item is removed from the database')
