@@ -295,7 +295,7 @@ export default function TeamSpace() {
   const tab = pathname.endsWith('/chat') || !board ? 'chat' : 'board'
   return (
     <>
-      <PageHead kicker="Workspace" title="Team Space" sub={tab === 'board' ? 'Where the agency is today and what everyone is up to. Put it on the big screen with TV mode.' : 'Team Chat: shared with signed-in staff. Messages older than 30 days are hidden.'}
+      <PageHead keep kicker="Workspace" title="Team Space" sub={tab === 'board' ? 'Where the agency is today and what everyone is up to. Put it on the big screen with TV mode.' : 'Team Chat: shared with signed-in staff. Messages older than 30 days are hidden.'}
         right={board && chat ? <div className="ts-tabs" role="tablist">
           <button role="tab" aria-selected={tab === 'board'} className={tab === 'board' ? 'on' : ''} onClick={() => go('/team')}>Board</button>
           <button role="tab" aria-selected={tab === 'chat'} className={tab === 'chat' ? 'on' : ''} onClick={() => go('/team/chat')}>Team Chat</button>
