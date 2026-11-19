@@ -12,11 +12,16 @@ import { supabase } from '../lib/supabase'
 import { useAsync } from '../lib/useAsync'
 
 export type CallResult = 'no_answer' | 'voicemail' | 'reached' | 'not_interested' | 'wrong_number'
-export interface CallItem { id: number; assignee: string; list_name: string; list_date: string; first_name: string | null; last_name: string | null; phone: string | null; line: string | null; opportunity_date: string | null; result: CallResult | null; notes: string | null; called_at: string | null; called_by: string | null }
+export interface CallItem { id: number; assignee: string; list_name: string; list_date: string; first_name: string | null; last_name: string | null; phone: string | null; line: string | null; opportunity_date: string | null; result: CallResult | null; notes: string | null; called_at: string | null; called_by: string | null; details?: CallDetails | null }
+/** what a list brings beyond the name and number (the 30/60/90 renewal list: its window, policy, premium and increase) */
+export interface CallDetails { window?: string; daysOut?: number; policy?: string; premium?: number; increase?: number; increasePct?: number; altPhone?: string; email?: string; rank?: number }
 export const RESULT_LABEL: Record<CallResult, string> = { reached: 'Reached', voicemail: 'Left voicemail', no_answer: 'No answer', not_interested: 'Not interested', wrong_number: 'Wrong number' }
 const RESULTS = Object.keys(RESULT_LABEL) as CallResult[]
 const fullName = (r: CallItem) => [r.first_name, r.last_name].filter(Boolean).join(' ') || 'Client'
 const dial = (s: string | null) => (s || '').replace(/\D/g, '')
+const usd = (n: number) => '$' + Math.round(n).toLocaleString('en-US')
+/** the renewal windows a list is split into ("0-30 Days", "31-60 Days", "61-90 Days"), in order */
+const windowsOf = (rows: CallItem[]) => [...new Set(rows.map((r) => r.details?.window).filter((w): w is string => !!w))].sort((a, b) => parseInt(a) - parseInt(b))
 
 /** every call-list row the signed-in person can see: their own, or (owner/admin) everyone's */
 export async function getCallItems() {
@@ -66,6 +71,15 @@ export default function CallLists() {
   return <>{head}{mine.map((l) => <CallListBlock key={l.key} list={l} onChange={() => setReload((n) => n + 1)} report={admin} />)}</>
 }
 
+/** On the owner's Space: everyone's open call lists, to follow (and work) them */
+export function TeamCallLists() {
+  const [reload, setReload] = useState(0)
+  const { data } = useAsync(getCallItems, [reload])
+  const lists = groupLists(data || []).filter((l) => l.rows.some((r) => !r.result))
+  if (!lists.length) return null
+  return <>{lists.map((l) => <CallListBlock key={l.key} list={l} onChange={() => setReload((n) => n + 1)} compact />)}</>
+}
+
 /** On My Space: the signed-in person's own open list(s), if they have one. */
 export function MyCallList({ name }: { name: string }) {
   const [reload, setReload] = useState(0)
@@ -84,7 +98,10 @@ function CallListBlock({ list, onChange, report, compact }: { list: ReturnType<t
     try { await downloadCallListPdf(list, todayPacific(), agencyName(me)) } catch (e) { alert('The report could not be made: ' + String((e as Error)?.message || e)) } finally { setBusy(false) }
   }
   const [show, setShow] = useState<'todo' | 'done' | 'all'>(compact ? 'todo' : report ? 'all' : 'todo')
-  const rows = list.rows.filter((r) => (show === 'all' ? true : show === 'todo' ? !r.result : !!r.result))
+  // a renewal list split by window (30/60/90 days): a card per window, and a tap on one shows only its clients
+  const windows = windowsOf(list.rows)
+  const [win, setWin] = useState('')
+  const rows = list.rows.filter((r) => (!win || r.details?.window === win) && (show === 'all' ? true : show === 'todo' ? !r.result : !!r.result))
   const pct = s.total ? Math.round((s.called / s.total) * 100) : 0
   return (
     <section className="panel cl">
@@ -97,6 +114,22 @@ function CallListBlock({ list, onChange, report, compact }: { list: ReturnType<t
         <div className="cf-seg">{(['todo', 'done', 'all'] as const).map((k) => <button key={k} className={show === k ? 'on' : ''} onClick={() => setShow(k)}>{k === 'todo' ? `To call (${s.left})` : k === 'done' ? `Called (${s.called})` : `All (${s.total})`}</button>)}</div></div>
       </div>
       <div className="cl-bar" role="img" aria-label={`${pct}% called`}><i style={{ width: pct + '%' }} /></div>
+      {windows.length > 0 && (
+        <div className="cl-wins" role="group" aria-label="Renewal window">
+          {windows.map((w) => {
+            const ws = callStats(list.rows.filter((r) => r.details?.window === w)), p = ws.total ? Math.round((ws.called / ws.total) * 100) : 0
+            const inc = list.rows.filter((r) => r.details?.window === w).reduce((t, r) => t + (Number(r.details?.increase) || 0), 0)
+            return (
+              <button key={w} type="button" className={'cl-win' + (win === w ? ' on' : '')} aria-pressed={win === w} onClick={() => setWin(win === w ? '' : w)}>
+                <span>{w.replace(/\s*days?/i, '').replace('-', '–')} days</span>
+                <b>{ws.called}<small> / {ws.total} called</small></b>
+                <i className="cl-win-bar"><u style={{ width: p + '%' }} /></i>
+                <em>{ws.by.reached} reached · {ws.left} to call · {usd(inc)} in increases</em>
+              </button>
+            )
+          })}
+        </div>
+      )}
       {report && (
         <div className="cl-tiles"><Tiles>
           <Tile label="Called" value={`${s.called} / ${s.total}`} sub={`${pct}% of the list`} tone={s.left ? undefined : 'good'} />
@@ -108,7 +141,7 @@ function CallListBlock({ list, onChange, report, compact }: { list: ReturnType<t
       <div className="cl-rows">
         {rows.slice(0, compact ? 12 : rows.length).map((r) => <CallRow key={r.id} r={r} onChange={onChange} />)}
         {!rows.length && <div className="rr-s">{show === 'todo' ? 'Everyone on the list has been called. 🎉' : 'No calls marked yet.'}</div>}
-        {compact && rows.length > 12 && <a className="cl-more" href={`#/call-lists?who=${encodeURIComponent(list.assignee)}`}>See all {rows.length} to call →</a>}
+        {compact && rows.length > 12 && <a className="cl-more" href={`#/call-lists?who=${encodeURIComponent(list.assignee)}`}>See all {rows.length}{show === 'todo' ? ' to call' : ''} →</a>}
       </div>
     </section>
   )
@@ -116,6 +149,7 @@ function CallListBlock({ list, onChange, report, compact }: { list: ReturnType<t
 
 function CallRow({ r, onChange }: { r: CallItem; onChange: () => void }) {
   const [notes, setNotes] = useState(r.notes || '')
+  const d = r.details || {}
   const save = async (patch: Partial<CallItem>) => {
     const { error } = await supabase.from('call_list_items').update(patch).eq('id', r.id)
     if (error) alert(error.message); else onChange()
@@ -124,8 +158,11 @@ function CallRow({ r, onChange }: { r: CallItem; onChange: () => void }) {
     <div className={'cl-row' + (r.result ? ' cl-done' : '')}>
       <div className="cl-who">
         <b>{fullName(r)}</b>
-        <span>{[r.line, r.opportunity_date && `renews ${mdy(r.opportunity_date)}`].filter(Boolean).join(' · ')}</span>
+        <span>{[r.line, r.details?.policy && `#${r.details.policy}`, r.opportunity_date && `renews ${mdy(r.opportunity_date)}${r.details?.daysOut != null ? ` (${r.details.daysOut} days)` : ''}`].filter(Boolean).join(' · ')}</span>
+        {d.premium != null && <span className="cl-prem">Renewal {usd(d.premium)}{d.increase ? <b> +{usd(d.increase)}{d.increasePct != null ? ` (${Math.round(d.increasePct * 100)}%)` : ''}</b> : null}</span>}
         {r.phone && <a href={`tel:${dial(r.phone)}`} className="cl-tel">📱 {r.phone}</a>}
+        {d.altPhone && d.altPhone.split(/[,;/]/).map((x) => x.trim()).filter(Boolean).map((x) => <a key={x} href={`tel:${dial(x)}`} className="cl-tel cl-alt">☎ {x}</a>)}
+        {d.email && <a href={`mailto:${d.email}`} className="cl-mail">✉ {d.email}</a>}
       </div>
       <div className="cl-res">
         {RESULTS.map((k) => <button key={k} type="button" className={'cl-b cl-' + k + (r.result === k ? ' on' : '')} onClick={() => save({ result: r.result === k ? null : k })}>{RESULT_LABEL[k]}</button>)}
