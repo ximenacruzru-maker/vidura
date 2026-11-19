@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState } from 'react'
 import { useAuth } from '../auth'
-import { Empty, ErrorBox, Loading, PageHead, Panel, Search, Tabs } from '../components/ui'
+import { Empty, ErrorBox, Loading, MoreMenu, PageHead, Panel, Search, Tabs } from '../components/ui'
 import { daysUntil } from '../lib/books'
 import { can } from '../lib/access'
 import { isAdmin } from '../lib/data'
@@ -124,8 +124,8 @@ export default function WorkQueue() {
         <div className="wq-bar">
           <Tabs tabs={[{ key: 'queue' as const, label: 'Queue' }, { key: 'activity' as const, label: 'Activity report' }]} value={tab} onChange={setTab} />
           <div className="wq-bar-r">
-            {manager && <TeamRecap className="btn-ghost wq-stats-btn" label="📧 Team recap" />}
-            <button className="btn-primary wq-stats-btn" onClick={() => setStats(true)}>📊 Who closed what</button>
+            {manager && <TeamRecap className="btn-ghost wq-stats-btn" label="Team recap" />}
+            <button className="btn-ghost wq-stats-btn" onClick={() => setStats(true)}>Who closed what</button>
           </div>
         </div>
       </div>
@@ -137,7 +137,7 @@ export default function WorkQueue() {
           <select value={owner} onChange={(e) => setOwner(e.target.value)}><option value="all">Everyone</option>{owners.map((a) => <option key={a}>{a}</option>)}</select>
           <Search value={q} onChange={setQ} />
           <button className="btn-primary" onClick={() => setDraft(draft ? null : { priority: 'Normal', status: 'Not started', owner: me?.display_name?.split(' ')[0] })}>{draft ? 'Cancel' : '+ New item'}</button>
-          <button className="btn-ghost" onClick={() => downloadSheet(`work-queue-${today}.xlsx`, [['Area', 'Item', 'Type', 'Priority', 'Entered', 'Due', 'Owner', 'Status', 'Completed', 'Completed by', 'Note'], ...rows.map((w) => [w.area, w.name, w.kind, w.priority, w.entered, w.due, w.owner, w.status, doneDay(w), w.completed_by || null, w.note])], { sheet: 'Work queue' })}>Export</button>
+          <MoreMenu title="More" items={[{ label: 'Export to Excel', onClick: () => downloadSheet(`work-queue-${today}.xlsx`, [['Area', 'Item', 'Type', 'Priority', 'Entered', 'Due', 'Owner', 'Status', 'Completed', 'Completed by', 'Note'], ...rows.map((w) => [w.area, w.name, w.kind, w.priority, w.entered, w.due, w.owner, w.status, doneDay(w), w.completed_by || null, w.note])], { sheet: 'Work queue' }) }]} />
         </div>}>
         {draft && (
           <div className="plan">
@@ -175,8 +175,8 @@ export default function WorkQueue() {
                       <td>{w.owner}{!manager && w.created_by === session?.user.id && !(w.owner || '').toLowerCase().startsWith(first) && <div className="sub">assigned by you</div>}</td>
                       <td><select value={STATUSES.includes(w.status) ? w.status : ''} onChange={(e) => patch(w.id, { status: e.target.value })}>{!STATUSES.includes(w.status) && <option value="">{w.status}</option>}{STATUSES.map((s) => <option key={s}>{s}</option>)}</select></td>
                       <td className="r" style={{ whiteSpace: 'nowrap' }}>
-                        <button className={'linkbtn wq-nbtn' + (opened === w.id ? ' on' : '')} onClick={() => setOpened(opened === w.id ? null : w.id)} aria-expanded={opened === w.id}>💬 Notes{ns.length ? ` (${ns.length})` : ''}</button> · <button className="linkbtn" onClick={() => setDraft(w)}>Edit</button>
-                        {admin && !isDone(w) && <> · <button className="linkbtn" onClick={() => remove(w.id)}>Delete</button></>}
+                        <button className={'linkbtn wq-nbtn' + (opened === w.id ? ' on' : '')} onClick={() => setOpened(opened === w.id ? null : w.id)} aria-expanded={opened === w.id}>💬{ns.length ? ` ${ns.length}` : ' Notes'}</button>
+                        <MoreMenu title={`More for ${w.name}`} items={[{ label: 'Edit', onClick: () => setDraft(w) }, admin && !isDone(w) && { label: 'Delete', danger: true, onClick: () => remove(w.id) }]} />
                       </td>
                     </tr>
                     {opened === w.id && <tr className="wq-notes-row"><td colSpan={6}><NotesThread item={w} notes={ns} me={session?.user.id} admin={admin} onChange={() => setNoteTick((n) => n + 1)} /></td></tr>}
