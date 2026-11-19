@@ -2267,3 +2267,18 @@ body.tv .ts-title { display: block; }
 .hd-mix { box-shadow: inset 4px 0 0 var(--hd-mix, #199e70); }
 .hd-mix.f { --hd-mix: #199e70; }
 .hd-mix.b { --hd-mix: #5b8def; }
+/* call lists split by renewal window (30/60/90 days) */
+.cl-wins { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; padding: 0 20px 12px; }
+.cl-win { display: grid; gap: 4px; text-align: left; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font: inherit; cursor: pointer; }
+.cl-win.on { border-color: var(--blue); box-shadow: 0 0 0 2px color-mix(in srgb, var(--blue) 25%, transparent); }
+.cl-win span { font-size: 12px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.cl-win b { font-size: 24px; font-weight: 900; line-height: 1.1; }
+.cl-win b small { font-size: 13px; font-weight: 700; color: var(--muted); }
+.cl-win em { font-style: normal; font-size: 12.5px; color: var(--muted); }
+.cl-win-bar { display: block; height: 6px; border-radius: 999px; background: var(--track); overflow: hidden; }
+.cl-win-bar u { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--blue), var(--teal)); }
+.cl-prem { font-size: 12.5px; color: var(--muted); }
+.cl-prem b { color: var(--bad, #c53030); font-weight: 800; }
+.cl-alt { font-weight: 600; font-size: 12.5px; }
+.cl-mail { font-size: 12.5px; color: var(--blue); text-decoration: none; overflow-wrap: anywhere; }
+@media (max-width: 860px) { .cl-wins { padding-left: 14px; padding-right: 14px; } }
