@@ -1,12 +1,28 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 
-export function PageHead({ kicker, title, sub, right }: { kicker?: string; title: string; sub?: ReactNode; right?: ReactNode }) {
+/** Explanations stay out of the way: a short line shows as is; a longer one (a sentence about how a page or figure
+ *  works) sits behind a small ⓘ that opens it. Numbers and short summaries are never hidden. */
+const LONG = 90
+const isLong = (n: ReactNode) => typeof n === 'string' && n.length > LONG
+function About({ text, label }: { text: ReactNode; label: string }) {
+  const [open, setOpen] = useState(false)
   return (
-    <div className="page-head">
+    <>
+      <button type="button" className={'about-i' + (open ? ' on' : '')} aria-expanded={open} aria-label={label} title={open ? 'Hide' : String(text)} onClick={() => setOpen(!open)}>i</button>
+      {open && <div className="about-t">{text}</div>}
+    </>
+  )
+}
+
+/** `keep`: the page keeps its full header as designed (Team Space) — the clean look leaves it alone */
+export function PageHead({ kicker, title, sub, right, keep }: { kicker?: string; title: string; sub?: ReactNode; right?: ReactNode; keep?: boolean }) {
+  const tuck = !keep && isLong(sub)
+  return (
+    <div className={'page-head' + (keep ? ' keep' : '')}>
       <div>
         {kicker && <div className="kicker">{kicker}</div>}
-        <h1>{title}</h1>
-        {sub && <div className="sub">{sub}</div>}
+        {tuck ? <div className="head-t"><h1>{title}</h1><About text={sub} label={`About ${title}`} /></div> : <h1>{title}</h1>}
+        {sub && !tuck && <div className="sub">{sub}</div>}
       </div>
       {right && <div className="head-right">{right}</div>}
     </div>
@@ -28,8 +44,8 @@ export function Panel({ title, sub, children, right }: { title: string; sub?: Re
     <section className="panel">
       <div className="panel-h">
         <div>
-          <div className="panel-t">{title}</div>
-          {sub && <div className="panel-s">{sub}</div>}
+          {isLong(sub) ? <div className="head-t"><div className="panel-t">{title}</div><About text={sub} label={`About ${title}`} /></div> : <div className="panel-t">{title}</div>}
+          {sub && !isLong(sub) && <div className="panel-s">{sub}</div>}
         </div>
         {right}
       </div>

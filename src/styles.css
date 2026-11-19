@@ -2282,3 +2282,35 @@ body.tv .ts-title { display: block; }
 .cl-alt { font-weight: 600; font-size: 12.5px; }
 .cl-mail { font-size: 12.5px; color: var(--blue); text-decoration: none; overflow-wrap: anywhere; }
 @media (max-width: 860px) { .cl-wins { padding-left: 14px; padding-right: 14px; } }
+
+/* ---------- Clean look (every theme): less chrome, fewer words, the numbers first ----------
+   The page label above each title goes; long explanations sit behind a small ⓘ (ui.tsx); the top bar's buttons
+   are quieter and smaller; the sidebar is tighter with a smaller logo; panels and tiles lose extra borders. */
+html[data-theme] .page-head:not(.keep) .kicker { display: none; }
+html[data-theme] .page-head:not(.keep) { margin-bottom: 16px; align-items: center; }
+html[data-theme] .page-head:not(.keep) h1 { margin: 0; font-size: 26px; }
+html[data-theme] .page-head:not(.keep) .sub { font-size: 13.5px; margin-top: 2px; }
+.head-t { display: flex; align-items: center; gap: 8px; }
+.about-i { flex: none; width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--line); background: transparent; color: var(--muted); font: italic 700 12px/1 Georgia, serif; cursor: pointer; display: grid; place-items: center; padding: 0; }
+.about-i:hover, .about-i.on { border-color: var(--blue); color: var(--blue); }
+.about-t { flex-basis: 100%; margin-top: 6px; max-width: 760px; font-size: 13px; line-height: 1.5; color: var(--muted); }
+.page-head .head-t, .panel-h .head-t { flex-wrap: wrap; }
+html[data-theme] .panel-h { padding: 16px 20px 4px; }
+html[data-theme] .panel-t { font-size: 16px; }
+html[data-theme] .panel-s { font-size: 12.5px; margin-top: 2px; }
+html[data-theme] .tile { border-top-width: 0; box-shadow: 0 1px 2px rgba(16, 24, 40, .06); border: 1px solid var(--line); }
+html[data-theme] .tile-l { font-size: 11.5px; }
+html[data-theme] .tile-v { font-size: 26px; }
+/* top bar: AI buttons become quiet secondary buttons; the role under the name goes */
+html[data-theme] .topbar { min-height: 60px; padding-top: 10px; padding-bottom: 10px; gap: 12px; }
+html[data-theme] .hd-right { gap: 8px; }
+html[data-theme] .hd-kai { height: 38px; padding: 0 13px; font-size: 13.5px; font-weight: 800; background: var(--card); color: var(--blue); border: 1px solid var(--line); box-shadow: none; }
+html[data-theme] .hd-kai:hover { border-color: var(--blue); filter: none; }
+html[data-theme] .tsync-pill, html[data-theme] .tsync-btn { height: 38px; }
+html[data-theme] .hd-av { width: 38px; height: 38px; font-size: 13px; }
+html[data-theme] .hd-un em { display: none; }
+/* sidebar: smaller logo, tighter list */
+html[data-theme] .side-brand { padding: 12px 18px 10px; }
+html[data-theme] .brand-logo { width: 84px; box-shadow: 0 2px 8px rgba(0, 0, 0, .2); }
+html[data-theme] .side-sub { margin-top: 6px; font-size: 11.5px; }
+html[data-theme] .nav-h { padding-top: 12px; font-size: 10px; opacity: .8; }

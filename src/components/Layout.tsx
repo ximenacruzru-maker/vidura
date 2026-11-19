@@ -96,7 +96,6 @@ export default function Layout({ children }: { children: ReactNode }) {
       <aside className={'side' + (drawer ? ' open' : '')} id="side-nav">
         <div className="side-brand">
           <div className="brand-tile"><img className="brand-logo" src={theme === 'halloween' ? logoHalloween : logo} alt="Declara" /></div>
-          <p className="side-for">For</p>
           <p className="side-sub">{agencyName(me)}</p>
         </div>
         <nav className="nav">
