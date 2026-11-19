@@ -2335,3 +2335,27 @@ html[data-theme] .nav-h { padding-top: 12px; font-size: 10px; opacity: .8; }
 .cl-opt { display: flex; gap: 12px; align-items: center; font-size: 13px; }
 .cl-row.cl-tried { border-left-color: #2b6cb0; }
 @media (max-width: 860px) { .cl-row { grid-template-columns: 1fr; grid-template-areas: "who" "res" "prep" "after"; } }
+
+/* ---------- Phones: the menu is a bar along the bottom of the screen (computers keep the sidebar) ---------- */
+.bnav, .bnav-scrim { display: none; }
+@media (max-width: 900px) {
+  .side, .side-scrim, .hd-burger { display: none !important; }
+  .topbar { grid-template-columns: auto 1fr; grid-template-areas: "logo right" "search search"; }
+  .hd-right { justify-content: flex-end; min-width: 0; }
+  .page { padding-bottom: 104px; }
+  .bnav { display: flex; position: fixed; left: 8px; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); z-index: 70; gap: 2px; padding: 6px; border-radius: 18px;
+    justify-content: space-between; background: color-mix(in srgb, var(--card) 94%, transparent); border: 1px solid var(--line); box-shadow: 0 10px 34px rgba(16, 24, 40, .18); backdrop-filter: blur(10px); }
+  .bnav-scrim { display: block; position: fixed; inset: 0; z-index: 69; }
+  .bnav-g { position: static; flex: 1; min-width: 0; display: flex; }
+  .bnav-b { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 7px 2px 5px; border: 0; border-radius: 13px; background: transparent; color: var(--muted); font: inherit; font-size: 10.5px; font-weight: 700; cursor: pointer; }
+  .bnav-b span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bnav-b svg { width: 21px; height: 21px; }
+  .bnav-b.open { background: var(--tint); color: var(--ink); }
+  .bnav-b.on { color: var(--blue); }
+  .bnav-b.on::after { content: ''; width: 18px; height: 3px; border-radius: 3px; background: var(--blue); }
+  .bnav-pop { position: fixed; left: 8px; right: 8px; bottom: calc(86px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 2px; padding: 8px; max-height: 60vh; overflow-y: auto; border-radius: 16px; background: var(--card); border: 1px solid var(--line); box-shadow: 0 18px 44px rgba(16, 24, 40, .22); }
+  .bnav-pop-h { font-size: 10.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); padding: 4px 10px 6px; }
+  .bnav-pop button { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; border: 0; background: none; color: var(--ink); font: inherit; font-size: 16px; font-weight: 600; padding: 12px; border-radius: 10px; cursor: pointer; }
+  .bnav-pop button svg { width: 19px; height: 19px; color: var(--muted); }
+  .bnav-pop button.active { background: var(--tint); color: var(--blue); }
+}

@@ -89,6 +89,10 @@ export default function Layout({ children }: { children: ReactNode }) {
   const isOn = (n: { to: string; also?: string[] }) =>
     n.to === '/' ? pathname === '/' || (n.also || []).includes(pathname) : pathname === n.to || pathname.startsWith(n.to + '/') || (n.also || []).some((a) => pathname === a || pathname.startsWith(a + '/'))
   const [moreOpen, setMoreOpen] = useState(false)
+  // On phones the menu is a bar along the bottom of the screen (a button per section, each opening its pages); on
+  // computers it's the sidebar. Which one shows is decided by the screen width (styles.css).
+  const [sec, setSec] = useState<string | null>(null)
+  useEffect(() => { setSec(null) }, [pathname])
   const showMore = moreOpen || extra.some((n) => isOn(n))
   const lastDiv = visible.map((n) => 'div' in n).lastIndexOf(true)
   const moreGroup = extra.length > 0 && <>
@@ -98,10 +102,41 @@ export default function Layout({ children }: { children: ReactNode }) {
   const initials = (me?.display_name || '?').split(' ').map((x) => x[0]).join('').slice(0, 2).toUpperCase()
   const legacy = c('performance') && !!LEGACY_ROUTES[pathname]
 
+  // the menu in sections, for the phone's bottom bar: each section's pages, the More group, then Settings
+  const groups: { h: string; icon: string; items: Extract<Item, { to: string }>[] }[] = []
+  for (const n of visible) {
+    if ('h' in n) groups.push({ h: n.h, icon: n.h === 'Workspace' ? 'today' : n.h === 'Performance' ? 'executive' : n.h === 'Agency Management' ? 'book' : 'training', items: [] })
+    else if ('to' in n) { if (n.to === '/settings') continue; if (!groups.length) groups.push({ h: 'Menu', icon: 'today', items: [] }); groups[groups.length - 1].items.push(n) }
+  }
+  if (extra.length) groups.push({ h: 'More', icon: 'flow', items: extra })
+  const SHORT: Record<string, string> = { Workspace: 'Home', Performance: 'Sales', 'Agency Management': 'Agency', 'Team Development': 'Team' }
+
   return (
     <div className="shell">
       <LifeCelebration />
       {drawer && <div className="side-scrim" onClick={() => setDrawer(false)} aria-hidden="true" />}
+      {sec && <div className="bnav-scrim" onClick={() => setSec(null)} aria-hidden="true" />}
+      {(
+        <nav className="bnav" aria-label="Menu">
+          {groups.map((g) => {
+            const on = g.items.some((n) => isOn(n))
+            return (
+              <div key={g.h} className="bnav-g">
+                <button className={'bnav-b' + (on ? ' on' : '') + (sec === g.h ? ' open' : '')} aria-expanded={sec === g.h} onClick={() => setSec(sec === g.h ? null : g.h)}>
+                  <Icon name={g.icon} /><span>{SHORT[g.h] || g.h}</span>
+                </button>
+                {sec === g.h && (
+                  <div className="bnav-pop" role="menu">
+                    <div className="bnav-pop-h">{g.h}</div>
+                    {g.items.map((n) => <button key={n.to} role="menuitem" className={isOn(n) ? 'active' : ''} onClick={() => go(n.to)}><Icon name={n.icon} /><span>{n.label}</span></button>)}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+          <div className="bnav-g"><button className={'bnav-b' + (pathname === '/settings' ? ' on' : '')} onClick={() => go('/settings')}><Icon name="settings" /><span>Settings</span></button></div>
+        </nav>
+      )}
       <aside className={'side' + (drawer ? ' open' : '')} id="side-nav">
         <div className="side-brand">
           <div className="brand-tile"><img className="brand-logo" src={theme === 'halloween' ? logoHalloween : logo} alt="Declara" /></div>

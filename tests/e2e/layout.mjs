@@ -1,7 +1,7 @@
 // Layout check, run on every pull request (npm run test:layout, after npm run build).
 // Serves the built app, signs in against a stand-in for Supabase that returns the demo agency's data, and visits
 // every page at phone width (iPhone 13, 390px) and desktop width (1440px) in each regular theme. It fails if a page
-// throws an error, if anything makes a page wider than the screen, or if the phone menu drawer doesn't open and close.
+// throws an error, if anything makes a page wider than the screen, or if the phone's bottom menu doesn't open and close (computers keep the sidebar).
 import { chromium, devices } from 'playwright'
 import { createServer } from 'http'
 import fs from 'fs'
@@ -61,14 +61,17 @@ for (const [size, opts] of SIZES) {
       if (res.wide.length) failures.push(`${where}: runs off the screen: ${res.wide.join(', ')}`)
       if (errors.length) failures.push(`${where}: page error: ${errors[0]}`)
     }
+    // phones: the menu is the bottom bar (a section opens its pages; a tap outside closes it); computers: the sidebar
+    await page.evaluate(() => { location.hash = '#/' }); await page.waitForTimeout(800)
+    const shown = await page.evaluate(() => { const vis = (sel) => { const el = document.querySelector(sel); return !!el && getComputedStyle(el).display !== 'none' }; return { bar: vis('.bnav'), side: vis('.side') } })
     if (size === 'phone') {
-      await page.evaluate(() => { location.hash = '#/' }); await page.waitForTimeout(800)
-      await page.click('.hd-burger'); await page.waitForTimeout(400)
-      const opened = await page.evaluate(() => !!document.querySelector('.side.open'))
-      await page.click('.side-scrim', { position: { x: 370, y: 400 } }); await page.waitForTimeout(400)
-      const closed = await page.evaluate(() => !document.querySelector('.side.open'))
-      if (!opened || !closed) failures.push(`${size} · ${theme}: the menu drawer didn't ${opened ? 'close' : 'open'}`)
-    }
+      if (!shown.bar || shown.side) failures.push(`${size} · ${theme}: expected the bottom menu bar, not the sidebar`)
+      await page.click('.bnav-b'); await page.waitForTimeout(400)
+      const opened = await page.evaluate(() => !!document.querySelector('.bnav-pop'))
+      await page.click('.bnav-scrim', { position: { x: 200, y: 200 } }); await page.waitForTimeout(400)
+      const closed = await page.evaluate(() => !document.querySelector('.bnav-pop'))
+      if (!opened || !closed) failures.push(`${size} · ${theme}: the bottom menu didn't ${opened ? 'close' : 'open'}`)
+    } else if (!shown.side || shown.bar) failures.push(`${size} · ${theme}: expected the sidebar, not the bottom menu bar`)
     await ctx.close()
     console.log(`checked ${size} · ${theme}`)
   }
