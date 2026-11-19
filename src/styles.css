@@ -2336,33 +2336,26 @@ html[data-theme] .nav-h { padding-top: 12px; font-size: 10px; opacity: .8; }
 .cl-row.cl-tried { border-left-color: #2b6cb0; }
 @media (max-width: 860px) { .cl-row { grid-template-columns: 1fr; grid-template-areas: "who" "res" "prep" "after"; } }
 
-/* ---------- Draft: the menu as a bar along the bottom (localStorage declara_nav=bottom) ---------- */
-.shell-bottom .side, .shell-bottom .hd-burger { display: none !important; }
-.shell-bottom .hd-logo { display: block; height: 40px; width: auto; border-radius: 8px; flex: none; }
-.shell-bottom .page { padding-bottom: 96px; max-width: none; }
-.bnav { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 70; display: flex; gap: 4px; padding: 6px; border-radius: 18px;
-  background: color-mix(in srgb, var(--card) 92%, transparent); border: 1px solid var(--line); box-shadow: 0 10px 34px rgba(16, 24, 40, .16); backdrop-filter: blur(10px); }
-.bnav-g { position: relative; }
-.bnav-b { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 78px; padding: 8px 10px 6px; border: 0; border-radius: 13px; background: transparent; color: var(--muted); font: inherit; font-size: 11.5px; font-weight: 700; cursor: pointer; }
-.bnav-b svg { width: 20px; height: 20px; }
-.bnav-b:hover, .bnav-b.open { background: var(--tint); color: var(--ink); }
-.bnav-b.on { color: var(--blue); }
-.bnav-b.on::after { content: ''; width: 18px; height: 3px; border-radius: 3px; background: var(--blue); }
-.bnav-pop { position: absolute; bottom: calc(100% + 12px); left: 50%; transform: translateX(-50%); min-width: 230px; display: grid; gap: 2px; padding: 8px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); box-shadow: 0 18px 44px rgba(16, 24, 40, .2); }
-.bnav-pop-h { font-size: 10.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); padding: 4px 10px 6px; }
-.bnav-pop button { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; border: 0; background: none; color: var(--ink); font: inherit; font-size: 14px; font-weight: 600; padding: 9px 10px; border-radius: 9px; cursor: pointer; white-space: nowrap; }
-.bnav-pop button svg { width: 17px; height: 17px; color: var(--muted); }
-.bnav-pop button:hover { background: var(--tint); }
-.bnav-pop button.active { background: var(--tint); color: var(--blue); }
-.bnav-scrim { position: fixed; inset: 0; z-index: 69; }
-@media (max-width: 820px) {
-  .bnav { left: 8px; right: 8px; bottom: 8px; transform: none; justify-content: space-between; overflow-x: auto; }
-  .bnav-b { min-width: 0; flex: 1; padding: 7px 4px 5px; font-size: 10.5px; }
-  .bnav-pop { position: fixed; left: 8px; right: 8px; bottom: 84px; transform: none; }
-}
-.shell-bottom .page > * { max-width: 1320px; margin-left: auto; margin-right: auto; }
+/* ---------- Phones: the menu is a bar along the bottom of the screen (computers keep the sidebar) ---------- */
+.bnav, .bnav-scrim { display: none; }
 @media (max-width: 900px) {
-  .shell-bottom .topbar { grid-template-columns: auto 1fr; grid-template-areas: "logo right" "search search"; }
-  .shell-bottom .hd-right { justify-content: flex-end; min-width: 0; }
-  .shell-bottom .page { padding-bottom: 104px; }
+  .side, .side-scrim, .hd-burger { display: none !important; }
+  .topbar { grid-template-columns: auto 1fr; grid-template-areas: "logo right" "search search"; }
+  .hd-right { justify-content: flex-end; min-width: 0; }
+  .page { padding-bottom: 104px; }
+  .bnav { display: flex; position: fixed; left: 8px; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); z-index: 70; gap: 2px; padding: 6px; border-radius: 18px;
+    justify-content: space-between; background: color-mix(in srgb, var(--card) 94%, transparent); border: 1px solid var(--line); box-shadow: 0 10px 34px rgba(16, 24, 40, .18); backdrop-filter: blur(10px); }
+  .bnav-scrim { display: block; position: fixed; inset: 0; z-index: 69; }
+  .bnav-g { position: static; flex: 1; min-width: 0; display: flex; }
+  .bnav-b { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 7px 2px 5px; border: 0; border-radius: 13px; background: transparent; color: var(--muted); font: inherit; font-size: 10.5px; font-weight: 700; cursor: pointer; }
+  .bnav-b span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bnav-b svg { width: 21px; height: 21px; }
+  .bnav-b.open { background: var(--tint); color: var(--ink); }
+  .bnav-b.on { color: var(--blue); }
+  .bnav-b.on::after { content: ''; width: 18px; height: 3px; border-radius: 3px; background: var(--blue); }
+  .bnav-pop { position: fixed; left: 8px; right: 8px; bottom: calc(86px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 2px; padding: 8px; max-height: 60vh; overflow-y: auto; border-radius: 16px; background: var(--card); border: 1px solid var(--line); box-shadow: 0 18px 44px rgba(16, 24, 40, .22); }
+  .bnav-pop-h { font-size: 10.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); padding: 4px 10px 6px; }
+  .bnav-pop button { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; border: 0; background: none; color: var(--ink); font: inherit; font-size: 16px; font-weight: 600; padding: 12px; border-radius: 10px; cursor: pointer; }
+  .bnav-pop button svg { width: 19px; height: 19px; color: var(--muted); }
+  .bnav-pop button.active { background: var(--tint); color: var(--blue); }
 }

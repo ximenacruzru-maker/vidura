@@ -89,8 +89,8 @@ export default function Layout({ children }: { children: ReactNode }) {
   const isOn = (n: { to: string; also?: string[] }) =>
     n.to === '/' ? pathname === '/' || (n.also || []).includes(pathname) : pathname === n.to || pathname.startsWith(n.to + '/') || (n.also || []).some((a) => pathname === a || pathname.startsWith(a + '/'))
   const [moreOpen, setMoreOpen] = useState(false)
-  // Draft: the menu as a bar along the bottom of the screen instead of the left sidebar (localStorage declara_nav=bottom)
-  const bottom = (() => { try { return localStorage.getItem('declara_nav') === 'bottom' } catch { return false } })()
+  // On phones the menu is a bar along the bottom of the screen (a button per section, each opening its pages); on
+  // computers it's the sidebar. Which one shows is decided by the screen width (styles.css).
   const [sec, setSec] = useState<string | null>(null)
   useEffect(() => { setSec(null) }, [pathname])
   const showMore = moreOpen || extra.some((n) => isOn(n))
@@ -102,21 +102,21 @@ export default function Layout({ children }: { children: ReactNode }) {
   const initials = (me?.display_name || '?').split(' ').map((x) => x[0]).join('').slice(0, 2).toUpperCase()
   const legacy = c('performance') && !!LEGACY_ROUTES[pathname]
 
-  // the menu in sections, for the bottom bar: each section's pages, the More group, then Settings
+  // the menu in sections, for the phone's bottom bar: each section's pages, the More group, then Settings
   const groups: { h: string; icon: string; items: Extract<Item, { to: string }>[] }[] = []
   for (const n of visible) {
     if ('h' in n) groups.push({ h: n.h, icon: n.h === 'Workspace' ? 'today' : n.h === 'Performance' ? 'executive' : n.h === 'Agency Management' ? 'book' : 'training', items: [] })
     else if ('to' in n) { if (n.to === '/settings') continue; if (!groups.length) groups.push({ h: 'Menu', icon: 'today', items: [] }); groups[groups.length - 1].items.push(n) }
   }
   if (extra.length) groups.push({ h: 'More', icon: 'flow', items: extra })
-  const SHORT: Record<string, string> = { 'Agency Management': 'Agency', 'Team Development': 'Team' }
+  const SHORT: Record<string, string> = { Workspace: 'Home', Performance: 'Sales', 'Agency Management': 'Agency', 'Team Development': 'Team' }
 
   return (
-    <div className={'shell' + (bottom ? ' shell-bottom' : '')}>
+    <div className="shell">
       <LifeCelebration />
       {drawer && <div className="side-scrim" onClick={() => setDrawer(false)} aria-hidden="true" />}
-      {bottom && sec && <div className="bnav-scrim" onClick={() => setSec(null)} aria-hidden="true" />}
-      {bottom && (
+      {sec && <div className="bnav-scrim" onClick={() => setSec(null)} aria-hidden="true" />}
+      {(
         <nav className="bnav" aria-label="Menu">
           {groups.map((g) => {
             const on = g.items.some((n) => isOn(n))
