@@ -54,6 +54,8 @@ export default function MySpace() {
 
   const date = new Date(today + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' })
   const head = <PageHead kicker={`${first ? first + '’s' : 'My'} space`} title={date} />
+  // a person set to focus on their call list (staff_accounts.access.call_list_focus) sees only that list here
+  if ((me?.access as Record<string, unknown> | undefined)?.call_list_focus && !owner) return <>{head}<MyCallList name={me?.producer_name || me?.display_name || ''} full /></>
   if (error) return <>{head}<ErrorBox error={error} /></>
   if (!data) return <>{head}<Loading /></>
 
