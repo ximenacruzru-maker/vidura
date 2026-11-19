@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth'
 import { can, commissionsOnly, producerPath, ROLE_LABEL } from '../lib/access'
@@ -17,7 +17,7 @@ import { ViewAsBanner, ViewAsSwitcher } from './ViewAs'
 import ForesightAI from './ForesightAI'
 import LifeCelebration from './LifeCelebration'
 
-type Item = { h: string } | { div: true } | { to: string; label: string; icon: string; show: boolean; also?: string[] }
+type Item = { h: string } | { div: true } | { to: string; label: string; icon: string; show: boolean; also?: string[]; more?: boolean }
 
 /** The app shell, laid out like the original platform: one sidebar, four sections. */
 export default function Layout({ children }: { children: ReactNode }) {
@@ -57,7 +57,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     { to: '/retention', label: 'Retention', icon: 'renew', show: c('retention') },
     { to: '/pay', label: 'My Pay', icon: 'dollar', show: me?.role !== 'owner' && !trainee },
     { to: '/my-commissions', label: 'My Commissions', icon: 'sales', show: me?.role === 'sdr' || me?.role === 'va' },
-    { to: '/sales-flow', label: 'Sales Flowchart', icon: 'flow', show: c('resources') && !trainee },
+    { to: '/sales-flow', label: 'Sales Flowchart', icon: 'flow', show: c('resources') && !trainee, more: true },
     { div: true },
     { h: 'Performance' },
     { to: '/', label: 'Executive Dashboard', icon: 'executive', show: c('performance'), also: ['/legacy-dashboard'] },
@@ -72,20 +72,29 @@ export default function Layout({ children }: { children: ReactNode }) {
     { h: 'Team Development' },
     { to: '/training', label: 'Training', icon: 'training', show: c('training') && !path },
     { to: '/hr', label: c('hr') ? 'HR / Licensing' : 'Licensing', icon: 'licensing', show: !trainee },
-    { to: '/proteges', label: 'Proteges', icon: 'proteges', show: c('proteges') },
+    { to: '/proteges', label: 'Proteges', icon: 'proteges', show: c('proteges'), more: true },
     { div: true },
     { to: '/settings', label: 'Settings', icon: 'settings', show: true },
-    { to: '/agencies', label: 'Agencies', icon: 'book', show: !!me?.platform_admin },
+    { to: '/agencies', label: 'Agencies', icon: 'book', show: !!me?.platform_admin, more: true },
   ]
   const nav: Item[] = only ? [{ h: 'Workspace' }, { to: '/my-commissions', label: 'My Commissions', icon: 'sales', show: true }, { to: '/training', label: 'Farmers University', icon: 'training', show: true }, { div: true }, { to: '/settings', label: 'Settings', icon: 'settings', show: true }] : full
+  // pages used now and then sit in a "More" group at the bottom of the menu (open while one of them is open)
+  const extra = nav.filter((n): n is Extract<Item, { to: string }> => 'to' in n && n.show && !!n.more)
   const visible = nav.filter((n, i) => {
-    if ('to' in n) return n.show
+    if ('to' in n) return n.show && !n.more
     if ('div' in n) return true
-    for (const x of nav.slice(i + 1)) { if (!('to' in x)) return false; if (x.show) return true }
+    for (const x of nav.slice(i + 1)) { if (!('to' in x)) return false; if (x.show && !x.more) return true }
     return false
   })
   const isOn = (n: { to: string; also?: string[] }) =>
     n.to === '/' ? pathname === '/' || (n.also || []).includes(pathname) : pathname === n.to || pathname.startsWith(n.to + '/') || (n.also || []).some((a) => pathname === a || pathname.startsWith(a + '/'))
+  const [moreOpen, setMoreOpen] = useState(false)
+  const showMore = moreOpen || extra.some((n) => isOn(n))
+  const lastDiv = visible.map((n) => 'div' in n).lastIndexOf(true)
+  const moreGroup = extra.length > 0 && <>
+    <button className="nav-more" aria-expanded={showMore} onClick={() => setMoreOpen(!showMore)}><Icon name="chev" width={2} /><span>More</span></button>
+    {showMore && extra.map((n) => <button key={n.to} className={isOn(n) ? 'active' : ''} onClick={() => go(n.to)}><Icon name={n.icon} /><span>{n.label}</span></button>)}
+  </>
   const initials = (me?.display_name || '?').split(' ').map((x) => x[0]).join('').slice(0, 2).toUpperCase()
   const legacy = c('performance') && !!LEGACY_ROUTES[pathname]
 
@@ -100,12 +109,13 @@ export default function Layout({ children }: { children: ReactNode }) {
         </div>
         <nav className="nav">
           {visible.map((n, i) => ('h' in n ? <div key={n.h} className="nav-h" data-sec={n.h}>{n.h}</div>
-            : 'div' in n ? <div key={'d' + i} className="nav-div" />
+            : 'div' in n ? <Fragment key={'d' + i}>{i === lastDiv && moreGroup}<div className="nav-div" /></Fragment>
               : (
                 <button key={n.to} className={isOn(n) ? 'active' : ''} onClick={() => go(n.to)}>
                   <Icon name={n.icon} /><span>{n.label}</span>
                 </button>
               )))}
+          {lastDiv < 0 && moreGroup}
         </nav>
         <div className="side-foot">
           <button className="logout" onClick={signOut} title="Sign out"><Icon name="logout" width={1.5} /><span>Sign Out</span></button>

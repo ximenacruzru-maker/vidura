@@ -1,4 +1,35 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+
+type MenuItem = { label: ReactNode; onClick: () => void; danger?: boolean }
+/** A row's or page's less-used actions behind one "⋯" button (Edit, Delete, Export…), so each row shows only what's
+ *  used most. Closes on a pick, a click outside or Escape. */
+export function MoreMenu({ items, label = '⋯', title = 'More actions' }: { items: (MenuItem | false | null | undefined)[]; label?: ReactNode; title?: string }) {
+  const [open, setOpen] = useState(false)
+  // placed against the window, so a table that scrolls sideways doesn't clip it
+  const [at, setAt] = useState<{ top: number; right: number } | null>(null)
+  const box = useRef<HTMLSpanElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const off = (e: MouseEvent) => { if (box.current && !box.current.contains(e.target as Node)) setOpen(false) }
+    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    const away = () => setOpen(false)
+    document.addEventListener('mousedown', off); document.addEventListener('keydown', key); window.addEventListener('scroll', away, true); window.addEventListener('resize', away)
+    return () => { document.removeEventListener('mousedown', off); document.removeEventListener('keydown', key); window.removeEventListener('scroll', away, true); window.removeEventListener('resize', away) }
+  }, [open])
+  const toggle = () => {
+    const r = box.current?.getBoundingClientRect()
+    if (r) setAt({ top: r.bottom + 4, right: Math.max(8, window.innerWidth - r.right) })
+    setOpen(!open)
+  }
+  const list = items.filter((x): x is MenuItem => !!x)
+  if (!list.length) return null
+  return (
+    <span className="mm" ref={box}>
+      <button type="button" className={'mm-btn' + (open ? ' on' : '')} aria-haspopup="menu" aria-expanded={open} aria-label={title} title={title} onClick={toggle}>{label}</button>
+      {open && <span className="mm-pop" role="menu" style={at ? { top: at.top, right: at.right } : undefined}>{list.map((x, i) => <button key={i} type="button" role="menuitem" className={x.danger ? 'mm-bad' : undefined} onClick={() => { setOpen(false); x.onClick() }}>{x.label}</button>)}</span>}
+    </span>
+  )
+}
 
 /** Explanations stay out of the way: a short line shows as is; a longer one (a sentence about how a page or figure
  *  works) sits behind a small ⓘ that opens it. Numbers and short summaries are never hidden. */

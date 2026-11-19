@@ -2314,3 +2314,16 @@ html[data-theme] .side-brand { padding: 12px 18px 10px; }
 html[data-theme] .brand-logo { width: 84px; box-shadow: 0 2px 8px rgba(0, 0, 0, .2); }
 html[data-theme] .side-sub { margin-top: 6px; font-size: 11.5px; }
 html[data-theme] .nav-h { padding-top: 12px; font-size: 10px; opacity: .8; }
+/* the "⋯" menu for less-used actions */
+.mm { position: relative; display: inline-flex; vertical-align: middle; }
+.mm-btn { min-width: 32px; height: 32px; padding: 0 8px; border-radius: 8px; border: 1px solid transparent; background: transparent; color: var(--muted); font: inherit; font-size: 18px; font-weight: 800; line-height: 1; cursor: pointer; }
+.mm-btn:hover, .mm-btn.on { border-color: var(--line); color: var(--ink); background: var(--card); }
+.filters .mm-btn { height: 40px; border-color: var(--line); background: var(--card); }
+.mm-pop { position: fixed; z-index: 60; min-width: 160px; display: grid; padding: 6px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); box-shadow: 0 10px 30px rgba(16, 24, 40, .14); }
+.mm-pop button { text-align: left; border: 0; background: none; color: var(--ink); font: inherit; font-size: 13.5px; font-weight: 600; padding: 8px 10px; border-radius: 7px; cursor: pointer; white-space: nowrap; }
+.mm-pop button:hover { background: var(--tint, rgba(0, 0, 0, .05)); }
+.mm-pop .mm-bad { color: var(--bad, #c53030); }
+/* sidebar: the "More" group */
+.nav button.nav-more { opacity: .85; font-weight: 600; }
+.nav button.nav-more svg { width: 14px; height: 14px; transition: transform .15s; transform: rotate(-90deg); }
+.nav button.nav-more[aria-expanded="true"] svg { transform: none; }

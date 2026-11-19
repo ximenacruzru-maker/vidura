@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Drawer, Empty, ErrorBox, KV, Loading, PageHead, Panel, Search, Tabs, Tile, Tiles } from '../components/ui'
+import { Drawer, Empty, ErrorBox, KV, Loading, MoreMenu, PageHead, Panel, Search, Tabs, Tile, Tiles } from '../components/ui'
 import { BOOKS, bookTab, daysUntil, fmtBytes, getAccounts, getBookPolicies, getDocs, openDoc, type Account, type BookPolicy, type Doc } from '../lib/books'
 import { issuedAt, mdy, money0, money2, todayPacific } from '../lib/format'
 import { downloadSheet } from '../lib/excelExport'
@@ -126,7 +126,7 @@ export default function Books() {
           {fair && <select className="fld" value={seller} onChange={(e) => setSeller(e.target.value)} aria-label="Sold by">
             <option value="">Sold by: everyone</option>
             {sellers.map(([n, o]) => <option key={n} value={n}>{n === NO_PRODUCER ? 'No producer on file' : n + (o.az ? '' : ' (FAIR Plan record)')} · {o.n}</option>)}
-          </select>}<button className="btn-ghost" onClick={exportCsv}>Export Excel</button>{isAdmin(me?.role) && <DocUpload onDone={() => setReload((n) => n + 1)} />}</div>}>
+          </select>}<MoreMenu title="More" items={[{ label: 'Export to Excel', onClick: exportCsv }]} />{isAdmin(me?.role) && <DocUpload onDone={() => setReload((n) => n + 1)} />}</div>}>
         {shown.length ? (
           <div className="tbl-wrap">
             <table className="tbl">
