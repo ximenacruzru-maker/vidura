@@ -221,7 +221,7 @@ function GlobalSearch() {
     }
     return out.sort((x, y) => x.score - y.score).slice(0, 30)
   }, [q, idx])
-  const pick = (h: Hit) => { setOpen(false); setQ(''); go(`/books/${h.account.book}?open=${encodeURIComponent(h.account.id)}`) }
+  const pick = (h: Hit) => { setOpen(false); setQ(''); go(`/books/${h.account.data?.lost ? 'lost' : h.account.book}?open=${encodeURIComponent(h.account.id)}`) }
   let last = ''
   return (
     <div className="gsearch" ref={box}>
@@ -241,7 +241,7 @@ function GlobalSearch() {
           {!idx ? <div className="gempty">Loading the book…</div>
             : !hits.length ? <div className="gempty">No policy or business matches that.</div>
               : hits.map((h, i) => {
-                const lbl = bookLabel(h.account.book)
+                const lbl = h.account.data?.lost ? 'Lost business' : bookLabel(h.account.book)
                 const head = lbl !== last ? (last = lbl) : null
                 return (
                   <div key={h.policy.id}>
