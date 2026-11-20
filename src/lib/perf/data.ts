@@ -80,7 +80,10 @@ async function refs(keys: string[]) {
 async function books(D: Json) {
   const accountOf: Record<string, string> = {}
   try {
-    const [accts, pols] = await Promise.all([pageAll('book_accounts', 'id') as Promise<Account[]>, getBookPolicies()])
+    const [all, allPols] = await Promise.all([pageAll('book_accounts', 'id') as Promise<Account[]>, getBookPolicies()])
+    // lost business (a client who canceled, Books › Lost business) is no longer part of the book
+    const lostIds = new Set(all.filter((a) => a.data?.lost).map((a) => a.id))
+    const accts = all.filter((a) => !lostIds.has(a.id)), pols = allPols.filter((p) => !lostIds.has(p.account_id))
     if (!accts.length) return accountOf
     const by: Record<string, typeof pols> = {}
     pols.forEach((p) => { (by[p.account_id] = by[p.account_id] || []).push(p) })

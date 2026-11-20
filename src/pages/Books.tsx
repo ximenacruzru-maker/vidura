@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Drawer, Empty, ErrorBox, KV, Loading, MoreMenu, PageHead, Panel, Search, Tabs, Tile, Tiles } from '../components/ui'
-import { BOOKS, bookTab, daysUntil, fmtBytes, getAccounts, getBookPolicies, getDocs, openDoc, type Account, type BookPolicy, type Doc } from '../lib/books'
+import { BOOKS, bookLabel, bookTab, daysUntil, fmtBytes, getAccounts, getBookPolicies, getDocs, openDoc, type Account, type BookPolicy, type Doc } from '../lib/books'
 import { issuedAt, mdy, money0, money2, todayPacific } from '../lib/format'
 import { downloadSheet } from '../lib/excelExport'
 import { useAsync } from '../lib/useAsync'
+import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth'
 import { isAdmin } from '../lib/data'
 import DocUpload from '../components/DocUpload'
@@ -27,12 +28,18 @@ export const soldBy = (p: BookPolicy): { name: string; from: 'AgencyZoom' | 'FAI
   p.data?.soldBy ? { name: String(p.data.soldBy), from: 'AgencyZoom' } : p.data?.broker ? { name: String(p.data.broker), from: 'FAIR Plan record' } : null
 
 const NO_PRODUCER = '__none__'
+/** Lost business: a client who canceled (book_accounts.data.lost = { on, reason, by }). Their account leaves the active
+ *  books and renewal alerts and is listed under the Lost business tab; their policies are marked Cancelled. */
+type Lost = { on: string; reason?: string | null; by?: string | null }
+const lostOf = (a: Account) => (a.data?.lost as Lost | undefined) || null
+const LOST_META = { key: 'lost', label: 'Lost business', short: 'Lost business', blurb: 'Clients who canceled: when, why and the premium that left the book.' }
 
 export default function Books() {
   const { book = 'farmers' } = useParams()
   const nav = useNavigate()
+  const lostView = book === 'lost'
   const key = bookTab(book)
-  const meta = BOOKS.find((b) => b.key === key)!
+  const meta = lostView ? LOST_META : BOOKS.find((b) => b.key === key)!
   const today = todayPacific()
   const [q, setQ] = useState('')
   const [seller, setSeller] = useState('') // CA FAIR Plan: '' = everyone, a name, or NO_PRODUCER
@@ -43,9 +50,11 @@ export default function Books() {
   const [renewalsOpen] = useState(() => params.get('renewals') === '1')
 
   const { data, error } = useAsync(async () => {
-    const [accounts, policies, docs] = await Promise.all([getAccounts(key), getBookPolicies(key), getDocs()])
-    return { accounts, policies, docs }
-  }, [key, reload])
+    // the Lost business tab gathers lost accounts from every book; each book's own tab leaves them out
+    const [all, allPolicies, docs] = await Promise.all([getAccounts(lostView ? undefined : key), getBookPolicies(lostView ? undefined : key), getDocs()])
+    const accounts = all.filter((a) => !!lostOf(a) === lostView), ids = new Set(accounts.map((a) => a.id))
+    return { accounts, policies: allPolicies.filter((p) => ids.has(p.account_id)), docs }
+  }, [key, lostView, reload])
 
   useEffect(() => {
     const id = params.get('open')
@@ -84,7 +93,7 @@ export default function Books() {
     return [...m.entries()].sort((a, b) => Number(b[1].az) - Number(a[1].az) || (a[0] === NO_PRODUCER ? 1 : 0) - (b[0] === NO_PRODUCER ? 1 : 0) || a[0].localeCompare(b[0]))
   }, [data])
   const head = <PageHead kicker="Agency Management" title="Books of Business" sub={meta.blurb} />
-  const tabs = <Tabs tabs={BOOKS.map((b) => ({ key: b.key, label: b.short }))} value={key} onChange={(k) => { setQ(''); setSeller(''); nav('/books/' + k) }} />
+  const tabs = <Tabs tabs={[...BOOKS.map((b) => ({ key: b.key as string, label: b.short })), { key: 'lost', label: 'Lost business' }]} value={lostView ? 'lost' : key} onChange={(k) => { setQ(''); setSeller(''); nav('/books/' + k) }} />
   if (error) return <>{head}{tabs}<ErrorBox error={error} /></>
   if (!data) return <>{head}{tabs}<Loading /></>
 
@@ -110,8 +119,12 @@ export default function Books() {
     <>
       {head}
       {tabs}
-      <RenewalAlert key={key} bookKey={key} accounts={data.accounts} policies={data.policies} today={today} startOpen={renewalsOpen} onOpenAccount={setOpen} />
-      <Tiles>
+      {!lostView && <RenewalAlert key={key} bookKey={key} accounts={data.accounts} policies={data.policies} today={today} startOpen={renewalsOpen} onOpenAccount={setOpen} />}
+      {lostView ? <Tiles>
+        <Tile label="Accounts lost" value={rows.length} sub={`${pols.length} policies`} />
+        <Tile label="Premium lost" value={money0(total)} sub="annual premium on those policies" tone={rows.length ? 'warn' : undefined} />
+        <Tile label="Lost this month" value={rows.filter((r) => (lostOf(r.a)?.on || '').slice(0, 7) === today.slice(0, 7)).length} sub={money0(rows.filter((r) => (lostOf(r.a)?.on || '').slice(0, 7) === today.slice(0, 7)).reduce((t, r) => t + r.premium, 0)) + ' premium'} />
+      </Tiles> : <Tiles>
         <Tile label="Accounts" value={rows.length} sub={`${pols.length} policies`} />
         <Tile label="Annual premium" value={money0(total)} sub={rows.length ? money0(total / rows.length) + ' per account' : ''} />
         <Tile label="Renewing in 60 days" value={due60.length} sub={money0(due60.reduce((s, p) => s + (p.premium || 0), 0)) + ' premium'} tone={due60.length ? 'warn' : undefined} />
@@ -120,7 +133,7 @@ export default function Books() {
           <Tile label="Cancel pending" value={cancelPending.length} sub={cancelPending.length ? cancelPending.map((p) => p.insured).join(', ') : 'none'} tone={cancelPending.length ? 'warn' : undefined} />
           <Tile label="Sold by (AgencyZoom)" value={`${azCount} of ${pols.length}`} sub={azCount ? Object.entries(azSold).sort((a, b) => b[1] - a[1]).map(([n, c]) => `${n.split(' ')[0]} ${c}`).join(' · ') : 'no producer set in AgencyZoom'} />
         </> : <Tile label="Past expiration" value={expired.length} sub={expired.length ? 'confirm renewed or lapsed' : 'none'} />}
-      </Tiles>
+      </Tiles>}
       <Panel title="Accounts" sub={`${shown.length} of ${rows.length}${fair && seller ? ` · sold by ${seller === NO_PRODUCER ? "no producer on file" : seller}` : ""} · click an account for policies, notes and documents`}
         right={<div className="filters"><Search value={q} onChange={setQ} placeholder="Name, policy #, carrier, address" />
           {fair && <select className="fld" value={seller} onChange={(e) => setSeller(e.target.value)} aria-label="Sold by">
@@ -130,16 +143,18 @@ export default function Books() {
         {shown.length ? (
           <div className="tbl-wrap">
             <table className="tbl">
-              <thead><tr><th>Account</th>{fair && <th>Sold by</th>}<th>Lines</th><th className="r">Policies</th><th className="r">Premium</th><th>Next renewal</th><th className="r">Docs</th></tr></thead>
+              <thead><tr><th>Account</th>{lostView && <th>Book</th>}{fair && <th>Sold by</th>}<th>Lines</th><th className="r">Policies</th><th className="r">Premium</th>{lostView ? <><th>Lost on</th><th>Reason</th></> : <th>Next renewal</th>}<th className="r">Docs</th></tr></thead>
               <tbody>
                 {shown.map((r) => (
                   <tr key={r.a.id} className="clickable" onClick={() => setOpen(r.a)}>
                     <td><div className="strong">{r.a.name}</div>{r.a.dba && r.a.dba !== r.a.name && <div className="sub">{r.a.dba}</div>}</td>
+                    {lostView && <td className="sub">{bookLabel(r.a.book)}</td>}
                     {fair && <td>{r.sold.length ? r.sold.map((x) => <div key={x.name} className={x.from === 'AgencyZoom' ? '' : 'sub'} title={x.from}>{x.name}{x.from === 'AgencyZoom' ? '' : ' · FAIR Plan record'}</div>) : <span className="sub">—</span>}</td>}
                     <td className="sub">{r.lines}</td>
                     <td className="r">{r.pols.length}</td>
                     <td className="r mono">{money0(r.premium)}</td>
-                    <td>{r.next ? <>{mdy(r.next)} <RenewPill days={daysUntil(r.next, today)} /></> : <span className="sub">—</span>}</td>
+                    {lostView ? <><td>{lostOf(r.a)?.on ? mdy(lostOf(r.a)!.on) : '—'}</td><td className="sub">{lostOf(r.a)?.reason || '—'}</td></>
+                      : <td>{r.next ? <>{mdy(r.next)} <RenewPill days={daysUntil(r.next, today)} /></> : <span className="sub">—</span>}</td>}
                     <td className="r">{r.docs || ''}</td>
                   </tr>
                 ))}
@@ -148,7 +163,8 @@ export default function Books() {
           </div>
         ) : <Empty>No accounts match.</Empty>}
       </Panel>
-      {open && <AccountDrawer account={open} policies={data.policies.filter((p) => p.account_id === open.id)} docs={data.docs.filter((d) => d.account_id === open.id)} onClose={() => setOpen(null)} />}
+      {open && <AccountDrawer account={open} policies={data.policies.filter((p) => p.account_id === open.id)} docs={data.docs.filter((d) => d.account_id === open.id)} onClose={() => setOpen(null)}
+        onChange={isAdmin(me?.role) ? () => { setOpen(null); setReload((n) => n + 1) } : undefined} />}
     </>
   )
 }
@@ -198,7 +214,53 @@ function Portals({ account, policies }: { account: Account; policies: BookPolicy
   )
 }
 
-export function AccountDrawer({ account, policies, docs, onClose }: { account: Account; policies: BookPolicy[]; docs: Doc[]; onClose: () => void }) {
+/** Marks a client as lost business (their policies Cancelled, each keeping the status it had, to restore) or puts them back. */
+async function setLost(account: Account, policies: BookPolicy[], lost: Lost | null) {
+  const data = { ...(account.data || {}) }
+  if (lost) data.lost = lost; else delete data.lost
+  const a = await supabase.from('book_accounts').update({ data }).eq('id', account.id)
+  if (a.error) throw a.error
+  for (const p of policies) {
+    const pd = { ...(p.data || {}) }
+    let status = p.status
+    if (lost) { if (!/cancel/i.test(p.status || '')) { pd.statusBefore = p.status; status = 'Cancelled' } }
+    else { status = (pd.statusBefore as string | undefined) ?? p.status; delete pd.statusBefore }
+    const r = await supabase.from('book_policies').update({ status, data: pd }).eq('id', p.id)
+    if (r.error) throw r.error
+  }
+}
+
+function LostControl({ account, policies, onChange }: { account: Account; policies: BookPolicy[]; onChange: () => void }) {
+  const { me } = useAuth()
+  const lost = lostOf(account)
+  const [busy, setBusy] = useState(false)
+  const run = async (next: Lost | null) => {
+    setBusy(true)
+    try { await setLost(account, policies, next); onChange() } catch (e) { alert('Could not save: ' + String((e as Error)?.message || e)) } finally { setBusy(false) }
+  }
+  const mark = () => {
+    const on = prompt('Date they canceled (YYYY-MM-DD):', todayPacific()); if (on === null) return
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(on.trim())) { alert('Use a date like 2026-11-20.'); return }
+    const reason = prompt('Why they left (optional, e.g. price, went with another agent):', '') ?? ''
+    void run({ on: on.trim(), reason: reason.trim() || null, by: me?.display_name || null })
+  }
+  const editReason = () => {
+    const reason = prompt('Why they left:', lost?.reason || ''); if (reason === null) return
+    void run({ ...lost!, reason: reason.trim() || null })
+  }
+  if (lost) return (
+    <div className="note-box">
+      <b>Lost business</b> · canceled {mdy(lost.on)}{lost.reason ? ` · ${lost.reason}` : ''}{lost.by ? ` · marked by ${lost.by}` : ''}
+      <div className="row-actions" style={{ marginTop: 8 }}>
+        <button className="btn-ghost" disabled={busy} onClick={editReason}>{lost.reason ? 'Change reason' : 'Add reason'}</button>
+        <button className="btn-ghost" disabled={busy} onClick={() => { if (confirm(`Put ${account.name} back on the active book?`)) void run(null) }}>Restore to active book</button>
+      </div>
+    </div>
+  )
+  return <div className="row-actions" style={{ justifyContent: 'flex-end' }}><button className="btn-ghost" disabled={busy} onClick={mark}>Mark as lost business</button></div>
+}
+
+export function AccountDrawer({ account, policies, docs, onClose, onChange }: { account: Account; policies: BookPolicy[]; docs: Doc[]; onClose: () => void; onChange?: () => void }) {
   const today = todayPacific()
   const total = policies.reduce((s, p) => s + (p.premium || 0), 0)
   const d = account.data || {}
@@ -207,6 +269,7 @@ export function AccountDrawer({ account, policies, docs, onClose }: { account: A
       <KV rows={[['Contact', account.contact], ['Phone', account.phone], ['Address', account.address], ['Producer', account.producer],
         ['Broker', d.broker], ['AOR', d.aor], ['Household', d.household], ['Source', d.source === 'shannon-transfer' ? 'Shannon book transfer' : d.source]]} />
       {d.wcNote && <div className="note-box">{d.wcNote}</div>}
+      {onChange ? <LostControl account={account} policies={policies} onChange={onChange} /> : lostOf(account) && <div className="note-box"><b>Lost business</b> · canceled {mdy(lostOf(account)!.on)}{lostOf(account)!.reason ? ` · ${lostOf(account)!.reason}` : ''}</div>}
 
       <Portals account={account} policies={policies} />
 
