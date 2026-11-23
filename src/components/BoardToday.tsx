@@ -43,15 +43,28 @@ export function useBoardNews(day: string, tick: number) {
 }
 export type BoardNewsData = ReturnType<typeof useBoardNews>
 
-/** the red banner at the top of the board: an outage or breaking story from the last three hours */
-export function BreakingNews({ news }: { news: BoardNewsData }) {
+/** a headline the agency pins for the day (reference_data board:HEADLINE = { text, day }), shown first in the red strip */
+function usePinned(on: boolean) {
+  return useAsync(async () => {
+    if (!on) return null
+    const { data } = await supabase.from('reference_data').select('data').eq('key', 'board:HEADLINE').maybeSingle()
+    const h = data?.data as { text?: string; day?: string } | undefined
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(new Date())
+    return h?.text && (!h.day || h.day === today) ? h.text : null
+  }, [on])
+}
+
+/** the red banner at the top of the board: the agency's pinned headline for the day, then any outage or breaking story
+ *  from the last three hours */
+export function BreakingNews({ news, pinned }: { news: BoardNewsData; pinned?: boolean }) {
+  const pin = usePinned(!!pinned).data
   const b = news.data?.breaking || []
-  if (!b.length) return null
+  if (!b.length && !pin) return null
   const time = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles' }) : '')
   return (
     <div className="bt-breaking" role="alert">
       <b className="bt-breaking-tag">🚨 Breaking</b>
-      <div className="bt-breaking-list">{b.map((i) => (
+      <div className="bt-breaking-list">{pin && <span className="bt-pin"><span>{pin}</span><small>Today’s major news</small></span>}{b.map((i) => (
         <a key={i.link} href={i.link} target="_blank" rel="noreferrer"><span>{i.title}</span><small>{i.source}{i.at ? ` · ${time(i.at)}` : ''}</small></a>
       ))}</div>
     </div>

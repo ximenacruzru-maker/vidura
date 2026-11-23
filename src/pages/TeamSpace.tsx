@@ -18,7 +18,7 @@ import { supabase } from '../lib/supabase'
 import { loadTeamToday, teamPeople, tidyName, type TeamPerson } from '../lib/teamToday'
 import { bestCalls, callAgent, UNANSWERED } from '../lib/ricochet'
 import { HBars, HourChart, SERIES } from '../components/BoardCharts'
-import { BoardBoost, BoardNews, BreakingNews, useBoardNews } from '../components/BoardToday'
+import { BoardBoost, BreakingNews, useBoardNews } from '../components/BoardToday'
 import IncomingCalls from '../components/IncomingCalls'
 import { useTvMode } from '../lib/tvMode'
 import { useAsync } from '../lib/useAsync'
@@ -200,9 +200,9 @@ export function TeamBoard() {
       {head}
       <IncomingCalls on={isToday} />
       <DayStrip day={day} today={today} onPick={setDay} tick={tick} />
-      <BreakingNews news={news} />
+      <BreakingNews news={news} pinned={isToday} />
       {closing}
-      {/* the top: the charts and the day's news */}
+      {/* the top: the charts and who sold what today (the news is only in the red strip) */}
       <div className="ts-top4">
           <div className="ts-feed ts-calls">
             <p className="ts-h">📞 Calls {when} <span>{data.calls.length ? `${data.calls.length} · Ricochet` : 'Ricochet'}{isToday && synced ? ` · synced ${new Date(synced).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles' })}` : ''}</span></p>
@@ -214,7 +214,7 @@ export function TeamBoard() {
           </div>
           <div className="ts-feed ts-hours"><p className="ts-h">Calls by hour <span>{when}</span></p>{data.calls.some((c) => c.started_at) ? <HourChart calls={data.calls} /> : <p className="ts-none">No calls yet.</p>}</div>
           {F && <div className="xd ts-run"><RunningChart title="Running total vs goal" today={day} start={F.start_date} end={F.end_date} goal={goal || null} points={points} clean /></div>}
-          <BoardNews news={news} isToday={isToday} />
+          <SoldLive sales={sales} people={inToday.map((p) => p.name)} when={when} isToday={isToday} />
       </div>
       <div className="ts-kpis">
         <div className="ts-k hero">
@@ -302,5 +302,35 @@ export default function TeamSpace() {
         </div> : undefined} />
       {tab === 'board' ? <TeamBoard /> : chat ? <Chat embedded /> : null}
     </>
+  )
+}
+
+/** Who sold what on the day, live and as a game: each producer's premium and policies, ranked, with medals for the
+ *  top three, a flame for three or more policies, a star for the day's first sale, and everyone in today who hasn't
+ *  written yet below ("up next"). No client names (walk-ins can see the board). */
+function SoldLive({ sales, people, when, isToday }: { sales: { producer: string; line: string | null; carrier: string | null; premium: number }[]; people: string[]; when: string; isToday: boolean }) {
+  const by = new Map<string, { name: string; prem: number; n: number; life: number }>()
+  sales.forEach((r) => { const k = (r.producer || 'Unassigned').trim(), o = by.get(k) || { name: k, prem: 0, n: 0, life: 0 }; o.prem += Number(r.premium) || 0; o.n++; if (isLife({ line: r.line, carrier: r.carrier })) o.life++; by.set(k, o) })
+  const ranked = [...by.values()].sort((a, b) => b.prem - a.prem || b.n - a.n)
+  const first = sales[0]?.producer?.trim()
+  const firstName = (n: string) => n.split(' ')[0]
+  const sold = new Set(ranked.map((r) => firstName(r.name).toLowerCase()))
+  const next = people.filter((p) => !sold.has(firstName(p).toLowerCase()))
+  const top = Math.max(1, ...ranked.map((r) => r.prem))
+  const MEDAL = ['🥇', '🥈', '🥉']
+  return (
+    <div className="ts-feed ts-sold">
+      <p className="ts-h">🏆 Sold {when} <span>{ranked.length ? `${sales.length} polic${sales.length === 1 ? 'y' : 'ies'} · ${money0(sales.reduce((a, r) => a + (Number(r.premium) || 0), 0))}` : isToday ? 'live' : ''}</span></p>
+      {ranked.length ? <ol className="ts-sold-list">{ranked.map((r, i) => (
+        <li key={r.name} className={i === 0 ? 'lead' : ''}>
+          <span className="ts-sold-rank" aria-label={`Rank ${i + 1}`}>{MEDAL[i] || i + 1}</span>
+          <span className="ts-sold-who"><b>{firstName(r.name)}</b>{r.n >= 3 && <span title="3+ policies today"> 🔥</span>}{r.name === first && <span title="First sale of the day"> ⭐</span>}{r.life > 0 && <span title="Life sold"> 💚</span>}
+            <small>{r.n} polic{r.n === 1 ? 'y' : 'ies'}</small></span>
+          <span className="ts-sold-bar"><i style={{ width: (r.prem / top) * 100 + '%' }} /></span>
+          <b className="ts-sold-v">{money0(r.prem)}</b>
+        </li>
+      ))}</ol> : <p className="ts-none">{isToday ? 'No sales yet today. Who’s first? ⭐' : 'Nothing sold that day.'}</p>}
+      {isToday && next.length > 0 && <p className="ts-sold-next">🎯 Up next: {next.map(firstName).join(' · ')}</p>}
+    </div>
   )
 }
