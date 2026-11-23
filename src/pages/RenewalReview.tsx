@@ -6,7 +6,7 @@
 // as a PDF; Reports › Renewal reviews shows every day's work to the owner.
 import { useMemo, useRef, useState } from 'react'
 import { useAuth } from '../auth'
-import { getAccounts, getBookPolicies, type Account, type BookPolicy } from '../lib/books'
+import { getAccounts, getBookPolicies, isClosed, type Account, type BookPolicy } from '../lib/books'
 import { mdy, money0, money2, todayPacific } from '../lib/format'
 import { loadScript } from '../lib/perf/commissionFiles'
 import { supabase } from '../lib/supabase'
@@ -214,7 +214,7 @@ function BookPicker({ kind, name, day, taken, onDone }: { kind: Kind; name: stri
   const rows = useMemo(() => {
     if (!book.data) return []
     const t = q.trim().toLowerCase()
-    return book.data.policies.filter((p) => p.expiration && p.expiration >= today && p.expiration <= until && !book.data!.worked.has(p.id) && !taken.some((r) => r.policy_id === p.id) && !/cancel/i.test(p.status || ''))
+    return book.data.policies.filter((p) => p.expiration && p.expiration >= today && p.expiration <= until && !book.data!.worked.has(p.id) && !taken.some((r) => r.policy_id === p.id) && !/cancel/i.test(p.status || '') && !isClosed(p))
       .map((p) => ({ p, a: book.data!.byId.get(p.account_id) })).filter((x) => x.a && (!t || `${x.a.name} ${x.p.product} ${x.p.policy_number}`.toLowerCase().includes(t)))
       .sort((x, y) => (x.p.expiration! < y.p.expiration! ? -1 : 1)).slice(0, 40)
   }, [book.data, q, taken, today, until])

@@ -8,7 +8,7 @@ import { MyCallList, TeamCallLists } from './CallLists'
 import RetentionWeek from '../components/RetentionWeek'
 import FocusBoard from '../components/FocusBoard'
 import { ErrorBox, Loading, PageHead, Panel, Tile, Tiles } from '../components/ui'
-import { daysUntil, getBookPolicies } from '../lib/books'
+import { daysUntil, getBookPolicies, isClosed } from '../lib/books'
 import { getFolios, getPolicies, getQuotes, isAdmin, type Folio, type Policy, type QuoteLead } from '../lib/data'
 import { addDays, mdy, money0, todayPacific } from '../lib/format'
 import { supabase } from '../lib/supabase'
@@ -90,7 +90,7 @@ export default function MySpace() {
   const done = new Set(data.ticks.filter((t) => t.done).map((t) => t.item_id))
   const pct = data.items.length ? Math.round((done.size / data.items.length) * 100) : 0
   const mine = data.work.filter((w) => !isDone(w) && first && (w.owner || '').toLowerCase().startsWith(first.toLowerCase()))
-  const renew14 = data.book.filter((p) => { const d = daysUntil(p.expiration, today); return d != null && d >= 0 && d <= 14 })
+  const renew14 = data.book.filter((p) => { const d = daysUntil(p.expiration, today); return !isClosed(p) && d != null && d >= 0 && d <= 14 })
 
   const tick = async (id: number, on: boolean) => {
     const { error } = await supabase.from('checklist_ticks').upsert({ user_id: session!.user.id, day: today, item_id: id, done: on })

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Empty, Search, Tabs } from '../components/ui'
-import { daysUntil, type Account, type BookPolicy } from '../lib/books'
+import { daysUntil, isClosed, type Account, type BookPolicy } from '../lib/books'
 import { mdy, money0 } from '../lib/format'
 import { downloadSheet } from '../lib/excelExport'
 import { RenewPill } from './Books'
@@ -24,7 +24,7 @@ export default function RenewalAlert({ bookKey, accounts, policies, today, start
   const [range, setRange] = useState({ from: today, to: addDays(today, 30) })
   const r = resolveRange(range, { from: today, to: addDays(today, 30) })
   const acct = useMemo(() => new Map(accounts.map((a) => [a.id, a])), [accounts])
-  const dated = useMemo(() => policies.map((p) => ({ p, a: acct.get(p.account_id)!, d: daysUntil(p.expiration, today) })).filter((r) => r.d != null && r.a), [policies, acct, today])
+  const dated = useMemo(() => policies.map((p) => ({ p, a: acct.get(p.account_id)!, d: daysUntil(p.expiration, today) })).filter((r) => r.d != null && r.a && !isClosed(r.p)), [policies, acct, today])
   const due30 = dated.filter((r) => r.d! >= 0 && r.d! <= 30)
   const expired = dated.filter((r) => r.d! < 0)
   const prem = (rs: typeof dated) => rs.reduce((s, r) => s + (r.p.premium || 0), 0)
