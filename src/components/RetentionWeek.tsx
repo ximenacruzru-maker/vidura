@@ -16,7 +16,7 @@ const pacificDay = (ts: string) => new Intl.DateTimeFormat('en-CA', { timeZone: 
 /** the Monday of the week holding a day */
 const monday = (iso: string) => { const d = new Date(iso + 'T12:00:00Z'); return addDays(iso, -((d.getUTCDay() + 6) % 7)) }
 
-async function loadWeek(from: string, to: string): Promise<Row[]> {
+export async function loadWeek(from: string, to: string): Promise<Row[]> {
   const [rv, cl, lg] = await Promise.all([
     supabase.from('renewal_reviews').select('day, name, kind, client, policy, call1, call2, spoke, emailed, findings, notes').gte('day', from).lte('day', to),
     supabase.from('call_list_items').select('assignee, list_name, list_date, first_name, last_name, line, details, result, notes, findings, called_at').gte('list_date', addDays(from, -120)),
@@ -94,3 +94,27 @@ export default function RetentionWeek() {
   )
 }
 const KIND_VALUES = new Set(Object.values(KIND))
+
+/** One person's retention totals, this week and last: everything they worked (call lists, renewal reviews,
+ *  reinstatements, the retention log), not only one list. Shown at the top of their My Space. */
+export function MyRetentionTotals({ name }: { name: string }) {
+  const today = todayPacific(), thisMon = monday(today), lastMon = addDays(thisMon, -7)
+  const { data } = useAsync(() => loadWeek(lastMon, addDays(thisMon, 6)), [lastMon])
+  if (!data) return null
+  const mine = data.filter((r) => r.who.toLowerCase() === name.toLowerCase() && r.result !== 'Not worked')
+  const week = (from: string) => mine.filter((r) => r.day >= from && r.day <= addDays(from, 6))
+  const parts = (rows: Row[]) => {
+    const rv = rows.filter((r) => /renewal/i.test(r.source) && r.source !== 'Retention log').length, rein = rows.filter((r) => r.source === 'Reinstatement').length
+    const lists = rows.filter((r) => !KIND_VALUES.has(r.source) && r.source !== 'Retention log').length, log = rows.filter((r) => r.source === 'Retention log').length
+    return [rv && `${rv} renewal review${rv === 1 ? '' : 's'}`, rein && `${rein} reinstatement${rein === 1 ? '' : 's'}`, lists && `${lists} on call lists`, log && `${log} logged`].filter(Boolean).join(' · ') || 'nothing yet'
+  }
+  const tw = week(thisMon), lw = week(lastMon)
+  return (
+    <Tiles>
+      <Tile label="Clients worked · this week" value={tw.length} sub={parts(tw)} />
+      <Tile label="Reached · this week" value={tw.filter((r) => r.reached).length} sub={`${tw.filter((r) => r.result === 'Emailed').length} emailed`} tone="good" />
+      <Tile label="Clients worked · last week" value={lw.length} sub={parts(lw)} />
+      <Tile label="Reached · last week" value={lw.filter((r) => r.reached).length} sub={`${lw.filter((r) => r.result === 'Emailed').length} emailed`} />
+    </Tiles>
+  )
+}
