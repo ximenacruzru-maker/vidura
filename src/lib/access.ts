@@ -35,6 +35,14 @@ export function can(me: StaffAccount | null | undefined, section: string) {
   return section in a ? !!a[section] : !!roleDefaults(me.role)[section]
 }
 
+/** The agency's numbers (Executive Dashboard, Daily Huddle Report): everyone on staff except a new hire and anyone set to
+ *  "My Commissions only". Same rule as the database's staff_sees_numbers(). Reports (commissions, pay) stays can('performance'). */
+export function seesNumbers(me: StaffAccount | null | undefined) {
+  if (!me) return false
+  if (me.role === 'owner' || me.role === 'admin') return true
+  return me.role !== 'new_hire' && !(me.access || {}).commissions_only
+}
+
 /** On the path to producer: Training first in the menu, Farmers University only. Never applies to admins. */
 export function producerPath(me: StaffAccount | null | undefined) {
   return !!me && me.role !== 'owner' && me.role !== 'admin' && !!(me.access || {}).producer_path

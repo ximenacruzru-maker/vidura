@@ -4,7 +4,7 @@ import { FolioProvider } from './components/FolioPicker'
 import Layout from './components/Layout'
 import { Loading } from './components/ui'
 import ChangePassword from './pages/ChangePassword'
-import { can, commissionsOnly } from './lib/access'
+import { can, commissionsOnly, seesNumbers } from './lib/access'
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { getClientFile } from './lib/client'
 
@@ -75,7 +75,9 @@ function Gate() {
           {/* Performance screens not yet rebuilt: the original screens, shown by the layout's LegacyHost */}
           {['/legacy-dashboard', '/legacy-sales', '/huddle', '/legacy-reports', '/year-end', '/legacy-commissions', '/commission-setup', '/legacy-sdr'].map((p) =>
             <Route key={p} path={p} element={can(me, 'performance') ? null : <Navigate to="/today" replace />} />)}
-          {can(me, 'performance') && <Route path="/sales" element={<DailyHuddle />} />}
+          {/* the Executive Dashboard and the Daily Huddle Report: everyone on staff (the owner and admins open the dashboard at /) */}
+          {seesNumbers(me) && <Route path="/dashboard" element={<ExecutiveDashboard />} />}
+          {seesNumbers(me) && <Route path="/sales" element={<DailyHuddle />} />}
           {can(me, 'performance') && <Route path="/sales-kpis" element={<SalesKPIs />} />}
           {can(me, 'performance') && <Route path="/reports" element={<Reports />} />}
           {can(me, 'performance') && <Route path="/commissions" element={<Reports open="commissions" />} />}

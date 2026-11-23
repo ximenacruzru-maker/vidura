@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth'
-import { can } from '../lib/access'
+import { can, seesNumbers } from '../lib/access'
 import { bookLabel, daysUntil, getAccounts, getBookPolicies, getReference, type Account, type BookPolicy } from '../lib/books'
 import { agencyShort, getFolios, getPolicies, getQuotes, type StaffAccount } from '../lib/data'
 import { mdy, money0, money2, todayPacific } from '../lib/format'
@@ -98,7 +98,7 @@ async function answer(qRaw: string, me: StaffAccount | null, ctx: { client?: Acc
 
   if (/sold today|sales today|written today|what sold|today.?s sales|quoted today|quotes today/.test(q)) {
     const [sold, quotes] = await Promise.all([getPolicies(today, today), getQuotes(today, today)])
-    const scope = c('performance') ? '' : ' (yours)'
+    const scope = seesNumbers(me) ? '' : ' (yours)'
     return {
       body: <>Today{scope}: <b>{sold.length}</b> polic{sold.length === 1 ? 'y' : 'ies'} sold for <b>{money2(sold.reduce((s, p) => s + p.premium, 0))}</b>; {quotes.length} leads quoted ({money0(quotes.reduce((s, x) => s + x.quoted_premium, 0))}).
         {sold.length > 0 && <L items={sold.map((x) => <><b>{x.client}</b> — {x.line} ({x.carrier}) {money2(x.premium)} · {x.producer}</>)} />}</>,

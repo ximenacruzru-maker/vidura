@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../auth'
+import { can } from '../../lib/access'
 import { ErrorBox, Loading } from '../../components/ui'
 import { agencyName } from '../../lib/data'
 import { addDays, mdy, money0, todayPacific } from '../../lib/format'
@@ -269,11 +270,11 @@ function Huddle({ D }: { D: PerfData }) {
               </button>
             ))}</div>
             </div>}
-            {tab === 'client' && (!ret.data ? <p className="ts-none">Loading…</p> : <><ClientSuccessView c={ret.data} day={day} look="board" /><p className="hd-foot"><Link to="/retention">Open Retention ›</Link></p></>)}
+            {tab === 'client' && (!ret.data ? <p className="ts-none">Loading…</p> : <><ClientSuccessView c={ret.data} day={day} look="board" />{can(me, 'retention') && <p className="hd-foot"><Link to="/retention">Open Retention ›</Link></p>}</>)}
           </div>
         </section>
       </div>
-      <p className="hd-foot"><Link to="/sales-kpis">Full Sales KPIs by period ›</Link> · Written business is the AgencyZoom sales ledger by sold date; quotes are AgencyZoom quoted leads by quote day.</p>
+      <p className="hd-foot">{can(me, 'performance') && <><Link to="/sales-kpis">Full Sales KPIs by period ›</Link> · </>}Written business is the AgencyZoom sales ledger by sold date; quotes are AgencyZoom quoted leads by quote day.</p>
     </div>
   )
 }
