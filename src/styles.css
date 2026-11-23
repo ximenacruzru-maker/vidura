@@ -2394,6 +2394,23 @@ html[data-theme] .nav-h { padding-top: 12px; font-size: 10px; opacity: .8; }
 .fb-xmas-count span { font-size: 12px; font-weight: 800; color: #FFE9B8; }
 .fb-xmas .fb-work .panel { border: 1.5px solid #E8C15A; box-shadow: 0 10px 30px rgba(0, 0, 0, .3); }
 @media (prefers-reduced-motion: reduce) { .fb-xmas::before, .fb-lights { animation: none; } }
+/* Team Space dressed for Thanksgiving (Nov 15 through the day after): warm autumn colors, a leaf garland along the top and
+   a few leaves drifting down behind everything (the decor sits under the board's contents and never takes a click) */
+.ts-tg { isolation: isolate; padding-top: clamp(38px, 2.8vw, 52px);
+  background: radial-gradient(ellipse at 50% -25%, rgba(232, 162, 30, .35) 0%, transparent 55%), linear-gradient(135deg, #3A1410 0%, #6E1F14 45%, #9A3F12 85%, #B5651D 120%);
+  border: 2px solid #E8A21E; box-shadow: 0 0 0 4px rgba(154, 63, 18, .5), 0 18px 44px rgba(40, 12, 6, .35); }
+.tg-decor { position: absolute; inset: 0; z-index: -1; overflow: hidden; border-radius: inherit; pointer-events: none; }
+.tg-garland { position: absolute; left: 0; right: 0; top: 0; height: 36px; background: url('./assets/thanksgiving/garland.svg') left top / 180px 36px repeat-x; }
+.tg-leaf { position: absolute; top: -40px; opacity: .55; animation: tg-fall linear infinite; will-change: transform; }
+@keyframes tg-fall { 0% { transform: translate(0, 0) rotate(0deg); } 50% { transform: translate(28px, 55vh) rotate(160deg); } 100% { transform: translate(-12px, 115vh) rotate(340deg); } }
+.ts-tg .ts-k { background: rgba(40, 12, 6, .38); border: 1.5px solid rgba(232, 162, 30, .55); }
+.ts-tg .ts-k.hero { background: linear-gradient(150deg, rgba(217, 83, 30, .55), rgba(110, 31, 20, .55)); border-color: #E8A21E; }
+.ts-tg .ts-k.warn b { color: #FFE08A; }
+.ts-tg .ts-bar i { background: linear-gradient(90deg, #D9531E, #E8A21E); }
+.tg-count { display: inline-flex; align-items: baseline; gap: 6px; padding: 7px 14px; border-radius: 999px; background: rgba(40, 12, 6, .55); border: 1.5px solid #E8A21E;
+  font-size: clamp(12px, .85vw, 17px); font-weight: 800; color: #FFE9C4; white-space: nowrap; }
+.tg-count b { font-size: 1.35em; color: #FFF6E6; }
+@media (prefers-reduced-motion: reduce) { .tg-leaf { animation: none; display: none; } }
 /* the red strip: the agency's pinned headline for the day */
 .bt-pin { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
 .bt-pin span { font-size: clamp(13px, .95vw, 20px); font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

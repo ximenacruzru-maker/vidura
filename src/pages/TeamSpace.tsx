@@ -115,12 +115,19 @@ export function TeamBoard() {
   }, [])
 
   const isToday = day === today
+  // Thanksgiving: the board dresses up from Nov 15 through the day after (the fourth Thursday of November)
+  const yr = Number(today.slice(0, 4))
+  const tgDay = (() => { const d = new Date(Date.UTC(yr, 10, 1)); const first = (4 - d.getUTCDay() + 7) % 7 + 1; return `${yr}-11-${String(first + 21).padStart(2, '0')}` })()
+  const thanksgiving = today >= `${yr}-11-15` && today <= addDays(tgDay, 1)
+  const toTg = Math.round((Date.parse(tgDay + 'T12:00:00Z') - Date.parse(today + 'T12:00:00Z')) / 864e5)
+  const fest = thanksgiving ? ' ts-tg' : ''
   const step = (n: number) => { const d = addDays(day, n); setDay(d > today ? today : d) }
   const long = new Date(day + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' })
   const head = (
     <div className="ts-head">
-      <div><p className="ts-title">Team Space</p><p className="ts-date">{long}{isToday ? ` · ${now}` : ''}</p></div>
+      <div><p className="ts-title">{thanksgiving ? '🦃 ' : ''}Team Space</p><p className="ts-date">{long}{isToday ? ` · ${now}` : ''}</p></div>
       <div className="ts-head-r">
+        {thanksgiving && <span className="tg-count">{toTg > 0 ? <>🦃 <b>{toTg}</b> {toTg === 1 ? 'day' : 'days'} to Thanksgiving 🥧</> : toTg === 0 ? <>Happy Thanksgiving! 🦃🍂</> : <>Thankful for this team 🧡</>}</span>}
         <div className="ts-days" role="group" aria-label="Day">
           <button type="button" onClick={() => step(-1)} aria-label="Previous day">‹ Prev</button>
           <input type="date" value={day} max={today} onChange={(e) => setDay(e.target.value && e.target.value <= today ? e.target.value : today)} aria-label="Pick a day" />
@@ -134,8 +141,8 @@ export function TeamBoard() {
   )
 
   const people = data ? teamPeople(data.team) : null
-  if (!data) return <div className="ts">{head}<p className="ts-wait">{error ? 'Team Space couldn’t load: ' + ((error as Error).message || 'try again') : 'Loading…'}</p></div>
-  if (!people) return <div className="ts">{head}<p className="ts-wait">Team Space shows the day once Declara can read it (the owner, admins and whoever runs the work queue).</p></div>
+  if (!data) return <div className={'ts' + fest}>{head}<p className="ts-wait">{error ? 'Team Space couldn’t load: ' + ((error as Error).message || 'try again') : 'Loading…'}</p></div>
+  if (!people) return <div className={'ts' + fest}>{head}<p className="ts-wait">Team Space shows the day once Declara can read it (the owner, admins and whoever runs the work queue).</p></div>
   const d = data.team.d!, edit = can(me, 'work_manager')
   const again = () => setTick((n) => n + 1)
   const when = isToday ? 'today' : new Date(day + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' })
@@ -196,7 +203,8 @@ export function TeamBoard() {
   ) : null
 
   return (
-    <div className="ts ts-fit">
+    <div className={'ts ts-fit' + fest}>
+      {thanksgiving && <TgDecor />}
       {head}
       <IncomingCalls on={isToday} />
       <DayStrip day={day} today={today} onPick={setDay} tick={tick} />
@@ -331,6 +339,18 @@ function SoldLive({ sales, people, when, isToday }: { sales: { producer: string;
         </li>
       ))}</ol> : <p className="ts-none">{isToday ? 'No sales yet today. Who’s first? ⭐' : 'Nothing sold that day.'}</p>}
       {isToday && next.length > 0 && <p className="ts-sold-next">🎯 Up next: {next.map(firstName).join(' · ')}</p>}
+    </div>
+  )
+}
+
+/** Thanksgiving dressing for the board: a garland of leaves along the top and a few leaves drifting down behind
+ *  everything (never in the way of a click; still for people who prefer reduced motion) */
+function TgDecor() {
+  const LEAVES = ['🍁', '🍂', '🍁', '🍂', '🍁', '🌾', '🍂', '🍁', '🍂', '🍁']
+  return (
+    <div className="tg-decor" aria-hidden="true">
+      <div className="tg-garland" />
+      {LEAVES.map((l, i) => <span key={i} className="tg-leaf" style={{ left: `${4 + i * 9.6}%`, animationDelay: `${(i * 2.3) % 11}s`, animationDuration: `${11 + (i % 4) * 2.5}s`, fontSize: `${18 + (i % 3) * 6}px` }}>{l}</span>)}
     </div>
   )
 }
