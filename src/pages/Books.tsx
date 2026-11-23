@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Drawer, Empty, ErrorBox, KV, Loading, MoreMenu, PageHead, Panel, Search, Tabs, Tile, Tiles } from '../components/ui'
-import { BOOKS, bookLabel, bookTab, daysUntil, fmtBytes, getAccounts, getBookPolicies, getDocs, openDoc, type Account, type BookPolicy, type Doc } from '../lib/books'
+import { BOOKS, bookLabel, bookTab, daysUntil, isClosed, fmtBytes, getAccounts, getBookPolicies, getDocs, openDoc, type Account, type BookPolicy, type Doc } from '../lib/books'
 import { issuedAt, mdy, money0, money2, todayPacific } from '../lib/format'
 import { downloadSheet } from '../lib/excelExport'
 import { useAsync } from '../lib/useAsync'
@@ -99,8 +99,9 @@ export default function Books() {
 
   const total = rows.reduce((s, r) => s + r.premium, 0)
   const pols = data.policies
-  const due60 = pols.filter((p) => { const d = daysUntil(p.expiration, today); return d != null && d >= 0 && d <= 60 })
-  const expired = pols.filter((p) => { const d = daysUntil(p.expiration, today); return d != null && d < 0 })
+  // cancelled and rewritten policies stay on the file but don't count as renewing or past expiration
+  const due60 = pols.filter((p) => { const d = daysUntil(p.expiration, today); return !isClosed(p) && d != null && d >= 0 && d <= 60 })
+  const expired = pols.filter((p) => { const d = daysUntil(p.expiration, today); return !isClosed(p) && d != null && d < 0 })
   // CA FAIR Plan: payments are billed straight to the client, so what's due soon and what's pending cancellation is what to watch
   const fair = key === 'fair_plan'
   const payDue30 = pols.filter((p) => { const d = daysUntil(p.data?.paymentDue, today); return d != null && d >= 0 && d <= 30 })

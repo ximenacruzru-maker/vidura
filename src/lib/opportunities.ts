@@ -32,7 +32,7 @@ export function commercialQuotes(D: PerfData, asOf = todayPacific()) {
 
 /* ---------- at-risk accounts: the same red alerts a client sees on their portal, across the whole book ---------- */
 export interface Risk { account: Account; policy: BookPolicy; issue: string; tier: number; premium: number }
-const FINAL = /\bcancel(l)?ed\b(?!.*pending)/i
+const FINAL = /\bcancel(l)?ed\b(?!.*pending)|\brewritten\b|\bnon-?renewed\b/i
 /** Policies about to be lost — the owner's service work: a pending cancellation or non-pay (commercial first),
  *  "action needed", money due now, or a term that ended without a renewal on file. Personal-lines lapses only count
  *  for 60 days (older ones are a data clean-up, not a save). */

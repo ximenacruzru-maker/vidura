@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth'
 import { can, seesNumbers } from '../lib/access'
-import { bookLabel, daysUntil, getAccounts, getBookPolicies, getReference, type Account, type BookPolicy } from '../lib/books'
+import { bookLabel, daysUntil, getAccounts, isClosed, getBookPolicies, getReference, type Account, type BookPolicy } from '../lib/books'
 import { agencyShort, getFolios, getPolicies, getQuotes, type StaffAccount } from '../lib/data'
 import { mdy, money0, money2, todayPacific } from '../lib/format'
 import { supabase } from '../lib/supabase'
@@ -162,7 +162,7 @@ async function answer(qRaw: string, me: StaffAccount | null, ctx: { client?: Acc
     }
     if (/renew|due|coming up|expir/.test(q)) {
       const win = days || 30
-      const up = policies.filter((r) => { const d = daysUntil(r.expiration, today); return d != null && d >= 0 && d <= win }).sort((a, b) => (a.expiration! < b.expiration! ? -1 : 1))
+      const up = policies.filter((r) => { const d = daysUntil(r.expiration, today); return !isClosed(r) && d != null && d >= 0 && d <= win }).sort((a, b) => (a.expiration! < b.expiration! ? -1 : 1))
       if (!up.length) return { body: `Nothing renews in the next ${win} days.`, go: { to: '/books/farmers?renewals=1', label: 'Review renewals' } }
       return { body: <><b>{up.length} policies</b> renew in the next {win} days, {money0(sum(up))} of premium:<L items={up.map((r) => <>{who(r)} — {r.product} · {mdy(r.expiration!)}{r.premium ? ` · ${money0(r.premium)}` : ''}</>)} /></>, go: { to: '/books/farmers?renewals=1', label: 'Review renewals' } }
     }

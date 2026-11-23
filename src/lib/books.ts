@@ -9,6 +9,10 @@ export const BOOKS: { key: BookKey; label: string; short: string; blurb: string;
   { key: 'fair_plan', label: 'CA FAIR Plan', short: 'CA FAIR Plan', blurb: 'California FAIR Plan dwelling fire policies: status, payment plan and when the next payment is due.', includes: ['fair_plan'] },
 ]
 /** Which tab a stored book belongs to (the owner accounts sit under Brokered commercial). */
+/** A policy that's finished: cancelled (not just "cancel pending"), rewritten into another policy, or non-renewed. It stays
+ *  on the client's file but drops off renewal lists and the past-expiration count. */
+export const isClosed = (p: { status?: string | null }) => /\bcancell?ed\b(?!.*pending)|\brewritten\b|\bnon-?renewed\b/i.test(p.status || '')
+
 export const bookTab = (k: string) => (BOOKS.find((b) => b.includes.includes(k as BookKey))?.key || 'farmers') as BookKey
 export const bookLabel = (k: string) => BOOKS.find((b) => b.includes.includes(k as BookKey))?.short || k
 
