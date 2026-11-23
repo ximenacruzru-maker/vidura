@@ -85,12 +85,12 @@ export function TeamCallLists() {
 }
 
 /** On My Space: the signed-in person's own open list(s), if they have one. */
-export function MyCallList({ name, full }: { name: string; full?: boolean }) {
+export function MyCallList({ name, full, onChange }: { name: string; full?: boolean; onChange?: () => void }) {
   const [reload, setReload] = useState(0)
   const { data } = useAsync(getCallItems, [reload])
   const lists = groupLists((data || []).filter((r) => r.assignee.toLowerCase() === name.toLowerCase())).filter((l) => l.rows.some((r) => !finished(r)))
   if (!lists.length) return null
-  return <>{lists.map((l) => <CallListBlock key={l.key} list={l} onChange={() => setReload((n) => n + 1)} compact={!full} />)}</>
+  return <>{lists.map((l) => <CallListBlock key={l.key} list={l} onChange={() => { setReload((n) => n + 1); onChange?.() }} compact={!full} />)}</>
 }
 
 function CallListBlock({ list, onChange, report, compact }: { list: ReturnType<typeof groupLists>[number]; onChange: () => void; report?: boolean; compact?: boolean }) {
