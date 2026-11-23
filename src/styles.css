@@ -2394,3 +2394,19 @@ html[data-theme] .nav-h { padding-top: 12px; font-size: 10px; opacity: .8; }
 .fb-xmas-count span { font-size: 12px; font-weight: 800; color: #FFE9B8; }
 .fb-xmas .fb-work .panel { border: 1.5px solid #E8C15A; box-shadow: 0 10px 30px rgba(0, 0, 0, .3); }
 @media (prefers-reduced-motion: reduce) { .fb-xmas::before, .fb-lights { animation: none; } }
+/* the red strip: the agency's pinned headline for the day */
+.bt-pin { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.bt-pin span { font-size: clamp(13px, .95vw, 20px); font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bt-pin small { flex: none; font-size: clamp(11px, .72vw, 14px); color: rgba(255, 255, 255, .85); }
+/* Team Space: who sold what today, as a game */
+.ts-sold-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.ts-sold-list li { display: grid; grid-template-columns: 30px minmax(70px, auto) minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 10px; background: rgba(255, 255, 255, .06); }
+.ts-sold-list li.lead { background: linear-gradient(90deg, rgba(255, 215, 106, .28), rgba(255, 255, 255, .06)); box-shadow: inset 0 0 0 1px rgba(255, 215, 106, .55); }
+.ts-sold-rank { font-size: clamp(16px, 1.1vw, 22px); font-weight: 900; text-align: center; }
+.ts-sold-who { display: grid; line-height: 1.15; min-width: 0; }
+.ts-sold-who b { font-size: clamp(13px, .95vw, 19px); white-space: nowrap; }
+.ts-sold-who small { font-size: clamp(10.5px, .7vw, 13px); color: rgba(255, 255, 255, .75); }
+.ts-sold-bar { height: 8px; border-radius: 999px; background: rgba(255, 255, 255, .14); overflow: hidden; }
+.ts-sold-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #199e70, #ffd76a); transition: width .6s ease; }
+.ts-sold-v { font-size: clamp(14px, 1vw, 20px); font-variant-numeric: tabular-nums; }
+.ts-sold-next { margin: 8px 0 0; font-size: clamp(11.5px, .8vw, 15px); color: rgba(255, 255, 255, .8); }
