@@ -97,18 +97,26 @@ const KIND_VALUES = new Set(Object.values(KIND))
 
 /** One person's retention totals, this week and last: everything they worked (call lists, renewal reviews,
  *  reinstatements, the retention log), not only one list. Shown at the top of their My Space. */
-export function MyRetentionTotals({ name }: { name: string }) {
+/** one person's retention work this week and last (everything worked, not only one list) */
+export function useRetentionTotals(name: string, tick = 0) {
   const today = todayPacific(), thisMon = monday(today), lastMon = addDays(thisMon, -7)
-  const { data } = useAsync(() => loadWeek(lastMon, addDays(thisMon, 6)), [lastMon])
+  const { data } = useAsync(() => loadWeek(lastMon, addDays(thisMon, 6)), [lastMon, tick])
   if (!data) return null
   const mine = data.filter((r) => r.who.toLowerCase() === name.toLowerCase() && r.result !== 'Not worked')
   const week = (from: string) => mine.filter((r) => r.day >= from && r.day <= addDays(from, 6))
-  const parts = (rows: Row[]) => {
-    const rv = rows.filter((r) => /renewal/i.test(r.source) && r.source !== 'Retention log').length, rein = rows.filter((r) => r.source === 'Reinstatement').length
-    const lists = rows.filter((r) => !KIND_VALUES.has(r.source) && r.source !== 'Retention log').length, log = rows.filter((r) => r.source === 'Retention log').length
-    return [rv && `${rv} renewal review${rv === 1 ? '' : 's'}`, rein && `${rein} reinstatement${rein === 1 ? '' : 's'}`, lists && `${lists} on call lists`, log && `${log} logged`].filter(Boolean).join(' · ') || 'nothing yet'
-  }
-  const tw = week(thisMon), lw = week(lastMon)
+  return { tw: week(thisMon), lw: week(lastMon), parts: totalsParts }
+}
+/** what a set of worked clients was, in a few words: "27 renewal reviews · 13 reinstatements · 10 on call lists" */
+export function totalsParts(rows: Row[]) {
+  const rv = rows.filter((r) => /renewal/i.test(r.source) && r.source !== 'Retention log').length, rein = rows.filter((r) => r.source === 'Reinstatement').length
+  const lists = rows.filter((r) => !KIND_VALUES.has(r.source) && r.source !== 'Retention log').length, log = rows.filter((r) => r.source === 'Retention log').length
+  return [rv && `${rv} renewal review${rv === 1 ? '' : 's'}`, rein && `${rein} reinstatement${rein === 1 ? '' : 's'}`, lists && `${lists} on call lists`, log && `${log} logged`].filter(Boolean).join(' · ') || 'nothing yet'
+}
+
+export function MyRetentionTotals({ name }: { name: string }) {
+  const t = useRetentionTotals(name)
+  if (!t) return null
+  const { tw, lw, parts } = t
   return (
     <Tiles>
       <Tile label="Clients worked · this week" value={tw.length} sub={parts(tw)} />
