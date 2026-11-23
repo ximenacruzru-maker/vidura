@@ -2359,3 +2359,9 @@ html[data-theme] .nav-h { padding-top: 12px; font-size: 10px; opacity: .8; }
   .bnav-pop button svg { width: 19px; height: 19px; color: var(--muted); }
   .bnav-pop button.active { background: var(--tint); color: var(--blue); }
 }
+/* retention for a week (owner's Space) */
+.rw-day { margin-top: 14px; }
+.rw-day-h { font-size: 12px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; }
+.rw-notes { max-width: 560px; font-size: 13.5px; line-height: 1.45; white-space: pre-wrap; }
+.rw-notes b { font-weight: 700; }
+.hd-week { padding: 0 10px; font-weight: 800; white-space: nowrap; align-self: center; }

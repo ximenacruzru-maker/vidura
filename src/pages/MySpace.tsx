@@ -5,6 +5,7 @@ import LifePromoBanner from '../components/LifePromoBanner'
 import { TeamBoard } from './TeamSpace'
 import ReportsMemo from '../components/ReportsMemo'
 import { MyCallList, TeamCallLists } from './CallLists'
+import RetentionWeek from '../components/RetentionWeek'
 import { ErrorBox, Loading, PageHead, Panel, Tile, Tiles } from '../components/ui'
 import { daysUntil, getBookPolicies } from '../lib/books'
 import { getFolios, getPolicies, getQuotes, isAdmin, type Folio, type Policy, type QuoteLead } from '../lib/data'
@@ -108,7 +109,7 @@ export default function MySpace() {
     <>
       {/* the owner sees the team's day here as a board (who's in, what everyone worked on and achieved); everyone
           else sees the life promo */}
-      {owner ? <>{head}<TeamBoard /><TeamCallLists /></> : <><LifePromoBanner />{head}</>}
+      {owner ? <>{head}<TeamBoard /><RetentionWeek /><TeamCallLists /></> : <><LifePromoBanner />{head}</>}
       {admin && <ReportsMemo />}
       <MyCallList name={me?.producer_name || me?.display_name || ''} />
       {retentionRole ? <RetentionTiles name={me?.producer_name || me?.display_name || ''} /> : <>
