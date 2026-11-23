@@ -73,6 +73,13 @@ async function refs(keys: string[]) {
   if (error) throw error
   const out: Json = {}
   ;(data || []).forEach((r: any) => { out[r.key.slice(3)] = r.data })
+  // staff who aren't admins can't read these rows directly: perf_refs() hands them the dashboard's keys with the pay
+  // parts (commission plan and results, SDR bonuses) taken out
+  const missing = keys.filter((k) => !(k in out))
+  if (missing.length) {
+    const r = await supabase.rpc('perf_refs', { p_keys: missing })
+    ;((r.data || []) as { key: string; data: Json }[]).forEach((x) => { out[x.key.slice(3)] = x.data })
+  }
   return out
 }
 
@@ -143,11 +150,16 @@ export async function loadPerfData(): Promise<PerfData> {
   D.accountOf = accountOf
   D.REPORT_DEFAULT_FOLIO = '2026-08-20'
   D.LIVE_FOLIO_ROWS = D.LIVE_FOLIO_ROWS || {}
+  if (!D.WB_DATA) throw new Error('The sales numbers aren’t available to your login.')
+  D.WB_EXTRA = D.WB_EXTRA || { daily: {} }
+  D.GOALS = D.GOALS || {}
   D.WB_DATA.commissionsByFolio = D.WB_DATA.commissionsByFolio || {}
   const P = D as PerfData
   azRestore(P)
   await supaSyncLoad(P)
-  commRecalc(P)
+  // commissions are worked out only where the commission plan can be read (owner and admins)
+  if (D.COMM_SEED) commRecalc(P)
+  else { P.COMM_RESULTS = {} }
   return P
 }
 

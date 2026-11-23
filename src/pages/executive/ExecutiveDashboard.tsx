@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../auth'
+import { can } from '../../lib/access'
 import ironwoodLogo from '../../assets/ironwood-logo.png'
 import { ErrorBox, Loading } from '../../components/ui'
 import LifePromoBanner from '../../components/LifePromoBanner'
@@ -36,6 +37,8 @@ export default function ExecutiveDashboard() {
 export function Dashboard({ D }: { D: PerfData }) {
   const go = useNavigate()
   const { me } = useAuth()
+  // goals, commission and the Reports links are for the owner and admins; everyone else sees the numbers
+  const admin = can(me, 'performance')
   const root = useRef<HTMLDivElement>(null)
   const S = D.S || {}
   const [f, setF] = useState(saved || {
@@ -110,13 +113,13 @@ export function Dashboard({ D }: { D: PerfData }) {
               <option value="all">All lines</option>
               {x.kindsAll.map((k) => <option key={k} value={k}>{k}</option>)}
             </select></div>
-          <button className={'fb-goals' + (f.goals ? ' on' : '')} onClick={() => set('goals', !f.goals)}>
+          {admin && <button className={'fb-goals' + (f.goals ? ' on' : '')} onClick={() => set('goals', !f.goals)}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1" /></svg>
-            Edit Goals</button>
+            Edit Goals</button>}
           <button className="mc-btn" onClick={() => setComponents(true)}>{ICO.doc}<span>Metric Components</span></button>
           <div className="fb-u">{ICO.cal}<span>Updated {nowLabel}</span></div>
         </div>
-        {f.goals && (
+        {admin && f.goals && (
           <div className="fgoals">
             <label>Premium goal<input className="f fb-in" placeholder="Not set" defaultValue={gPrem || ''} onBlur={(e) => e.target.value !== String(gPrem || '') && goalSet('premium', e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} /></label>
             <label>Policy goal<input className="f fb-in" placeholder="Not set" defaultValue={gPol || ''} onBlur={(e) => e.target.value !== String(gPol || '') && goalSet('policies', e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} /></label>
@@ -300,6 +303,8 @@ export function Dashboard({ D }: { D: PerfData }) {
 function Production({ D, win, setWin, range, setRange, goals }: {
   D: PerfData; win: string; setWin: (v: string) => void; range: { from: string; to: string }; setRange: (r: { from: string; to: string }) => void; goals: PerfData['GOALS']
 }) {
+  const { me } = useAuth()
+  const admin = can(me, 'performance')
   const P = execProduction(D, win, range)
   // past folios only: the next folio has no sales yet
   const folios = useMemo(() => folioOptions(D).filter((o) => D.WB_DATA.folio[o.key.slice(2)]), [D])
@@ -347,9 +352,11 @@ function Production({ D, win, setWin, range, setRange, goals }: {
           <ScoreCard icon={ICO.target} iconClass="i-blue" label="Quotes" value={P.quotes} display={String(P.quotes)} goalLine={money0(P.qprem) + ' quoted' + (conv == null && P.quotes ? ' · quote log covers part of the window' : '')}
             pct={conv != null ? Math.min(100, conv) : null} tone={conv != null && conv >= 30 ? 'good' : 'warn'}
             delta={{ tone: conv != null && conv >= 30 ? 'up' : 'down', arrow: conv != null ? (conv >= 30 ? '▲' : '▼') : '', value: conv != null ? conv.toFixed(0) + '%' : '—' }} goalNote="quote → sale" />
-          <ScoreCard icon={ICO.coin} iconClass="i-red" label="Producer commission" value={P.comm} display={P.folios.length ? money0(P.comm) : '—'} goalLine={P.folios.length ? 'closed-folio basis' : 'folio windows only'}
+          {admin ? <ScoreCard icon={ICO.coin} iconClass="i-red" label="Producer commission" value={P.comm} display={P.folios.length ? money0(P.comm) : '—'} goalLine={P.folios.length ? 'closed-folio basis' : 'folio windows only'}
             pct={P.folios.length && P.prem ? Math.min(100, (P.comm / P.prem) * 100) : null} tone="good"
             delta={{ tone: 'flat', arrow: '', value: P.folios.length && P.prem ? ((P.comm / P.prem) * 100).toFixed(1) + '%' : '' }} goalNote={P.folios.length ? 'of premium' : ''} />
+            : <ScoreCard icon={ICO.coin} iconClass="i-red" label="Avg premium" value={P.sales.length ? P.prem / P.sales.length : 0} display={P.sales.length ? money0(P.prem / P.sales.length) : '—'}
+              goalLine={P.cust + ' customers'} pct={null} tone="good" delta={{ tone: 'flat', arrow: '', value: '' }} goalNote="per policy" />}
         </div>
         <div className="p21" style={{ marginTop: 14 }}>
           <div className="panel"><div className="panel-h"><div><div className="panel-t">Premium by carrier</div><div className="panel-s">Farmers vs everything else in the window</div></div></div>
@@ -451,6 +458,7 @@ function MetricComponents({ D, open, live, onClose }: { D: PerfData; open: boole
 /** In the Metric Components drawer: what the current folio sold, by the lead source AgencyZoom has on each policy. */
 function SoldByLeadSource({ D }: { D: PerfData }) {
   const go = useNavigate()
+  const { me } = useAuth()
   const keys = wbFolioKeys(D).slice(0, 12)
   const [k, setK] = useState(keys[0])
   const rows = useMemo(() => {
@@ -475,7 +483,7 @@ function SoldByLeadSource({ D }: { D: PerfData }) {
           <span className="mc-ls-v mono">{money0(o.p)}</span><span className="mc-ls-n">{o.n}</span>
         </div>
       )) : <div className="empty">No sales in this folio yet.</div>}
-      <button className="mc-ls-go" onClick={() => go('/reports')}>Open Reports › Lead Sources for any folio, year to date or one producer ›</button>
+      {can(me, 'performance') && <button className="mc-ls-go" onClick={() => go('/reports')}>Open Reports › Lead Sources for any folio, year to date or one producer ›</button>}
     </div>
   )
 }

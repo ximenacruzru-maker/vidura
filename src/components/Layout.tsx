@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth'
-import { can, commissionsOnly, producerPath, ROLE_LABEL } from '../lib/access'
+import { can, commissionsOnly, producerPath, ROLE_LABEL, seesNumbers } from '../lib/access'
 import { agencyName } from '../lib/data'
 import { COPYRIGHT } from '../lib/format'
 import { bookLabel, getAccounts, getBookPolicies, type Account, type BookPolicy } from '../lib/books'
@@ -60,8 +60,9 @@ export default function Layout({ children }: { children: ReactNode }) {
     { to: '/sales-flow', label: 'Sales Flowchart', icon: 'flow', show: c('resources') && !trainee, more: true },
     { div: true },
     { h: 'Performance' },
-    { to: '/', label: 'Executive Dashboard', icon: 'executive', show: c('performance'), also: ['/legacy-dashboard'] },
-    { to: '/sales', label: 'Daily Huddle Report', icon: 'pulse', show: c('performance'), also: ['/huddle', '/legacy-sales', '/sales-kpis'] },
+    // everyone on staff sees the dashboard and the huddle report; Reports (commissions, pay) stays with the owner and admins
+    { to: c('performance') ? '/' : '/dashboard', label: 'Executive Dashboard', icon: 'executive', show: seesNumbers(me), also: ['/legacy-dashboard', '/dashboard'] },
+    { to: '/sales', label: 'Daily Huddle Report', icon: 'pulse', show: seesNumbers(me), also: ['/huddle', '/legacy-sales', '/sales-kpis'] },
     { to: '/reports', label: 'Reports', icon: 'reports', show: c('performance'), also: ['/commissions', '/sdr', '/year-end', '/legacy-reports', '/legacy-commissions', '/commission-setup', '/legacy-sdr'] },
     { h: 'Agency Management' },
     { to: '/resources', label: 'Agency Resources', icon: 'service', show: c('resources') || c('passwords') },
