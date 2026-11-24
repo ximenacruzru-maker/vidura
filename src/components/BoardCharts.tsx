@@ -24,7 +24,7 @@ export function HBars({ rows, keys, fmt, legend = true, max }: {
         const t = total(r)
         return (
           <div key={r.label} className="bc-row" title={`${r.label}: ${keys.map((x) => `${fmt(r.parts[x.k] || 0)} ${x.label.toLowerCase()}`).join(' · ')}`}>
-            <span className="bc-name">{r.label}{r.badge}{r.note ? <small>{r.note}</small> : null}</span>
+            <span className="bc-name"><span className="bc-n">{r.label}</span>{r.badge}{r.note ? <small>{r.note}</small> : null}</span>
             <span className="bc-track">{keys.map((x) => (r.parts[x.k] ? <i key={x.k} style={{ width: (r.parts[x.k] / top) * 100 + '%', background: x.color }} /> : null))}</span>
             <b className="bc-val">{fmt(t)}</b>
           </div>

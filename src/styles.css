@@ -2106,8 +2106,10 @@ body.tv .ts-title { display: block; }
 .bc-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .bc-legend i, .bc-donut-key i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
 .bc-hbars { display: grid; gap: 7px; }
-.bc-row { display: grid; grid-template-columns: minmax(84px, 26%) minmax(0, 1fr) auto; align-items: center; gap: 10px; }
+.bc-row { display: grid; grid-template-columns: minmax(96px, 30%) minmax(0, 1fr) auto; align-items: center; gap: 10px; }
 .bc-name { display: grid; min-width: 0; font-size: clamp(12.5px, .85vw, 17px); font-weight: 800; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* a long name ends in … instead of being cut mid-letter */
+.bc-n { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bc-name small { font-size: .78em; font-weight: 600; color: rgba(255, 255, 255, .65); overflow: hidden; text-overflow: ellipsis; }
 .bc-track { display: flex; gap: 2px; height: clamp(14px, 1.05vw, 22px); border-radius: 4px; background: rgba(255, 255, 255, .07); overflow: hidden; }
 .bc-track i { display: block; height: 100%; min-width: 3px; transition: width .6s ease; }
@@ -2172,6 +2174,15 @@ body.tv .ts-title { display: block; }
 .ts-k .bc-donut-key b, .ts-k .bc-donut-key span { font-size: clamp(11.5px, .78vw, 15px); overflow-wrap: normal; line-height: 1.25; }
 .hd-donut-k .bc-donut { gap: 10px; }
 .hd-donut-k .bc-donut svg { width: clamp(64px, 4vw, 84px); }
+/* Daily Huddle's Farmers vs brokered tile: everything stays inside the tile. The key reads in normal case (not the
+   tile label's spaced capitals), a line's % drops under its amount when the tile is narrow, and the key moves under
+   the ring when there isn't room beside it */
+.hd-donut-k { grid-template-columns: minmax(0, 1fr); overflow: hidden; }
+.hd-donut-k > span { overflow-wrap: anywhere; }
+.hd-donut-k .bc-donut { flex-wrap: wrap; min-width: 0; row-gap: 6px; }
+.hd-donut-k .bc-donut-key { flex: 1 1 96px; min-width: 0; }
+.hd-donut-k .bc-donut-key span { flex-wrap: wrap; column-gap: 6px; row-gap: 0; text-transform: none; letter-spacing: 0; color: rgba(255, 255, 255, .85); }
+.hd-donut-k .bc-donut-key b { margin-left: 0; }
 .hd-month .hd-chart { height: clamp(200px, 24vh, 320px); }
 /* the incoming-call alert: big, on top of the board, until someone picks up */
 .ic { position: fixed; z-index: 60; left: 50%; top: clamp(16px, 4vh, 48px); transform: translateX(-50%); display: grid; gap: 10px; width: min(860px, calc(100vw - 32px)); padding: clamp(14px, 1.4vw, 26px); border-radius: 22px; color: #fff;
