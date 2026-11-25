@@ -33,7 +33,7 @@ export default function AgencyGoals() {
       today >= PTO_INCENTIVE.from ? streakData(today).catch(() => null) : Promise.resolve(null),
       admin ? supabase.from('staff_accounts').select('display_name, producer_name, role').eq('active', true).neq('role', 'owner').neq('role', 'new_hire')
         .then((r) => ((r.data || []) as { display_name: string | null; producer_name: string | null }[]).map((x) => x.producer_name || x.display_name || '').filter(Boolean)) : Promise.resolve([] as string[]),
-      admin ? getDailyGoals(today, today).catch(() => []) : Promise.resolve([]),
+      getDailyGoals(today, today).catch(() => []),
     ])
     const premium = sold.reduce((t, s) => t + (Number(s.premium) || 0), 0)
     const revenue = !owner ? 0 : sold.filter((s) => FARMERS.test(s.carrier || '')).reduce((t, s) => { const r = FARMERS_RATES.find((x) => x.key === revenueLine(s.line)); return t + (r ? (Number(s.premium) || 0) * r.rate : 0) }, 0)
@@ -90,7 +90,8 @@ export default function AgencyGoals() {
               <span className="gr-bars"><span className="gr-bar"><em>{r.total != null && r.goal != null ? `${money0(r.total)}/${money0(r.goal)}` : `${r.pct}% of goal`}</em><i><u style={{ width: Math.min(100, r.pct) + '%' }} className={r.reached ? 'full' : ''} /></i></span></span>
               <b className="gr-pct">{r.pct}%</b>
             </li>))}</ol></div>}
-        {admin && <TeamBreakdown team={d.team} todays={d.todays} board={d.board} runs={d.runs} today={today} />}
+        {/* everyone sees the breakdown; for anyone but the owner and admins the team is whoever set goals or a commission goal */}
+        <TeamBreakdown team={admin ? d.team : [...new Set([...d.todays.map((x) => x.name), ...d.board.map((x) => x.producer)])].sort()} todays={d.todays} board={d.board} runs={d.runs} today={today} appts={admin} />
         {admin && <TeamGoals team={d.team} todays={d.todays} cgoals={d.cgoals} folio={folio.start_date} today={today} onSaved={() => setTick((n) => n + 1)} />}
       </>}
     </section>
@@ -147,15 +148,15 @@ function TeamGoals({ team, todays, cgoals, folio, today, onSaved }: {
 /** Shannon's (and the admins') breakdown of everyone's day: appointments set by the SDRs and received by the producers
  *  (SDR transfers), each person's goals for today against what they've done (calls and premium), quotes, how far along
  *  their commission goal is, and their PTO streak */
-function TeamBreakdown({ team, todays, board, runs, today }: {
-  team: string[]; todays: { name: string; calls: number | null; revenue: number | null }[]; board: BoardRow[]; runs: StreakData | null; today: string
+function TeamBreakdown({ team, todays, board, runs, today, appts }: {
+  appts: boolean; team: string[]; todays: { name: string; calls: number | null; revenue: number | null }[]; board: BoardRow[]; runs: StreakData | null; today: string
 }) {
   const data = useAsync(async () => {
     const [calls, sold, quotes, transfers] = await Promise.all([
       supabase.rpc('calls_by_day', { p_from: today, p_to: today }).then((r) => ((r.data || []) as any[]).map((x) => ({ agent: x.agent as string | null, n: Number(x.calls) || 0 }))),
       supabase.from('policies_sold').select('producer, premium').eq('sale_date', today).limit(2000).then((r) => (r.data || []) as { producer: string | null; premium: number | string | null }[]),
       supabase.from('quote_leads').select('producer, quoted_premium').eq('quote_day', today).limit(2000).then((r) => (r.data || []) as { producer: string | null; quoted_premium: number | string | null }[]),
-      supabase.from('sdr_transfers').select('sdr, producer, client, az_qualifies, bound').eq('date_time', today).limit(500).then((r) => (r.data || []) as { sdr: string | null; producer: string | null; az_qualifies: boolean; bound: boolean }[]),
+      appts ? supabase.from('sdr_transfers').select('sdr, producer, client, az_qualifies, bound').eq('date_time', today).limit(500).then((r) => (r.data || []) as { sdr: string | null; producer: string | null; az_qualifies: boolean; bound: boolean }[]) : Promise.resolve([] as { sdr: string | null; producer: string | null; az_qualifies: boolean; bound: boolean }[]),
     ])
     return { calls, sold, quotes, transfers }
   }, [today])
@@ -178,13 +179,13 @@ function TeamBreakdown({ team, todays, board, runs, today }: {
     <div className="hgx-board">
       <p className="hgx-plan-k">TEAM BREAKDOWN · TODAY {mdy(today).slice(0, 5)}</p>
       {!d ? <p className="hgx-q-s">Loading…</p> : !rows.length ? <p className="hgx-q-s">Nothing yet today.</p> : <div className="tbl-wrap"><table className="hgx-tbl hgx-break">
-        <thead><tr><th>Who</th><th>📅 Appointments</th><th>📞 Calls / goal</th><th>💵 Premium / goal</th><th>📝 Quotes</th><th>👾 Commission</th><th>🔥 Streak</th></tr></thead>
+        <thead><tr><th>Who</th>{appts && <th>📅 Appointments</th>}<th>📞 Calls / goal</th><th>💵 Premium / goal</th><th>📝 Quotes</th><th>👾 Commission</th><th>🔥 Streak</th></tr></thead>
         <tbody>{rows.map((x) => (
           <tr key={x.n}>
             <td className="strong">{x.n}</td>
-            <td>{x.set.length ? <span title={by(x.set, 'producer')}>set {x.set.length} <small className="hgx-dim">→ {by(x.set, 'producer')}</small></span> : null}
+            {appts && <td>{x.set.length ? <span title={by(x.set, 'producer')}>set {x.set.length} <small className="hgx-dim">→ {by(x.set, 'producer')}</small></span> : null}
               {x.got.length ? <span title={by(x.got, 'sdr')}>{x.set.length ? <br /> : null}got {x.got.length} <small className="hgx-dim">from {by(x.got, 'sdr')}</small></span> : null}
-              {!x.set.length && !x.got.length ? <small className="hgx-dim">—</small> : null}</td>
+              {!x.set.length && !x.got.length ? <small className="hgx-dim">—</small> : null}</td>}
             <td>{cell(x.c, x.g?.calls, (n) => String(n))}</td>
             <td>{cell(x.r, x.g?.revenue, money0)}</td>
             <td>{x.q.length ? <>{x.q.length} <small className="hgx-dim">{money0(x.q.reduce((t, y) => t + (Number(y.quoted_premium) || 0), 0))}</small></> : <small className="hgx-dim">—</small>}</td>
