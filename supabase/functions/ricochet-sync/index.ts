@@ -2,7 +2,8 @@
 //
 // Reads Ricochet over its API and keeps, for Team Space and the Daily Huddle Report:
 //   * ricochet_agents — each Ricochet user and their live status (On_Phone = on a call, Busy, Offline…) and since when
-//   * ricochet_calls  — each call made or taken (who, when, inbound or outbound, the queue), one row per call
+//   * ricochet_calls  — each call made or taken (who, when, inbound or outbound, the queue, and how long it lasted
+//     and was talked, when Ricochet's call action carries it), one row per call
 //   * ricochet_texts  — each text sent or received (who, when, which way), from the same lead activity
 //   * ricochet_voicemails — each voicemail on Ricochet's voicemail list (when, for whom, heard or not)
 // Ricochet has no call-log endpoint, so the calls come from the leads, newest-called first: each lead lists the calls
@@ -30,6 +31,26 @@ const local = (s: unknown) => {
 /** a time as Ricochet sends it ("11/17/2026 08:49:38 AM" or ISO "2026-11-17 08:49:38"), Pacific wall clock */
 const wall = (s: unknown) => local(s) || (/^\d{4}-\d\d-\d\d[ T]\d\d:\d\d(:\d\d)?/.test(String(s || "")) ? String(s).replace(" ", "T").slice(0, 19) : null);
 /** a Pacific wall-clock time as an instant */
+/** Seconds from 125, "125", "125.4", "02:05" or "00:02:05" */
+const secs = (v: unknown) => {
+  if (v == null || v === "") return null;
+  const t = String(v).trim();
+  if (/^\d+(\.\d+)?$/.test(t)) return Math.round(Number(t));
+  if (!/^\d+(:\d\d){1,2}$/.test(t)) return null;
+  return t.split(":").map(Number).reduce((a, x) => a * 60 + x, 0);
+};
+/** the first of some fields (matched loosely: case and punctuation don't matter) that holds a length of time */
+const norm = (k: string) => k.toLowerCase().replace(/[^a-z0-9]/g, "");
+const length = (objs: any[], names: string[]) => {
+  for (const o of objs) {
+    if (!o || typeof o !== "object") continue;
+    const keys = new Map(Object.keys(o).map((k) => [norm(k), k]));
+    for (const n of names) { const k = keys.get(norm(n)); const v = k == null ? null : secs(o[k]); if (v != null) return v; }
+  }
+  return null;
+};
+const DURATION = ["duration", "call_duration", "duration_seconds", "duration_sec", "length", "call_length", "billsec", "bill_sec", "seconds", "total_time", "call_time_seconds"];
+const TALK = ["talk_time", "talktime", "talk_seconds", "talk_sec", "talk_duration", "conversation_time", "answered_duration", "connected_duration"];
 const utc = (wall: string) => {
   const guess = new Date(wall + "Z");
   const seen = new Date(guess.toLocaleString("en-US", { timeZone: TZ }));
@@ -98,10 +119,15 @@ Deno.serve(async (req) => {
             continue;
           }
           const call_id = `api:${a.lead_id ?? l.id}:${uid ?? 0}:${at}`;
+          // how long the call lasted and was talked, from the action or its data (the field names are kept, not
+          // their values, so it's clear what Ricochet sends)
+          const data = a.data && typeof a.data === "object" ? a.data : {};
+          const duration_sec = length([data, a], DURATION), talk_sec = length([data, a], TALK);
           calls.set(call_id, {
             agency_id: A, call_id, day: at.slice(0, 10), started_at: utc(at), agent: uid != null ? names.get(uid) || `Ricochet user ${uid}` : "Unassigned",
             ricochet_user_id: uid, direction: a.action_type === "incoming_call" ? "inbound" : "outbound", call_type: a.data?.call_type || null,
-            lead_id: String(a.lead_id ?? l.id), source: "api", raw: { call_type: a.data?.call_type || null },
+            lead_id: String(a.lead_id ?? l.id), source: "api", duration_sec, talk_sec,
+            raw: { call_type: a.data?.call_type || null, fields: Object.keys(a).sort(), data_fields: Object.keys(data).sort() },
           });
         }
       }
@@ -135,7 +161,7 @@ Deno.serve(async (req) => {
       if (vrows.length) { const { error } = await db.from("ricochet_voicemails").upsert(vrows, { onConflict: "agency_id,vm_id" }); if (error) throw error; }
       vms = vrows.length;
     } catch (_) { /* the voicemail list is optional */ }
-    return json({ ok: true, from, agents: agents.length, onCall: agents.filter((x: any) => /on.?phone|on.?call/i.test(x.status || "")).length, calls: rows.length, texts: tx.length, voicemails: vms, pages });
+    return json({ ok: true, from, agents: agents.length, onCall: agents.filter((x: any) => /on.?phone|on.?call/i.test(x.status || "")).length, calls: rows.length, timed: rows.filter((r) => r.duration_sec != null || r.talk_sec != null).length, texts: tx.length, voicemails: vms, pages });
   } catch (e) {
     return json({ ok: false, error: (e as Error).message || String(e) }, 502);
   }
