@@ -40,7 +40,6 @@ export default function Layout({ children }: { children: ReactNode }) {
   }, [drawer])
 
   const c = (k: string) => can(me, k)
-  const first = (me?.display_name || '').split(' ')[0]
   // a new hire sees only the training (and their settings) until their role is changed
   const trainee = me?.role === 'new_hire'
   // "My Commissions only": that page is the whole app
@@ -50,7 +49,8 @@ export default function Layout({ children }: { children: ReactNode }) {
   const full: Item[] = [
     { h: 'Workspace' },
     { to: '/training', label: 'Training', icon: 'training', show: path },
-    { to: '/today', label: first ? `${first}’s Space` : 'My Space', icon: 'today', show: !trainee },
+    // the owner's page is his Space (the team's day); everyone else's is the Hunter Goal Scoreboard
+    { to: '/today', label: me?.role === 'owner' ? `${(me?.display_name || '').split(' ')[0]}’s Space` : 'Hunter Goal Scoreboard', icon: 'today', show: !trainee },
     { to: '/work', label: 'Work & Tickets', icon: 'tickets', show: c('work') },
     // Team Space: the big-screen board of the day (owner, admins, whoever runs the work queue) with Team Chat as its other tab
     { to: '/team', label: 'Team Space', icon: 'proteges', show: c('chat') || c('work_manager'), also: ['/chat'] },

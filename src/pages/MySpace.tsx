@@ -6,8 +6,8 @@ import { TeamBoard } from './TeamSpace'
 import ReportsMemo from '../components/ReportsMemo'
 import { MyCallList, TeamCallLists } from './CallLists'
 import RetentionWeek from '../components/RetentionWeek'
-import FocusBoard from '../components/FocusBoard'
-import MyGoals from '../components/MyGoals'
+import MyGoals, { GoalHero } from '../components/MyGoals'
+import { incentiveDay } from '../lib/goals'
 import AgencyGoals from '../components/AgencyGoals'
 import { ErrorBox, Loading, PageHead, Panel, Tile, Tiles } from '../components/ui'
 import { daysUntil, getBookPolicies, isClosed } from '../lib/books'
@@ -59,9 +59,9 @@ export default function MySpace() {
   }, [reload, today, yearFrom, rateFrom])
 
   const date = new Date(today + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' })
-  const head = <PageHead kicker={`${first ? first + '’s' : 'My'} space`} title={date} />
-  // a person set to focus on their call list (staff_accounts.access.call_list_focus) sees only that list here
-  if ((me?.access as Record<string, unknown> | undefined)?.call_list_focus && !owner) return <FocusBoard name={me?.producer_name || me?.display_name || ''} />
+  const head = <PageHead kicker={owner ? `${first}’s Space` : `Hunter Goal Scoreboard${first ? ' · ' + first : ''}`} title={date} />
+  // a person set to focus on their call list (staff_accounts.access.call_list_focus) works it on the Retention page
+  const listOnRetention = !!(me?.access as Record<string, unknown> | undefined)?.call_list_focus && !owner
   if (error) return <>{head}<ErrorBox error={error} /></>
   if (!data) return <>{head}<Loading /></>
 
@@ -114,9 +114,9 @@ export default function MySpace() {
     <>
       {/* the owner sees the team's day here as a board (who's in, what everyone worked on and achieved); everyone
           else sees the life promo */}
-      {owner ? <>{head}<TeamBoard /><AgencyGoals /><RetentionWeek /><TeamCallLists /></> : <><LifePromoBanner />{head}<MyGoals name={me?.producer_name || me?.display_name || ''} commission={earnsCommission} /></>}
+      {owner ? <>{head}<TeamBoard /><AgencyGoals /><RetentionWeek /><TeamCallLists /></> : <>{incentiveDay(today) ? <GoalHero name={me?.producer_name || me?.display_name || ''} /> : <LifePromoBanner />}{head}<MyGoals name={me?.producer_name || me?.display_name || ''} commission={earnsCommission} /></>}
       {admin && <ReportsMemo />}
-      <MyCallList name={me?.producer_name || me?.display_name || ''} />
+      {listOnRetention ? <p className="sub" style={{ margin: '0 0 12px' }}>Your 30/60/90 renewal calls are on <Link to="/retention">Retention ›</Link></p> : <MyCallList name={me?.producer_name || me?.display_name || ''} />}
       {retentionRole ? <RetentionTiles name={me?.producer_name || me?.display_name || ''} /> : <>
       <Tiles>
         <Tile label={`${who} quoted pipeline · this folio`} value={money0(prem(pipeFolio))}

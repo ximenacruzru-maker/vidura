@@ -11,6 +11,7 @@ import { downloadRetentionPdf } from '../lib/retentionPdf'
 import { useAsync } from '../lib/useAsync'
 import RenewalReview from './RenewalReview'
 import { ClientSuccessView, loadClientSuccess } from '../components/ClientSuccess'
+import FocusBoard from '../components/FocusBoard'
 import type { BonusTier } from '../lib/payday'
 import { LOSS_REASONS, ROLE_FROM, TARGETS, folioBonus, monthEnd, monthLabel, movement, type RetentionDay, type RetentionEntry, type RetentionMonth } from '../lib/retention'
 
@@ -112,6 +113,9 @@ export default function Retention() {
   const maxNet = Math.max(1, ...byMonth.map((x) => Math.abs(x.net)))
 
   return (
+    <>
+    {/* the person's own call list (the 30/60/90 renewal calls) to work, when they're set to focus on it */}
+    {mineRole && (me?.access as Record<string, unknown> | undefined)?.call_list_focus ? <FocusBoard name={name} /> : null}
     <div className="rp">
       <header className="rp-band">
         <div className="rp-band-l">
@@ -249,6 +253,7 @@ export default function Retention() {
         <ClientSuccessBlock name={name} day={day} reload={reload} />
       </Section>
     </div>
+    </>
   )
 }
 

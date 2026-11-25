@@ -217,7 +217,7 @@ function HandbookAdmin({ handbook, onDone }: { handbook: Handbook | null; onDone
   }
   // every new hire starts as an SDR: when training is done, they move to the SDR role (and its pages)
   const toSdr = async (user_id: string, name: string) => {
-    if (!confirm(`Move ${name} to the SDR role? They'll get the SDR pages (My Space, My Pay, My Commissions, Work, Chat…) and leave this list.`)) return
+    if (!confirm(`Move ${name} to the SDR role? They'll get the SDR pages (Hunter Goal Scoreboard, My Pay, My Commissions, Work, Chat…) and leave this list.`)) return
     setBusy('Moving…')
     try {
       const { data, error } = await supabase.functions.invoke('staff-admin', { body: { action: 'update', user_id, role: 'sdr' } })

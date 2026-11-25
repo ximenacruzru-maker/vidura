@@ -4,6 +4,7 @@
 // they've done in Declara today, and calls by person from Ricochet (with who's on a call now). Any past day can be
 // picked. It refreshes every minute; TV mode hides the menu and fills the screen. Team Chat is the other tab. The
 // board shows no client names, since a screen in the office can be seen by walk-ins.
+import GoalRace from '../components/GoalRace'
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth'
@@ -17,7 +18,7 @@ import { pace } from '../lib/pace'
 import { supabase } from '../lib/supabase'
 import { loadTeamToday, teamPeople, tidyName, type TeamPerson } from '../lib/teamToday'
 import { bestCalls, callAgent, UNANSWERED } from '../lib/ricochet'
-import { HBars, HourChart, SERIES } from '../components/BoardCharts'
+import { HBars, SERIES } from '../components/BoardCharts'
 import { BoardBoost, BreakingNews, useBoardNews } from '../components/BoardToday'
 import IncomingCalls from '../components/IncomingCalls'
 import { useTvMode } from '../lib/tvMode'
@@ -220,7 +221,8 @@ export function TeamBoard() {
                 note: ph ? <span className={'ts-st k-' + ph.k}>{ICON[ph.k]} {ph.label} · {mins(t.agent!.status_since)}</span> : undefined } })} />
               : <p className="ts-none">{data.agents.length ? `No calls in Ricochet ${isToday ? 'yet today' : 'that day'}.` : 'Calls show up here once the Ricochet sync is running.'}</p>}
           </div>
-          <div className="ts-feed ts-hours"><p className="ts-h">Calls by hour <span>{when}</span></p>{data.calls.some((c) => c.started_at) ? <HourChart calls={data.calls} /> : <p className="ts-none">No calls yet.</p>}</div>
+          {/* how close everyone is to their own goals for the day, live */}
+          <GoalRace day={day} className="ts-hours" />
           {F && <div className="xd ts-run"><RunningChart title="Running total vs goal" today={day} start={F.start_date} end={F.end_date} goal={goal || null} points={points} clean /></div>}
           <SoldLive sales={sales} people={inToday.map((p) => p.name)} when={when} isToday={isToday} />
       </div>
