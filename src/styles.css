@@ -2405,23 +2405,44 @@ html[data-theme] .nav-h { padding-top: 12px; font-size: 10px; opacity: .8; }
 .fb-xmas-count span { font-size: 12px; font-weight: 800; color: #FFE9B8; }
 .fb-xmas .fb-work .panel { border: 1.5px solid #E8C15A; box-shadow: 0 10px 30px rgba(0, 0, 0, .3); }
 @media (prefers-reduced-motion: reduce) { .fb-xmas::before, .fb-lights { animation: none; } }
-/* Team Space dressed for Thanksgiving (Nov 15 through the day after): warm autumn colors, a leaf garland along the top and
-   a few leaves drifting down behind everything (the decor sits under the board's contents and never takes a click) */
-.ts-tg { isolation: isolate; padding-top: clamp(38px, 2.8vw, 52px);
-  background: radial-gradient(ellipse at 50% -25%, rgba(232, 162, 30, .35) 0%, transparent 55%), linear-gradient(135deg, #3A1410 0%, #6E1F14 45%, #9A3F12 85%, #B5651D 120%);
-  border: 2px solid #E8A21E; box-shadow: 0 0 0 4px rgba(154, 63, 18, .5), 0 18px 44px rgba(40, 12, 6, .35); }
-.tg-decor { position: absolute; inset: 0; z-index: -1; overflow: hidden; border-radius: inherit; pointer-events: none; }
-.tg-garland { position: absolute; left: 0; right: 0; top: 0; height: 36px; background: url('./assets/thanksgiving/garland.svg') left top / 180px 36px repeat-x; }
-.tg-leaf { position: absolute; top: -40px; opacity: .55; animation: tg-fall linear infinite; will-change: transform; }
-@keyframes tg-fall { 0% { transform: translate(0, 0) rotate(0deg); } 50% { transform: translate(28px, 55vh) rotate(160deg); } 100% { transform: translate(-12px, 115vh) rotate(340deg); } }
-.ts-tg .ts-k { background: rgba(40, 12, 6, .38); border: 1.5px solid rgba(232, 162, 30, .55); }
-.ts-tg .ts-k.hero { background: linear-gradient(150deg, rgba(217, 83, 30, .55), rgba(110, 31, 20, .55)); border-color: #E8A21E; }
-.ts-tg .ts-k.warn b { color: #FFE08A; }
-.ts-tg .ts-bar i { background: linear-gradient(90deg, #D9531E, #E8A21E); }
-.tg-count { display: inline-flex; align-items: baseline; gap: 6px; padding: 7px 14px; border-radius: 999px; background: rgba(40, 12, 6, .55); border: 1.5px solid #E8A21E;
-  font-size: clamp(12px, .85vw, 17px); font-weight: 800; color: #FFE9C4; white-space: nowrap; }
-.tg-count b { font-size: 1.35em; color: #FFF6E6; }
-@media (prefers-reduced-motion: reduce) { .tg-leaf { animation: none; display: none; } }
+/* Team Space, arcade style (the same look as the Hunter Goal Scoreboard): a dark neon cabinet with scanlines, pixel-font
+   headings and labels, glowing score numbers and segmented power bars */
+.ts-arc { --px: 'Press Start 2P', ui-monospace, monospace; color: #e8ecff;
+  background: repeating-linear-gradient(0deg, rgba(255, 255, 255, .025) 0 2px, transparent 2px 4px),
+    radial-gradient(circle at 12% 0%, rgba(124, 92, 255, .38), transparent 42%), radial-gradient(circle at 100% 100%, rgba(0, 229, 255, .2), transparent 40%),
+    linear-gradient(160deg, #0b0f2a, #141a46 60%, #0d1236);
+  box-shadow: 0 0 0 2px rgba(124, 92, 255, .6), 0 0 28px rgba(124, 92, 255, .25), 0 14px 34px rgba(8, 10, 40, .4); }
+.ts-arc-kick { margin: 0 0 6px; font: 400 clamp(9px, .62vw, 13px)/1.4 var(--px); letter-spacing: .08em; text-transform: uppercase; color: #00e5ff; }
+.ts-arc-kick::after { content: '_'; margin-left: 4px; animation: ts-blink 1s steps(1) infinite; }
+@keyframes ts-blink { 50% { opacity: 0; } }
+.ts-arc .ts-title { font: 400 clamp(18px, 1.7vw, 34px)/1.3 var(--px); text-shadow: 0 0 12px rgba(124, 92, 255, .8); }
+.ts-arc .ts-date { color: #c9cff5; }
+.ts-arc .ts-k, .ts-arc .ts-feed { background: rgba(5, 7, 22, .55); border: 2px solid #2a2f6b; box-shadow: inset 0 0 18px rgba(124, 92, 255, .12); }
+.ts-arc .ts-k.hero { background: linear-gradient(160deg, rgba(124, 92, 255, .3), rgba(5, 7, 22, .6)); border-color: #7c5cff; box-shadow: 0 0 16px rgba(124, 92, 255, .45); }
+.ts-arc .ts-k span { font: 400 clamp(8px, .55vw, 12px)/1.5 var(--px); letter-spacing: .04em; color: #00e5ff; }
+.ts-arc .ts-k b { color: #ffd23f; text-shadow: 0 0 12px rgba(255, 210, 63, .55); }
+.ts-arc .ts-k.warn b { color: #ff7a90; text-shadow: 0 0 12px rgba(255, 90, 120, .55); }
+.ts-arc .ts-h { font: 400 clamp(10px, .75vw, 16px)/1.5 var(--px); color: #fff; text-shadow: 0 0 10px rgba(124, 92, 255, .7); }
+.ts-arc .ts-h span { font-family: var(--sans); font-size: clamp(11px, .8vw, 16px); font-weight: 700; color: #8b93d6; text-shadow: none; }
+.ts-arc .ts-bar { height: 10px; border-radius: 2px; background: #050716; box-shadow: inset 0 0 0 1px #2a2f6b; }
+.ts-arc .ts-bar i { border-radius: 0; background: repeating-linear-gradient(90deg, transparent 0 9px, #050716 9px 11px), linear-gradient(90deg, #39ff88, #00e5ff); box-shadow: 0 0 8px rgba(57, 255, 136, .5); }
+.ts-arc .ts-sold-bar { border-radius: 2px; background: #050716; }
+.ts-arc .ts-sold-bar i { border-radius: 0; background: repeating-linear-gradient(90deg, transparent 0 9px, #050716 9px 11px), linear-gradient(90deg, #ffd23f, #ff7ae0); }
+.ts-arc .ts-sold-list li, .ts-arc .ts-feed li, .ts-arc .gr-list li { background: rgba(124, 92, 255, .08); }
+.ts-arc .ts-sold-list li.lead { background: linear-gradient(90deg, rgba(255, 210, 63, .25), rgba(124, 92, 255, .08)); box-shadow: inset 0 0 0 1px rgba(255, 210, 63, .6), 0 0 12px rgba(255, 210, 63, .25); }
+.ts-arc .ts-days button, .ts-arc .ts-days input, .ts-arc .ts-tv { border: 2px solid #7c5cff; border-radius: 10px; background: rgba(124, 92, 255, .18); }
+.ts-arc .ts-days button.on { background: #ffd23f; border-color: #ffd23f; color: #1a1300; box-shadow: 0 3px 0 #b8901a; }
+.ts-arc .ts-tv:hover, .ts-arc .ts-days button:not(:disabled):not(.on):hover { background: rgba(124, 92, 255, .35); }
+.ts-arc .ts-cal-d { border: 2px solid #2a2f6b; background: rgba(5, 7, 22, .5); }
+.ts-arc .ts-cal-d.on { border-color: #7c5cff; background: rgba(124, 92, 255, .3); box-shadow: 0 0 12px rgba(124, 92, 255, .5); color: #fff; }
+.ts-arc .ts-cal-d.on span, .ts-arc .ts-cal-d.on small { color: #c9cff5; }
+.ts-arc .ts-cal-d.on em { color: #7dffb5; }
+.ts-arc .ts-cal-d.today { border-color: #39ff88; }
+.ts-arc .ts-upd { color: #8b93d6; }
+.tg-count { display: inline-flex; align-items: baseline; gap: 6px; padding: 7px 14px; border-radius: 10px; background: rgba(5, 7, 22, .6); border: 2px solid #ffd23f;
+  font-size: clamp(12px, .85vw, 17px); font-weight: 800; color: #ffe9a8; white-space: nowrap; box-shadow: 0 0 12px rgba(255, 210, 63, .3); }
+.tg-count b { font: 400 1.1em var(--px, monospace); color: #ffd23f; }
+@media (prefers-reduced-motion: reduce) { .ts-arc-kick::after { animation: none; } }
 /* the red strip: the agency's pinned headline for the day */
 .bt-pin { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
 .bt-pin span { font-size: clamp(13px, .95vw, 20px); font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -2503,14 +2524,14 @@ html[data-theme] .nav-h { padding-top: 12px; font-size: 10px; opacity: .8; }
 @media (prefers-reduced-motion: reduce) { .gh-dots span.now { animation: none; } }
 /* the goal race (Team Space and the Daily Huddle) */
 .gr-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.gr-list li { display: grid; grid-template-columns: 2em minmax(64px, .8fr) minmax(0, 2.2fr) 3.4em; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 10px; background: rgba(255, 255, 255, .06); }
+.gr-list li { display: grid; grid-template-columns: 2em minmax(0, 1fr) minmax(max-content, 1.6fr) auto; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 10px; background: rgba(255, 255, 255, .06); }
 .gr-list li.won { background: rgba(18, 183, 106, .18); box-shadow: inset 0 0 0 1px rgba(125, 255, 181, .35); }
 .gr-rank { font-size: 1.2em; text-align: center; }
 .gr-who { display: grid; min-width: 0; }
 .gr-who b { font-size: clamp(13px, .9vw, 17px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gr-who small { font-size: .78em; font-weight: 700; color: #ffd76a; }
 .gr-bars { display: grid; gap: 4px; min-width: 0; }
-.gr-bar { display: grid; grid-template-columns: minmax(78px, auto) minmax(0, 1fr); align-items: center; gap: 8px; }
+.gr-bar { display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; gap: 2px; }
 .gr-bar em { font-style: normal; font-size: clamp(11px, .75vw, 14px); font-weight: 700; color: rgba(255, 255, 255, .85); white-space: nowrap; }
 .gr-bar i { display: block; height: 8px; border-radius: 999px; background: rgba(255, 255, 255, .12); overflow: hidden; }
 .gr-bar u { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #4d8bff, #8fb3ff); transition: width .8s ease; }
@@ -2590,7 +2611,7 @@ html[data-theme] .nav-h { padding-top: 12px; font-size: 10px; opacity: .8; }
 .hgx-tbl td { padding: 6px 8px; border-bottom: 1px solid rgba(42, 47, 107, .6); }
 .hgx-tbl .fld { width: 100%; min-width: 80px; background: #0b0f2a; color: #fff; border-color: #3a4190; }
 .gr-bar { grid-template-columns: minmax(0, 1fr); gap: 2px; }
-.gr-list li { grid-template-columns: 2em minmax(56px, .7fr) minmax(0, 2fr) 3.2em; }
+.gr-list li { grid-template-columns: 2em minmax(0, 1fr) minmax(max-content, 1.6fr) auto; }
 .hgx-cell small { opacity: .75; }
 .hgx-cell.hit { color: #39ff88; font-weight: 800; }
 .hgx-break td { vertical-align: top; white-space: nowrap; }
