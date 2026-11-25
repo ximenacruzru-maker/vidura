@@ -27,7 +27,7 @@ import { RunningChart } from './executive/parts'
 import Chat from './Chat'
 import './executive/executive.css'
 
-type Call = { agent: string | null; direction: string | null; started_at?: string | null }
+type Call = { agent: string | null; direction: string | null; started_at?: string | null; duration_sec?: number | null; talk_sec?: number | null }
 type Agent = { user_id: number; name: string; status: string | null; status_since: string | null; active: boolean; updated_at: string }
 
 async function loadBoard(day: string) {
@@ -36,7 +36,7 @@ async function loadBoard(day: string) {
     getFolios().catch(() => []),
     supabase.from('reference_data').select('data').eq('key', 'lg:GOALS').maybeSingle().then((r) => (r.data?.data || {}) as { premium?: number | null; policies?: number | null }),
     // Ricochet (ricochet-sync, every minute): the day's calls, and each user's live status
-    supabase.from('ricochet_calls').select('agent, direction, source, started_at').eq('day', day).limit(5000).then((r) => (r.error ? [] : bestCalls(r.data as (Call & { source: string | null })[]))),
+    supabase.from('ricochet_calls').select('agent, direction, source, started_at, duration_sec, talk_sec').eq('day', day).limit(5000).then((r) => (r.error ? [] : bestCalls(r.data as (Call & { source: string | null })[]))),
     supabase.from('ricochet_agents').select('user_id, name, status, status_since, active, updated_at').then((r) => (r.error ? [] : (r.data as Agent[]))),
   ])
   const folio = folios.find((f) => f.start_date <= day && day <= f.end_date) || null
@@ -44,6 +44,9 @@ async function loadBoard(day: string) {
   return { team, folio, goals, sold, calls, agents }
 }
 
+/** seconds as "1h 05m" or "12m" */
+const hm = (s: number) => { const h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60); return h ? `${h}h ${String(m).padStart(2, '0')}m` : `${m}m` }
+const talkOf = (calls: Call[]) => calls.reduce((t, c) => t + Number(c.talk_sec ?? c.duration_sec ?? 0), 0)
 const clock = () => new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles' })
 const mins = (iso: string | null) => { if (!iso) return ''; const m = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000)); return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m` }
 /** a Ricochet status as the board shows it: On_Phone is on a call, then preview dialing, Busy (phone set to busy),
@@ -167,9 +170,12 @@ export function TeamBoard() {
 
   // calls by person (Ricochet names matched to the team the same way as everything else), and who's on a call now
   const owner = (n: string | null) => people.find((p) => p.mine(n)) || null
-  const tally = new Map<string, { name: string; out: number; inb: number; agent?: Agent }>()
-  const row = (name: string) => { const t = tally.get(name) || { name, out: 0, inb: 0 }; tally.set(name, t); return t }
-  data.calls.forEach((c) => { const t = row(owner(c.agent)?.name || callAgent(c.agent)); if (c.direction === 'inbound') t.inb++; else t.out++ })
+  const tally = new Map<string, { name: string; out: number; inb: number; talk: number; agent?: Agent }>()
+  const row = (name: string) => { const t = tally.get(name) || { name, out: 0, inb: 0, talk: 0 }; tally.set(name, t); return t }
+  data.calls.forEach((c) => { const t = row(owner(c.agent)?.name || callAgent(c.agent)); if (c.direction === 'inbound') t.inb++; else t.out++; t.talk += Number(c.talk_sec ?? c.duration_sec ?? 0) })
+  // talk time, once Ricochet gives each call's length
+  const timed = data.calls.some((c) => c.talk_sec != null || c.duration_sec != null)
+  const talkAll = talkOf(data.calls)
   const live = isToday ? data.agents.filter((a) => a.active) : []
   live.forEach((a) => { const n = owner(a.name)?.name || a.name; if (phone(a) || tally.has(n)) row(n).agent = a })
   const board = [...tally.values()].sort((a, b) => b.out + b.inb - (a.out + a.inb) || a.name.localeCompare(b.name))
@@ -214,11 +220,11 @@ export function TeamBoard() {
       {/* the top: the charts and who sold what today (the news is only in the red strip) */}
       <div className="ts-top4">
           <div className="ts-feed ts-calls">
-            <p className="ts-h">📞 Calls {when} <span>{data.calls.length ? `${data.calls.length} · Ricochet` : 'Ricochet'}{isToday && synced ? ` · synced ${new Date(synced).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles' })}` : ''}</span></p>
+            <p className="ts-h">📞 Calls {when} <span>{data.calls.length ? `${data.calls.length}${timed ? ` · ${hm(talkAll)} talk` : ''} · Ricochet` : 'Ricochet'}{isToday && synced ? ` · synced ${new Date(synced).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles' })}` : ''}</span></p>
             {board.length ? <HBars keys={[{ k: 'o', label: 'Outbound', color: SERIES.a }, { k: 'i', label: 'Inbound', color: SERIES.b }]} fmt={(n) => String(n)} max={top}
               rows={board.map((t) => { const ph = phone(t.agent); return { label: t.name === UNANSWERED ? t.name : t.name.split(' ')[0], parts: { o: t.out, i: t.inb },
                 badge: ph?.k === 'call' ? <span className="ts-dot" title={`On a call · ${mins(t.agent!.status_since)}`} /> : null,
-                note: ph ? <span className={'ts-st k-' + ph.k}>{ICON[ph.k]} {ph.label} · {mins(t.agent!.status_since)}</span> : undefined } })} />
+                note: ph ? <span className={'ts-st k-' + ph.k}>{ICON[ph.k]} {ph.label} · {mins(t.agent!.status_since)}{timed && t.talk ? ` · ${hm(t.talk)} talk` : ''}</span> : timed && t.talk ? `${hm(t.talk)} talk` : undefined } })} />
               : <p className="ts-none">{data.agents.length ? `No calls in Ricochet ${isToday ? 'yet today' : 'that day'}.` : 'Calls show up here once the Ricochet sync is running.'}</p>}
           </div>
           {/* how close everyone is to their own goals for the day, live */}

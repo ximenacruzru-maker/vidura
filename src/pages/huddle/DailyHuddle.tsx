@@ -292,7 +292,7 @@ function PhoneActivity({ calls, texts, vms, label }: { calls: Call[]; texts: { a
   const sent = texts.filter((t) => t.direction !== 'inbound').length, unheard = vms.filter((v) => v.heard === false).length
   const chips = <div className="ts-chips hd-phone-chips"><span title={`${sent} sent · ${texts.length - sent} received`}>💬 {texts.length} text{texts.length === 1 ? '' : 's'}</span><span title={unheard ? `${unheard} not heard yet` : ''}>📮 {vms.length} voicemail{vms.length === 1 ? '' : 's'}{unheard ? ` · ${unheard} new` : ''}</span></div>
   if (!calls.length) return <><p className="ts-none">No calls from Ricochet {label}.</p>{chips}</>
-  // calls read over Ricochet's API carry no talk time; the call webhook's do
+  // talk time shows once calls carry their length (the call webhook's do; the API sync's when Ricochet sends it)
   const timed = calls.some((c) => c.talk_sec != null || c.duration_sec != null)
   const by: Record<string, { out: number; inb: number; talk: number }> = {}
   let talk = 0
