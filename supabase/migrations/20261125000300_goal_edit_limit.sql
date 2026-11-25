@@ -8,15 +8,19 @@ alter table public.commission_goals add column if not exists edit_day date;
 
 create or replace function public.goal_edit_limit() returns trigger
 language plpgsql set search_path = public as $$
-declare d date := (now() at time zone 'America/Los_Angeles')::date;
+declare d date := (now() at time zone 'America/Los_Angeles')::date; same boolean;
 begin
   if tg_op = 'INSERT' then
     new.edits := 0; new.edit_day := d;
     return new;
   end if;
-  -- nothing changed: not a change
-  if (tg_table_name = 'daily_goals' and new.calls is not distinct from old.calls and new.revenue is not distinct from old.revenue)
-     or (tg_table_name = 'commission_goals' and new.commission is not distinct from old.commission and new.life is not distinct from old.life) then
+  -- nothing changed: not a change (each table's own fields; plpgsql can't name a field the row doesn't have)
+  if tg_table_name = 'daily_goals' then
+    same := (to_jsonb(new) ->> 'calls') is not distinct from (to_jsonb(old) ->> 'calls') and (to_jsonb(new) ->> 'revenue') is not distinct from (to_jsonb(old) ->> 'revenue');
+  else
+    same := (to_jsonb(new) ->> 'commission') is not distinct from (to_jsonb(old) ->> 'commission') and (to_jsonb(new) ->> 'life') is not distinct from (to_jsonb(old) ->> 'life');
+  end if;
+  if same then
     new.edits := old.edits; new.edit_day := old.edit_day;
     return new;
   end if;
