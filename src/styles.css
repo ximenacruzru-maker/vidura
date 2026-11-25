@@ -2438,3 +2438,24 @@ html[data-theme] .nav-h { padding-top: 12px; font-size: 10px; opacity: .8; }
 .ts-sold-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #199e70, #ffd76a); transition: width .6s ease; }
 .ts-sold-v { font-size: clamp(14px, 1vw, 20px); font-variant-numeric: tabular-nums; }
 .ts-sold-next { margin: 8px 0 0; font-size: clamp(11.5px, .8vw, 15px); color: rgba(255, 255, 255, .8); }
+/* My goals (a person's Space) and Agency goals (the owner's Space) */
+.goal-day, .goal-comm { display: grid; grid-template-columns: minmax(220px, 300px) minmax(0, 1fr); gap: 16px; align-items: start; }
+.goal-comm { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line, rgba(0, 0, 0, .08)); }
+.goal-set { display: grid; gap: 8px; align-content: start; }
+.goal-set label { display: grid; gap: 4px; font-size: 13px; font-weight: 700; }
+.goal-set .btn-primary { justify-self: start; }
+.goal-h { margin: 0; font-weight: 800; }
+.goal-inline { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; margin: 10px 0; }
+.goal-plan { display: grid; gap: 10px; min-width: 0; }
+.goal-need { margin: 0; padding: 10px 12px; border-radius: 10px; background: rgba(77, 96, 255, .08); line-height: 1.45; }
+.goal-need.hit { background: rgba(18, 183, 106, .12); }
+.goal-none { margin: 0; align-self: center; }
+.tile small { font-size: .55em; font-weight: 700; opacity: .7; }
+.goal-mark { font-size: .6em; vertical-align: middle; }
+@media (max-width: 760px) { .goal-day, .goal-comm { grid-template-columns: minmax(0, 1fr); } }
+/* Daily Huddle: who reached their daily goals */
+.hd-goal { white-space: nowrap; font-weight: 800; }
+.hd-goal small { font-weight: 600; opacity: .75; }
+.hd-goal.miss { color: #ffb4b9; }
+.hd-goal.hit { color: #7dffb5; }
+.ts + .panel { margin-top: 18px; }

@@ -4,6 +4,8 @@
 // itself to work (its own window cards, 0–30 / 31–60 / 61–90 days, filter the clients). Outside the season (Nov 15 – Jan 6) it's the same board without the decorations.
 import { useMemo, useState } from 'react'
 import { useRetentionTotals } from './RetentionWeek'
+import MyGoals from './MyGoals'
+import { useAuth } from '../auth'
 import { MyCallList, callStats, getCallItems, groupLists, finished } from '../pages/CallLists'
 import { todayPacific } from '../lib/format'
 import { useAsync } from '../lib/useAsync'
@@ -12,6 +14,7 @@ const firstOf = (n: string) => n.trim().split(/\s+/)[0] || ''
 const longDate = (iso: string) => new Date(iso + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' })
 
 export default function FocusBoard({ name }: { name: string }) {
+  const { me } = useAuth()
   const today = todayPacific()
   const md = today.slice(5)
   const festive = md >= '11-15' || md <= '01-06'
@@ -45,6 +48,7 @@ export default function FocusBoard({ name }: { name: string }) {
       </div>
 
       <div className="fb-work">
+        <MyGoals name={name} commission={['producer', 'protege', 'sdr', 'admin'].includes(me?.role || '')} />
         {lists.length ? <MyCallList name={name} full onChange={() => setTick((n) => n + 1)} /> : <p className="ts-none">No call list assigned right now{festive ? ' — enjoy the holidays! ⛄' : '.'}</p>}
       </div>
     </div>
