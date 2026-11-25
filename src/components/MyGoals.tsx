@@ -18,15 +18,15 @@ const plural = (n: number, one: string, many = one + 's') => `${n} ${n === 1 ? o
  *  PASSED stamp once it's reached (the main mission is the commission goal) */
 export function Meter({ label, icon, value, goal, fmt, foot, boss }: { label: string; icon: string; value: number | null; goal: number | null; fmt: (n: number) => string; foot?: ReactNode; boss?: boolean }) {
   const v = value ?? 0, pct = goal ? Math.min(100, (v / goal) * 100) : 0, done = goal != null && goal > 0 && v >= goal
-  const cells = 12, lit = Math.round(pct / (100 / cells))
+  const cells = 12, lit = Math.round((boss ? 100 - pct : pct) / (100 / cells))
   return (
     <div className={'hgx-q' + (done ? ' done' : '') + (boss ? ' boss' : '')}>
-      <div className="hgx-q-l"><span className="hgx-q-i" aria-hidden="true">{done ? '✅' : icon}</span><span>{label}</span></div>
+      <div className="hgx-q-l"><span className="hgx-q-i" aria-hidden="true">{done ? (boss ? '💥' : '⭐') : icon}</span><span>{label}</span></div>
       <div className="hgx-q-v"><b>{value == null ? '…' : fmt(v)}</b>{goal ? <span>/ {fmt(goal)}</span> : <span>no goal set</span>}</div>
       <div className={'hgx-cells' + (boss ? ' hp' : '')} role="img" aria-label={goal ? `${Math.round(pct)}% of the goal` : 'no goal'}>
         {Array.from({ length: cells }, (_, i) => <i key={i} className={i < lit ? 'on' : ''} />)}
       </div>
-      <div className="hgx-q-s">{done ? <b className="hgx-win">MISSION PASSED</b> : foot ?? (!goal ? 'Set a goal to start this objective' : `${fmt(goal - v)} to go · ${Math.round(pct)}%`)}</div>
+      <div className="hgx-q-s">{done ? <b className="hgx-win">{boss ? 'BOSS DEFEATED!' : 'QUEST COMPLETE!'}</b> : foot ?? (!goal ? 'Set a goal to start this quest' : `${fmt(goal - v)} to go · ${Math.round(pct)}%`)}</div>
     </div>
   )
 }
@@ -74,40 +74,39 @@ export default function MyGoals({ name, commission, streak = false }: { name: st
   return (
     <section className="hgx" aria-label="My goals">
       <div className="hgx-head">
-        <div><p className="hgx-kick">Mission board · {first}</p><h2 className="hgx-title">Today’s objectives</h2></div>
+        <div><p className="hgx-kick">PLAYER 1 · {first.toUpperCase()}</p><h2 className="hgx-title">TODAY’S QUESTS</h2></div>
         <div className="hgx-head-r">
-          <div className="hgx-score" title={score == null ? 'Set today’s goals to get a rating' : `${score}% of the way to every goal you set today`}><span>Hustle rating</span>
-            <b className="hgx-stars">{Array.from({ length: 5 }, (_, i) => <i key={i} className={score != null && score >= (i + 1) * 20 ? 'on' : ''}>★</i>)}</b></div>
+          <div className="hgx-score" title={score == null ? 'Set today’s goals to get a score' : `${score}% of the way to every goal you set today`}><span>SCORE</span><b>{score == null ? '---' : String(score).padStart(3, '0')}</b></div>
           {!open && <button type="button" className="hgx-btn" disabled={left <= 0} title={left <= 0 ? 'You’ve changed your goals twice today. Ask Shannon if they need to change again.' : undefined}
             onClick={() => setEditing(true)}>✎ Edit goals <small>{left > 0 ? `${left} left today` : 'none left today'}</small></button>}
         </div>
       </div>
 
       {open && <div className="hgx-form">
-        <p className="hgx-form-h">{set ? `Change your goals · ${left} change${left === 1 ? '' : 's'} left today` : `Choose today’s objectives · ${mdy(today)} · you can change them twice after this`}{!set && g ? <span> · filled in from {mdy(g.day)}</span> : null}</p>
+        <p className="hgx-form-h">{set ? `Change your goals · ${left} change${left === 1 ? '' : 's'} left today` : `Choose today’s quests · ${mdy(today)} · you can change them twice after this`}{!set && g ? <span> · filled in from {mdy(g.day)}</span> : null}</p>
         <div className="hg-fields">
           <label>📞 Calls today<input className="fld" inputMode="numeric" placeholder="60" value={f.calls} onChange={(e) => setF({ ...f, calls: e.target.value })} /></label>
           <label>💵 Premium today<input className="fld" inputMode="decimal" placeholder="3000" value={f.rev} onChange={(e) => setF({ ...f, rev: e.target.value })} /></label>
           {commission && folio && <>
-            <label>💼 Commission this folio<input className="fld" inputMode="decimal" placeholder="2500" value={f.goal} onChange={(e) => setF({ ...f, goal: e.target.value })} /></label>
+            <label>👾 Commission this folio<input className="fld" inputMode="decimal" placeholder="2500" value={f.goal} onChange={(e) => setF({ ...f, goal: e.target.value })} /></label>
             <label>❤️ Life policies planned<input className="fld" inputMode="numeric" placeholder="2" value={f.life} onChange={(e) => setF({ ...f, life: e.target.value })} /></label>
           </>}
-          <div className="hg-actions"><button type="button" className="hgx-btn go" onClick={save}>Start mission</button>{set && <button type="button" className="hgx-btn" onClick={() => setEditing(false)}>Cancel</button>}</div>
+          <div className="hg-actions"><button type="button" className="hgx-btn go" onClick={save}>▶ Start</button>{set && <button type="button" className="hgx-btn" onClick={() => setEditing(false)}>Cancel</button>}</div>
         </div>
         {msg && <p className="hgx-msg">{msg}</p>}
       </div>}
 
       <div className="hgx-cards">
-        <Meter label="Objective · make the calls" icon="📞" value={a ? a.calls : null} goal={gCalls} fmt={(n) => String(Math.round(n))} />
-        <Meter label="Objective · bind the premium" icon="📝" value={a ? a.revenue : null} goal={gRev} fmt={money0} />
-        {commission && folio && <Meter boss label={`Main mission · commission ${mdy(folio.start_date).slice(0, 5)}–${mdy(folio.end_date).slice(0, 5)}`} icon="💼" value={p ? p.current : target ? null : 0} goal={target || null} fmt={money0}
-          foot={!target ? 'Set a commission goal to start the main mission' : !p ? (plan.error ? 'Couldn’t work out your plan' : 'Loading mission intel…') : <>{Math.round((p.current / p.commission) * 100)}% · {(p.current / p.commission) * 100 >= pace ? 'on track' : 'behind pace'} · {plural(fAll - fGone, 'day')} left</>} />}
+        <Meter label="Calls" icon="📞" value={a ? a.calls : null} goal={gCalls} fmt={(n) => String(Math.round(n))} />
+        <Meter label="Premium" icon="💵" value={a ? a.revenue : null} goal={gRev} fmt={money0} />
+        {commission && folio && <Meter boss label={`Boss · commission ${mdy(folio.start_date).slice(0, 5)}–${mdy(folio.end_date).slice(0, 5)}`} icon="👾" value={p ? p.current : target ? null : 0} goal={target || null} fmt={money0}
+          foot={!target ? 'Set a commission goal to face the boss' : !p ? (plan.error ? 'Couldn’t work out your plan' : 'Loading the boss…') : <>Boss HP {Math.max(0, 100 - Math.round((p.current / p.commission) * 100))}% · {(p.current / p.commission) * 100 >= pace ? 'on track' : 'behind pace'} · {plural(fAll - fGone, 'day')} left</>} />}
         {streak && runs.data && <StreakMeter s={runs.data} />}
       </div>
 
-      {commission && p && p.current < p.commission && <p className="hgx-plan"><span className="hgx-plan-k">Mission intel</span>{' '}
-        {p.needPremium === 0 ? <>Write your {plural(p.life, 'planned life policy', 'planned life policies')} and the main mission ({money0(p.commission)}) is complete.</>
-          : p.needPremium == null ? <>That target is more than one folio can pay under the plan. Try a lower goal.</>
+      {commission && p && p.current < p.commission && <p className="hgx-plan"><span className="hgx-plan-k">BOSS STRATEGY</span>{' '}
+        {p.needPremium === 0 ? <>Write your {plural(p.life, 'planned life policy', 'planned life policies')} and the boss ({money0(p.commission)}) goes down.</>
+          : p.needPremium == null ? <>This boss is too strong for one folio under the plan. Try a lower goal.</>
           : <>Land <b>{money0(p.needPremium)}</b> more personal lines premium{p.life > 0 ? ` plus your ${plural(p.life, 'life policy', 'life policies')}` : ''} to reach <b>{money0(p.commission)}</b>
             {p.auto.avg > 0 || p.home.avg > 0 ? <>: about {p.auto.avg > 0 && <b>{plural(p.auto.policies, 'auto policy', 'auto policies')}</b>}{p.auto.avg > 0 && p.home.avg > 0 ? ' or ' : ''}{p.home.avg > 0 && <b>{plural(p.home.policies, 'home policy', 'home policies')}</b>}
               <span className="hgx-dim"> ({[p.auto.avg > 0 && `${avg(p.auto.from)} auto ${money0(p.auto.avg)}`, p.home.avg > 0 && `${avg(p.home.from)} home ${money0(p.home.avg)}`].filter(Boolean).join(' · ')}, last 12 months)</span></> : null}</>}
@@ -121,8 +120,8 @@ function StreakMeter({ s }: { s: Streak }) {
   const run = PTO_INCENTIVE.run
   return (
     <div className="hgx-q">
-      <div className="hgx-q-l"><span className="hgx-q-i" aria-hidden="true">🔥</span><span>Mission chain · PTO</span></div>
-      <div className="hgx-q-v"><b>{s.run}</b><span>/ {run} days</span></div>
+      <div className="hgx-q-l"><span className="hgx-q-i" aria-hidden="true">🔥</span><span>PTO combo</span></div>
+      <div className="hgx-q-v"><b>x{s.run}</b><span>/ {run}</span></div>
       <Dots s={s} small />
       <div className="hgx-q-s">{s.earned > 0 ? <b className="hgx-win">🏖️ {plural(s.earned, 'PTO day')} unlocked</b> : s.run === run - 1 ? 'One more day for a full PTO day!' : `${plural(run - s.run, 'more day')} to unlock PTO`}</div>
     </div>
@@ -145,20 +144,20 @@ export function GoalHero({ name }: { name: string }) {
   const s = data.data, run = PTO_INCENTIVE.run
   const left = s ? run - s.run : run, todayOpen = s?.days.at(-1)?.met === null
   const line = !s ? 'Loading your streak…'
-    : s.run === 0 ? (todayOpen ? 'Set today’s goals and hit them all to start the streak.' : 'Start a new streak: hit every goal today.')
-    : left === 1 ? 'Final day! Hit every goal today and the PTO day is yours.'
-    : `${plural(s.run, 'day')} down. ${plural(left, 'more day')} to the PTO reward.`
+    : s.run === 0 ? (todayOpen ? 'PRESS START: set today’s goals and clear them all.' : 'Start a new combo: clear every goal today.')
+    : left === 1 ? 'FINAL ROUND! Clear every goal today to unlock a PTO day.'
+    : `COMBO x${s.run}! ${plural(left, 'more day')} to unlock a PTO day.`
   return (
     <div className="gh" role="region" aria-label="PTO incentive">
       <div className="gh-l">
-        <p className="gh-kick">New mission available · ends {mdy(PTO_INCENTIVE.to).slice(0, 5)}</p>
-        <p className="gh-title">The {run}-day streak</p>
-        <p className="gh-sub"><span>Objective</span> hit every goal you set, {run} working days in a row · <span>Reward</span> <b>1 full day of PTO</b></p>
+        <p className="gh-kick">🎮 Bonus level · through {mdy(PTO_INCENTIVE.to).slice(0, 5)}</p>
+        <p className="gh-title">{run}-day combo = <b>1 full PTO day</b></p>
+        <p className="gh-sub">Hit every goal you set, {run} working days in a row</p>
         <p className="gh-line">{line}</p>
       </div>
       <div className="gh-r">
         {s && <Dots s={s} />}
-        {s && <p className="gh-foot">{todayOpen ? 'Today: in progress' : s.days.at(-1)?.met ? 'Today: mission passed ✅' : ''}{s.earned > 0 ? <> · <b>🏖️ {plural(s.earned, 'PTO day')} earned</b></> : null}</p>}
+        {s && <p className="gh-foot">{todayOpen ? 'Today: in play' : s.days.at(-1)?.met ? 'Today: cleared ⭐' : ''}{s.earned > 0 ? <> · <b>🏖️ {plural(s.earned, 'PTO day')} unlocked</b></> : null}</p>}
       </div>
     </div>
   )

@@ -64,6 +64,22 @@ export async function goalPlan(folio: string, commission: number, life: number, 
   return (data?.goal as GoalPlan) || null
 }
 
+/** the commission-goal leaderboard for the folio: everyone sees the ranking and percentages; the owner and admins also
+ *  get the dollar amounts */
+export interface BoardRow { producer: string; pct: number; reached: boolean; qualifies: boolean; life: number; total?: number; goal?: number; premium?: number }
+export async function commissionBoard(folio: string): Promise<BoardRow[]> {
+  const { data, error } = await supabase.functions.invoke('commissions', { body: { folio, leaderboard: true } })
+  if (error) throw error
+  return (data?.board || []) as BoardRow[]
+}
+
+/** the agency's goals (premium, policies, revenue): admins read them directly, everyone else through perf_refs */
+export async function agencyGoals(admin: boolean): Promise<Record<string, any>> {
+  if (admin) { const r = await supabase.from('reference_data').select('data').eq('key', 'lg:GOALS').maybeSingle(); return (r.data?.data || {}) as Record<string, any> }
+  const r = await supabase.rpc('perf_refs', { p_keys: ['GOALS'] })
+  return ((r.data || []) as { data: Record<string, any> }[])[0]?.data || {}
+}
+
 /** each producer's commission so far this folio (owner/admins get everyone; anyone else only themselves) */
 export async function folioCommissions(folio: string): Promise<{ producer: string; total: number; totalPremium: number; qualifies: boolean }[]> {
   const { data, error } = await supabase.functions.invoke('commissions', { body: { folio } })
@@ -94,7 +110,8 @@ export function workdays(a: string, b: string) {
 
 /** The PTO incentive: reach every goal you set (calls and premium written), five working days in a row, and you earn a
  *  full day of PTO. Runs through December 31. Weekends and the days the office is closed don't count either way; a
- *  working day without both goals set, or with one missed, starts the count over. Each run of five earns a day and
+ *  working day with no goal set, or with a goal missed, starts the count over (someone who only sets a call goal is
+ *  held to that). Each run of five earns a day and
  *  the count starts again. Today counts once it's reached, and doesn't break the run while it's still in progress. */
 export const PTO_INCENTIVE = { from: '2026-11-25', to: '2026-12-31', run: 5, closed: ['2026-11-26', '2026-12-25'] }
 
@@ -132,7 +149,8 @@ export function streakFor(name: string, d: StreakData, today: string): Streak {
     const g = d.goals.find((y) => y.day === day && y.name === name)
     const calls = d.calls.filter((c) => c.day === day && samePerson(c.agent, name)).reduce((t, c) => t + c.calls, 0)
     const prem = d.sales.filter((s) => s.day === day && samePerson(s.producer, name)).reduce((t, s) => t + s.premium, 0)
-    const met = !!g && g.calls != null && g.revenue != null && calls >= g.calls && prem >= g.revenue
+    // every goal they set that day (calls, premium or both) reached; a day with no goal set doesn't count
+    const met = !!g && (g.calls != null || g.revenue != null) && (g.calls == null || calls >= g.calls) && (g.revenue == null || prem >= g.revenue)
     if (day === today && !met) { days.push({ day, met: null }); continue }
     days.push({ day, met })
     if (met) { run++; if (run === PTO_INCENTIVE.run) { earned++; run = 0 } } else run = 0

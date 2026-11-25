@@ -114,7 +114,7 @@ export default function MySpace() {
     <>
       {/* the owner sees the team's day here as a board (who's in, what everyone worked on and achieved); everyone
           else sees the life promo */}
-      {owner ? <>{head}<TeamBoard /><AgencyGoals /><RetentionWeek /><TeamCallLists /></> : <>{incentiveDay(today) ? <GoalHero name={me?.producer_name || me?.display_name || ''} /> : <LifePromoBanner />}{head}<MyGoals name={me?.producer_name || me?.display_name || ''} commission={earnsCommission} /></>}
+      {owner ? <>{head}<TeamBoard /><AgencyGoals /><RetentionWeek /><TeamCallLists /></> : <>{incentiveDay(today) ? <GoalHero name={me?.producer_name || me?.display_name || ''} /> : <LifePromoBanner />}{head}<MyGoals name={me?.producer_name || me?.display_name || ''} commission={earnsCommission} /><AgencyGoals /></>}
       {admin && <ReportsMemo />}
       {listOnRetention ? <p className="sub" style={{ margin: '0 0 12px' }}>Your 30/60/90 renewal calls are on <Link to="/retention">Retention ›</Link></p> : <MyCallList name={me?.producer_name || me?.display_name || ''} />}
       {retentionRole ? <RetentionTiles name={me?.producer_name || me?.display_name || ''} /> : <>

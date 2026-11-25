@@ -14,6 +14,11 @@
 // are added (at their average life premium), how much more personal lines premium gets them to the goal under the plan
 // (tiers and qualification included), and what that is in auto or home policies at their average premium over the
 // last 12 months (the agency's average where they have too few to go on).
+//
+// With { leaderboard: true } it returns the commission-goal leaderboard for the folio, for anyone on staff: each
+// producer who set a commission goal, ranked by how far along they are (their share of the goal, whether they've
+// reached it, whether they qualify). The dollar amounts (commission so far, the goal, premium) are only included for
+// the owner and admins; everyone else sees the percentages, so no one sees another producer's pay.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -146,7 +151,7 @@ Deno.serve(async (req) => {
   const body = await req.json().catch(() => ({}));
   const seesAll = me.role === "owner" || me.role === "admin" || (me.access && (me.access as Record<string, unknown>).commission_sheet === true);
   // an SDR on the path to producer who writes policies sees their own commission too
-  if (!seesAll && !["producer", "protege", "sdr"].includes(me.role)) return json({ error: "Commissions aren't part of your role." }, 403);
+  if (!seesAll && !body.leaderboard && !["producer", "protege", "sdr"].includes(me.role)) return json({ error: "Commissions aren't part of your role." }, 403);
 
   // The service role skips row-level security, so every read below is limited to the caller's agency.
   const A = me.agency_id as string;
@@ -189,6 +194,19 @@ Deno.serve(async (req) => {
   let results = compute(planRow.plan, rows, promo);
   // names compared tidied: AgencyZoom sometimes sends a double space ("Cindy  Ruiz")
   const tidy = (s: string) => String(s || "").trim().replace(/\s+/g, " ").toLowerCase();
+
+  if (body.leaderboard) {
+    const { data: goals } = await admin.from("commission_goals").select("name, commission, life").eq("agency_id", A).eq("folio", folio.start_date);
+    const first = (s: string) => tidy(s).split(" ")[0];
+    const board = (goals || []).filter((g: any) => Number(g.commission) > 0).map((g: any) => {
+      const r: any = results.find((x: any) => tidy(x.producer) === tidy(g.name)) || results.find((x: any) => first(x.producer) === first(g.name));
+      const goal = Number(g.commission), total = r?.total || 0;
+      const row: Record<string, unknown> = { producer: g.name, pct: goal ? Math.round((total / goal) * 100) : 0, reached: total >= goal, qualifies: !!r?.qualifies, life: Number(g.life) || 0 };
+      if (seesAll) Object.assign(row, { total, goal, premium: r?.totalPremium || 0 });
+      return row;
+    }).sort((a: any, b: any) => b.pct - a.pct);
+    return json({ folio: { ...folio, end }, board, scope: seesAll ? "all" : "self" });
+  }
   if (!seesAll) results = results.filter((r: any) => tidy(r.producer) === tidy(me.producer_name));
 
   let goal: Record<string, unknown> | undefined;
