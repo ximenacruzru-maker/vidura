@@ -16,6 +16,7 @@ import { useTvMode } from '../../lib/tvMode'
 import { ClientSuccessView, loadClientSuccess } from '../../components/ClientSuccess'
 import { Donut, HBars, SERIES } from '../../components/BoardCharts'
 import { getDailyGoals, samePerson } from '../../lib/goals'
+import GoalRace from '../../components/GoalRace'
 
 /** Daily Huddle Report: one page with the previous workday's performance for the 10:00 huddle — what was written and
  *  quoted, phone activity from Ricochet, by producer, the policies and quotes themselves, SDR transfers and client
@@ -225,8 +226,8 @@ function Huddle({ D }: { D: PerfData }) {
             <p className="ts-h">📞 Phone activity <span>Ricochet{callRows.length && !callRows.some((c) => c.source === 'webhook') ? ' · from lead activity' : ''}</span></p>
             {!phone.data ? <p className="ts-none">Loading calls…</p> : <PhoneActivity calls={callRows} texts={texts} vms={vms} label={week ? whenDate : 'on ' + whenDate} />}
           </div>
-          <GoalsBoard goals={goals.data || []} callsOf={callsOf} revenueOf={(n) => sales.filter((x) => samePerson(x.producer, n)).reduce((t, x) => t + (Number(x.premium) || 0), 0)}
-            label={week ? whenDate : 'on ' + whenDate} week={!!week} loading={!goals.data || !phone.data} />
+          {!week ? <GoalRace day={day} title={day === today ? 'Goal race' : 'How everyone did on their goals'} /> : <GoalsBoard goals={goals.data || []} callsOf={callsOf} revenueOf={(n) => sales.filter((x) => samePerson(x.producer, n)).reduce((t, x) => t + (Number(x.premium) || 0), 0)}
+            label={whenDate} week loading={!goals.data || !phone.data} />}
           {week && <div className="ts-feed">
             <p className="ts-h">The week by day <span>premium written · quotes</span></p>
             <HBars keys={[{ k: 'f', label: 'Farmers', color: SERIES.a }, { k: 'b', label: 'Brokered', color: SERIES.b }]} fmt={money0}
