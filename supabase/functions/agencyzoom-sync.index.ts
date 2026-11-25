@@ -587,8 +587,16 @@ Deno.serve(async (req) => {
 
     // ---------------- QUOTES (continued) -------------------------------------------
     if (parts.includes("quotes") && !outOfTime) {
-      // "Quoted" = still open (not sold/lost/expired) and carrying a quote.
-      const quoted = active.filter((l) => ![2, 3, 5].includes(Number(l.status)) && (Number(l.quoted) > 0 || isoDate(l.quoteDate)));
+      // "Quoted" = still open (not sold/lost/expired) and carrying a quote. AgencyZoom's lead list often leaves a new
+      // lead's quote amount and quote date blank even with quotes attached, so a lead sitting in a Quoted stage (or a
+      // later one) per the pipeline (az_pipeline, refreshed every hour at :30) counts too; its quotes are read below.
+      const inPipeline = new Set<string>();
+      {
+        const { data: pl } = await supabase.from("az_pipeline").select("lead_id").eq("agency_id", A).gte("entered_stage", start).lte("entered_stage", end);
+        for (const r of pl || []) inPipeline.add(String(r.lead_id));
+      }
+      const quoted = active.filter((l) => ![2, 3, 5].includes(Number(l.status)) && (Number(l.quoted) > 0 || isoDate(l.quoteDate) || inPipeline.has(String(l.id))));
+      stats.fromPipeline = active.filter((l) => inPipeline.has(String(l.id)) && !(Number(l.quoted) > 0 || isoDate(l.quoteDate))).length;
       stats.quotedLeads = quoted.length; stats.quoteRows = 0; stats.quoteUnchanged = 0;
       for (const lead of quoted) {
         const leadId = String(lead.id || ""); if (!leadId) continue;

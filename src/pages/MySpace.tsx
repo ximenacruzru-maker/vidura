@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth'
 import LifePromoBanner from '../components/LifePromoBanner'
-import { TeamBoard } from './TeamSpace'
 import ReportsMemo from '../components/ReportsMemo'
 import { MyCallList, TeamCallLists } from './CallLists'
 import RetentionWeek from '../components/RetentionWeek'
@@ -112,9 +111,9 @@ export default function MySpace() {
 
   return (
     <>
-      {/* the owner sees the team's day here as a board (who's in, what everyone worked on and achieved); everyone
-          else sees the life promo */}
-      {owner ? <>{head}<TeamBoard /><AgencyGoals /><RetentionWeek /><TeamCallLists /></> : <>{incentiveDay(today) ? <GoalHero name={me?.producer_name || me?.display_name || ''} /> : <LifePromoBanner />}{head}<MyGoals name={me?.producer_name || me?.display_name || ''} commission={earnsCommission} /></>}
+      {/* the owner's Space opens on Agency goals (Team Space has its own page); everyone else's is the Hunter Goal
+          Scoreboard */}
+      {owner ? <>{head}<AgencyGoals /><RetentionWeek /><TeamCallLists /></> : <>{incentiveDay(today) ? <GoalHero name={me?.producer_name || me?.display_name || ''} /> : <LifePromoBanner />}{head}<MyGoals name={me?.producer_name || me?.display_name || ''} commission={earnsCommission} /><AgencyGoals /></>}
       {admin && <ReportsMemo />}
       {listOnRetention ? <p className="sub" style={{ margin: '0 0 12px' }}>Your 30/60/90 renewal calls are on <Link to="/retention">Retention ›</Link></p> : <MyCallList name={me?.producer_name || me?.display_name || ''} />}
       {retentionRole ? <RetentionTiles name={me?.producer_name || me?.display_name || ''} /> : <>
