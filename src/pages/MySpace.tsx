@@ -7,6 +7,8 @@ import ReportsMemo from '../components/ReportsMemo'
 import { MyCallList, TeamCallLists } from './CallLists'
 import RetentionWeek from '../components/RetentionWeek'
 import FocusBoard from '../components/FocusBoard'
+import MyGoals from '../components/MyGoals'
+import AgencyGoals from '../components/AgencyGoals'
 import { ErrorBox, Loading, PageHead, Panel, Tile, Tiles } from '../components/ui'
 import { daysUntil, getBookPolicies, isClosed } from '../lib/books'
 import { getFolios, getPolicies, getQuotes, isAdmin, type Folio, type Policy, type QuoteLead } from '../lib/data'
@@ -30,6 +32,8 @@ export default function MySpace() {
   const [reload, setReload] = useState(0)
   const [newItem, setNewItem] = useState('')
   const owner = me?.role === 'owner'
+  // who has a commission to aim for (the same roles the commissions function pays)
+  const earnsCommission = ['producer', 'protege', 'sdr', 'admin'].includes(me?.role || '')
   // the retention role takes no new-business leads: My Space shows the retention scorecard instead of the pipeline
   const retentionRole = !!(me?.access as Record<string, unknown> | undefined)?.retention
   const [day, setDay] = useState(today)
@@ -110,7 +114,7 @@ export default function MySpace() {
     <>
       {/* the owner sees the team's day here as a board (who's in, what everyone worked on and achieved); everyone
           else sees the life promo */}
-      {owner ? <>{head}<TeamBoard /><RetentionWeek /><TeamCallLists /></> : <><LifePromoBanner />{head}</>}
+      {owner ? <>{head}<TeamBoard /><AgencyGoals /><RetentionWeek /><TeamCallLists /></> : <><LifePromoBanner />{head}<MyGoals name={me?.producer_name || me?.display_name || ''} commission={earnsCommission} /></>}
       {admin && <ReportsMemo />}
       <MyCallList name={me?.producer_name || me?.display_name || ''} />
       {retentionRole ? <RetentionTiles name={me?.producer_name || me?.display_name || ''} /> : <>

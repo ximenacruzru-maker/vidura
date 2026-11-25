@@ -8,6 +8,12 @@
 //   producer / protege -> only their own line
 //   anyone else        -> nothing
 // Doing this server-side is what keeps producers from seeing each other's pay.
+//
+// With { goal: { commission, life } } it also works out a producer's way to a commission goal for the folio (their own;
+// an owner/admin can pass goal.producer): their commission so far, what it is once the life policies they plan to write
+// are added (at their average life premium), how much more personal lines premium gets them to the goal under the plan
+// (tiers and qualification included), and what that is in auto or home policies at their average premium over the
+// last 12 months (the agency's average where they have too few to go on).
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -185,10 +191,64 @@ Deno.serve(async (req) => {
   const tidy = (s: string) => String(s || "").trim().replace(/\s+/g, " ").toLowerCase();
   if (!seesAll) results = results.filter((r: any) => tidy(r.producer) === tidy(me.producer_name));
 
+  let goal: Record<string, unknown> | undefined;
+  if (body.goal && Number(body.goal.commission) > 0) {
+    const who = String((seesAll && body.goal.producer) || me.producer_name || "");
+    if (!who) return json({ error: "Your login has no producer name, so there's no commission to plan for." }, 400);
+    const target = Number(body.goal.commission), lifeN = Math.max(0, Math.min(50, Math.floor(Number(body.goal.life) || 0)));
+    const mine = rows.filter((r) => tidy(r.producer) === tidy(who));
+    // average premium per policy over the last 12 months: theirs, else the agency's (at least 3 policies to go on)
+    const yearFrom = new Date(Date.parse(today + "T12:00:00Z") - 365 * 864e5).toISOString().slice(0, 10);
+    const year: Row[] = [];
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await admin.from("policies_sold").select("client, carrier, line, premium, producer, sale_date")
+        .eq("agency_id", A).gte("sale_date", yearFrom).lte("sale_date", today).range(from, from + 999);
+      if (error) return json({ error: error.message }, 500);
+      for (const r of data || []) year.push({ ...r, premium: Number(r.premium) || 0 } as Row);
+      if (!data || data.length < 1000) break;
+    }
+    const isAuto = (r: Row) => /auto/i.test(r.line || "") && !/commercial|business/i.test(r.line || "");
+    const isHome = (r: Row) => /home|condo|dwelling|renter|landlord/i.test(r.line || "") && !/commercial|business/i.test(r.line || "");
+    const avgOf = (test: (r: Row) => boolean) => {
+      const m = year.filter((r) => tidy(r.producer) === tidy(who) && test(r) && r.premium > 0), a = year.filter((r) => test(r) && r.premium > 0);
+      const use = m.length >= 3 ? m : a;
+      return { avg: use.length ? use.reduce((t, r) => t + r.premium, 0) / use.length : 0, n: use.length, from: m.length >= 3 ? "yours" : "agency" };
+    };
+    const auto = avgOf(isAuto), home = avgOf(isHome), life = avgOf((r) => isLife(r));
+    const lifeAvg = life.avg || 1000;
+    // the planned life policies, written today; during the life promo they take the next case numbers
+    const planned: Row[] = Array.from({ length: lifeN }, (_, i) => ({ client: `Planned life policy ${i + 1}`, carrier: "Farmers New World Life", line: "Life", premium: lifeAvg, producer: who, sale_date: today }));
+    let goalPromo = promo;
+    if (promo && P && today >= P.from && today <= P.to && planned.length) {
+      const cases = new Map(promo.cases), tiers = [...P.tiers].sort((a, b) => a.after - b.after);
+      planned.forEach((r, i) => { const n = (Number(P.baseline) || 0) + promo!.cases.size + i + 1; let rate = 0; for (const t of tiers) if (n > Number(t.after)) rate = Number(t.rate) || 0; cases.set(caseKey(r), { n, rate }); });
+      goalPromo = { label: promo.label, cases };
+    }
+    const totalOf = (extra: Row[]) => (compute(planRow.plan, [...mine, ...extra], goalPromo).find((x: any) => tidy(x.producer) === tidy(who)) as any)?.total || 0;
+    const autoLine = (() => { const c: Record<string, number> = {}; year.filter((r) => tidy(r.producer) === tidy(who) && isAuto(r)).forEach((r) => { c[r.line] = (c[r.line] || 0) + 1; }); return Object.entries(c).sort((a, b) => b[1] - a[1])[0]?.[0] || "Standard Auto"; })();
+    const more = (x: number) => totalOf([...planned, ...(x > 0 ? [{ client: "More personal lines", carrier: "Farmers", line: autoLine, premium: x, producer: who, sale_date: today }] : [])]);
+    const current = totalOf([]), withLife = totalOf(planned);
+    let need: number | null = 0;
+    if (withLife < target) {
+      let lo = 0, hi = 5000;
+      while (more(hi) < target && hi < 5_000_000) hi *= 2;
+      if (more(hi) < target) need = null;
+      else { for (let i = 0; i < 40 && hi - lo > 1; i++) { const mid = (lo + hi) / 2; if (more(mid) >= target) hi = mid; else lo = mid; } need = Math.ceil(hi); }
+    }
+    const premiumSoFar = mine.reduce((t, r) => t + r.premium, 0);
+    goal = {
+      producer: who, commission: target, life: lifeN, current, withLife, premiumSoFar, policiesSoFar: mine.length,
+      lifeAvg, lifeFrom: life.n ? life.from : "estimate", needPremium: need,
+      auto: { avg: auto.avg, from: auto.from, policies: need && auto.avg ? Math.ceil(need / auto.avg) : 0 },
+      home: { avg: home.avg, from: home.from, policies: need && home.avg ? Math.ceil(need / home.avg) : 0 },
+    };
+  }
+
   return json({
     folio: { ...folio, end },
     plan: { name: planRow.name, version: planRow.version, effective_from: planRow.effective_from, summary: summary(planRow.plan, planRow.name), buckets: planRow.plan.buckets.map((b: any) => ({ key: b.key, label: b.label })) },
     scope: seesAll ? "all" : "self",
     results,
+    ...(goal ? { goal } : {}),
   });
 });

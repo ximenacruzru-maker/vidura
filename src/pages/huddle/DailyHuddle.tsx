@@ -15,6 +15,7 @@ import { bestCalls, callAgent, UNANSWERED } from '../../lib/ricochet'
 import { useTvMode } from '../../lib/tvMode'
 import { ClientSuccessView, loadClientSuccess } from '../../components/ClientSuccess'
 import { Donut, HBars, SERIES } from '../../components/BoardCharts'
+import { getDailyGoals, samePerson } from '../../lib/goals'
 
 /** Daily Huddle Report: one page with the previous workday's performance for the 10:00 huddle — what was written and
  *  quoted, phone activity from Ricochet, by producer, the policies and quotes themselves, SDR transfers and client
@@ -106,6 +107,8 @@ function Huddle({ D }: { D: PerfData }) {
     ])
     return { c, t, v }
   }, [from, to])
+  // each person's own goals for the day (or the week's days), set in their Space
+  const goals = useAsync(() => getDailyGoals(from, to).catch(() => []), [from, to])
   const [tab, setTab] = useState<'policies' | 'quotes' | 'sdr' | 'client' | 'month'>('policies')
   const [tv, setTv] = useTvMode()
 
@@ -222,6 +225,8 @@ function Huddle({ D }: { D: PerfData }) {
             <p className="ts-h">📞 Phone activity <span>Ricochet{callRows.length && !callRows.some((c) => c.source === 'webhook') ? ' · from lead activity' : ''}</span></p>
             {!phone.data ? <p className="ts-none">Loading calls…</p> : <PhoneActivity calls={callRows} texts={texts} vms={vms} label={week ? whenDate : 'on ' + whenDate} />}
           </div>
+          <GoalsBoard goals={goals.data || []} callsOf={callsOf} revenueOf={(n) => sales.filter((x) => samePerson(x.producer, n)).reduce((t, x) => t + (Number(x.premium) || 0), 0)}
+            label={week ? whenDate : 'on ' + whenDate} week={!!week} loading={!goals.data || !phone.data} />
           {week && <div className="ts-feed">
             <p className="ts-h">The week by day <span>premium written · quotes</span></p>
             <HBars keys={[{ k: 'f', label: 'Farmers', color: SERIES.a }, { k: 'b', label: 'Brokered', color: SERIES.b }]} fmt={money0}
@@ -302,4 +307,33 @@ function PhoneActivity({ calls, texts, vms, label }: { calls: Call[]; texts: { a
     <HBars keys={[{ k: 'o', label: 'Outbound', color: SERIES.a }, { k: 'i', label: 'Inbound', color: SERIES.b }]} fmt={(n) => String(n)}
       rows={rows.map(([n, r]) => ({ label: n === UNANSWERED ? n : n.split(' ')[0], parts: { o: r.out, i: r.inb }, note: timed ? `${hm(r.talk)} talk` : undefined }))} />
   </>)
+}
+
+/** Daily goals: for each person who set them, their calls and premium written against their own goals, and whether
+ *  they reached each (for a week, the goals of the days they set added up against the week's totals) */
+function GoalsBoard({ goals, callsOf, revenueOf, label, week, loading }: {
+  goals: { name: string; day: string; calls: number | null; revenue: number | null }[]; callsOf: (n: string) => number; revenueOf: (n: string) => number; label: string; week: boolean; loading: boolean
+}) {
+  const by = new Map<string, { calls: number | null; revenue: number | null; days: number }>()
+  goals.forEach((g) => { const x = by.get(g.name) || { calls: null, revenue: null, days: 0 }; x.days++
+    if (g.calls != null) x.calls = (x.calls || 0) + g.calls; if (g.revenue != null) x.revenue = (x.revenue || 0) + Number(g.revenue); by.set(g.name, x) })
+  const rows = [...by.entries()].map(([n, g]) => ({ n, g, c: callsOf(n), r: revenueOf(n) }))
+    .map((x) => ({ ...x, okC: x.g.calls == null ? null : x.c >= x.g.calls, okR: x.g.revenue == null ? null : x.r >= x.g.revenue }))
+    .sort((a, b) => Number(b.okC !== false && b.okR !== false) - Number(a.okC !== false && a.okR !== false) || a.n.localeCompare(b.n))
+  const cell = (ok: boolean | null, v: string, goal: string | null) => goal == null ? <span className="sub">no goal</span>
+    : <span className={'hd-goal ' + (ok ? 'hit' : 'miss')}>{ok ? '✅' : '❌'} {v} <small>/ {goal}</small></span>
+  return (
+    <div className="ts-feed">
+      <p className="ts-h">🎯 Daily goals <span>{week ? 'the week\u2019s goals added up · ' : ''}{rows.filter((x) => x.okC !== false && x.okR !== false).length} of {rows.length} reached</span></p>
+      {loading ? <p className="ts-none">Loading goals…</p> : !rows.length ? <p className="ts-none">Nobody set goals {label}. Each person sets theirs in their Space.</p>
+        : <div className="tbl-wrap"><table className="hd-tbl hd-goals">
+          <thead><tr><th>Who</th><th>📞 Calls</th><th>💵 Premium written</th></tr></thead>
+          <tbody>{rows.map((x) => (
+            <tr key={x.n}><td className="strong">{x.n.split(' ')[0]}{week ? <div className="muted">{x.g.days} day{x.g.days === 1 ? '' : 's'} set</div> : null}</td>
+              <td>{cell(x.okC, String(x.c), x.g.calls == null ? null : String(x.g.calls))}</td>
+              <td>{cell(x.okR, money0(x.r), x.g.revenue == null ? null : money0(x.g.revenue))}</td></tr>
+          ))}</tbody>
+        </table></div>}
+    </div>
+  )
 }
